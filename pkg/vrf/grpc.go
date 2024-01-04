@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2022-2023 Intel Corporation, or its subsidiaries.
 // Copyright (c) 2022-2023 Dell Inc, or its subsidiaries.
+// Copyright (C) 2023 Nordix Foundation.
 
 // Package vrf is the main package of the application
 package vrf
@@ -9,74 +10,51 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"math"
-	"path"
-	"strings"
+	"reflect"
 
+	"github.com/dgraph-io/badger"
 	"github.com/google/uuid"
-	"github.com/opiproject/opi-evpn-bridge/pkg/models"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 
 	pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 
-	"go.einride.tech/aip/fieldbehavior"
 	"go.einride.tech/aip/resourceid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 )
 
 // CreateVrf executes the creation of the VRF
 func (s *Server) CreateVrf(ctx context.Context, in *pb.CreateVrfRequest) (*pb.Vrf, error) {
 	// check input correctness
 	if err := s.validateCreateVrfRequest(in); err != nil {
+		fmt.Printf("CreateVrf(): validation failure: %v", err)
 		return nil, err
 	}
 	// see https://google.aip.dev/133#user-specified-ids
 	resourceID := resourceid.NewSystemGenerated()
 	if in.VrfId != "" {
-		log.Printf("client provided the ID of a resource %v, ignoring the name field %v", in.VrfId, in.Vrf.Name)
+		log.Printf("CreateVrf(): client provided the ID of a resource %v, ignoring the name field %v", in.VrfId, in.Vrf.Name)
 		resourceID = in.VrfId
 	}
 	in.Vrf.Name = resourceIDToFullName(resourceID)
 	// idempotent API when called with same key, should return same object
-	obj := new(pb.Vrf)
-	ok, err := s.store.Get(in.Vrf.Name, obj)
+	vrfObj, err := s.getVrf(in.Vrf.Name)
 	if err != nil {
-		fmt.Printf("Failed to interact with store: %v", err)
-		return nil, err
+		if err != infradb.ErrKeyNotFound {
+			fmt.Printf("CreateVrf(): Failed to interact with store: %v", err)
+			return nil, err
+		}
+	} else {
+		log.Printf("CreateVrf(): Already existing Vrf with id %v", in.Vrf.Name)
+		return vrfObj, nil
 	}
-	if ok {
-		log.Printf("Already existing Vrf with id %v", in.Vrf.Name)
-		return obj, nil
-	}
-	// TODO: consider choosing random table ID
-	tableID := uint32(1000)
-	if in.Vrf.Spec.Vni != nil {
-		tableID = uint32(1001 + math.Mod(float64(*in.Vrf.Spec.Vni), 10.0))
-	}
-	// generate random mac, since it is not part of user facing API
-	mac, err := generateRandMAC()
+
+	// Store the domain object into DB
+	response, err := s.createVrf(in.Vrf)
 	if err != nil {
-		fmt.Printf("Failed to generate random MAC: %v", err)
-		return nil, err
-	}
-	// configure netlink
-	if err := s.netlinkCreateVrf(ctx, in, tableID, mac); err != nil {
-		return nil, err
-	}
-	// configure FRR
-	if err := s.frrCreateVrfRequest(ctx, in); err != nil {
-		return nil, err
-	}
-	// translate object
-	response := utils.ProtoClone(in.Vrf)
-	response.Status = &pb.VrfStatus{LocalAs: 4, RoutingTable: tableID, Rmac: mac}
-	log.Printf("new object %v", models.NewVrf(response))
-	// save object to the database
-	s.ListHelper[in.Vrf.Name] = false
-	err = s.store.Set(in.Vrf.Name, response)
-	if err != nil {
+		log.Printf("CreateVrf(): Vrf with id %v, Create Vrf to DB failure: %v", in.Vrf.Name, err)
 		return nil, err
 	}
 	return response, nil
@@ -86,36 +64,29 @@ func (s *Server) CreateVrf(ctx context.Context, in *pb.CreateVrfRequest) (*pb.Vr
 func (s *Server) DeleteVrf(ctx context.Context, in *pb.DeleteVrfRequest) (*emptypb.Empty, error) {
 	// check input correctness
 	if err := s.validateDeleteVrfRequest(in); err != nil {
+		fmt.Printf("DeleteVrf(): validation failure: %v", err)
 		return nil, err
 	}
 	// fetch object from the database
-	obj := new(pb.Vrf)
-	ok, err := s.store.Get(in.Name, obj)
+	_, err := s.getVrf(in.Name)
 	if err != nil {
-		fmt.Printf("Failed to interact with store: %v", err)
-		return nil, err
-	}
-	if !ok {
-		if in.AllowMissing {
-			return &emptypb.Empty{}, nil
+		if err != badger.ErrKeyNotFound {
+			fmt.Printf("Failed to interact with store: %v", err)
+			return nil, err
 		}
-		err := status.Errorf(codes.NotFound, "unable to find key %s", in.Name)
+		if !in.AllowMissing {
+			err = status.Errorf(codes.NotFound, "unable to find key %s", in.Name)
+			fmt.Printf("DeleteVrf(): Vrf with id %v: Not Found %v", in.Name, err)
+			return nil, err
+		}
+		return &emptypb.Empty{}, nil
+	}
+
+	if err := s.deleteVrf(in.Name); err != nil {
+		log.Printf("DeleteVrf(): Vrf with id %v, Delete Vrf from DB failure: %v", in.Name, err)
 		return nil, err
 	}
-	// configure netlink
-	if err := s.netlinkDeleteVrf(ctx, obj); err != nil {
-		return nil, err
-	}
-	// delete from FRR
-	if err := s.frrDeleteVrfRequest(ctx, obj); err != nil {
-		return nil, err
-	}
-	// remove from the Database
-	delete(s.ListHelper, obj.Name)
-	err = s.store.Delete(obj.Name)
-	if err != nil {
-		return nil, err
-	}
+
 	return &emptypb.Empty{}, nil
 }
 
@@ -123,38 +94,51 @@ func (s *Server) DeleteVrf(ctx context.Context, in *pb.DeleteVrfRequest) (*empty
 func (s *Server) UpdateVrf(ctx context.Context, in *pb.UpdateVrfRequest) (*pb.Vrf, error) {
 	// check input correctness
 	if err := s.validateUpdateVrfRequest(in); err != nil {
+		fmt.Printf("UpdateVrf(): validation failure: %v", err)
 		return nil, err
 	}
 	// fetch object from the database
-	obj := new(pb.Vrf)
-	ok, err := s.store.Get(in.Vrf.Name, obj)
+	vrfObj, err := s.getVrf(in.Vrf.Name)
 	if err != nil {
-		fmt.Printf("Failed to interact with store: %v", err)
-		return nil, err
+		if err != infradb.ErrKeyNotFound {
+			fmt.Printf("UpdateVrf(): Failed to interact with store: %v", err)
+			return nil, err
+		}
+		if !in.AllowMissing {
+			err = status.Errorf(codes.NotFound, "unable to find key %s", in.Vrf.Name)
+			fmt.Printf("UpdateVrf(): Vrf with id %v: Not Found %v", in.Vrf.Name, err)
+			return nil, err
+		}
+
+		log.Printf("UpdateVrf(): Vrf with id %v is not found so it will be created", in.Vrf.Name)
+
+		// Store the domain object into DB
+		response, err := s.createVrf(in.Vrf)
+		if err != nil {
+			log.Printf("UpdateVrf(): Vrf with id %v, Create Vrf to DB failure: %v", in.Vrf.Name, err)
+			return nil, err
+		}
+		return response, nil
 	}
-	if !ok {
-		// TODO: introduce "in.AllowMissing" field. In case "true", create a new resource, don't return error
-		err := status.Errorf(codes.NotFound, "unable to find key %s", in.Vrf.Name)
-		return nil, err
+	// We do that because we need to see if the object before and after the application of the mask is equal.
+	// If it is the we just return the old object.
+	updatedvrfObj := utils.ProtoClone(vrfObj)
+
+	//Apply updateMask to the current Pb object
+	utils.ApplyMaskToStoredPbObject(in.UpdateMask, updatedvrfObj, in.Vrf)
+
+	// Check if the object before the application of the field mask
+	// is different with the one after the application of the field mask
+	if reflect.DeepEqual(vrfObj, updatedvrfObj) {
+		return vrfObj, nil
 	}
-	resourceID := path.Base(obj.Name)
-	iface, err := s.nLink.LinkByName(ctx, resourceID)
+
+	response, err := s.updateVrf(updatedvrfObj)
 	if err != nil {
-		err := status.Errorf(codes.NotFound, "unable to find key %s", resourceID)
+		log.Printf("UpdateVrf(): Vrf with id %v, Update Vrf to DB failure: %v", in.Vrf.Name, err)
 		return nil, err
 	}
-	// base := iface.Attrs()
-	// iface.MTU = 1500 // TODO: remove this, just an example
-	if err := s.nLink.LinkModify(ctx, iface); err != nil {
-		fmt.Printf("Failed to update link: %v", err)
-		return nil, err
-	}
-	response := utils.ProtoClone(in.Vrf)
-	response.Status = &pb.VrfStatus{LocalAs: 4}
-	err = s.store.Set(in.Vrf.Name, response)
-	if err != nil {
-		return nil, err
-	}
+
 	return response, nil
 }
 
@@ -162,57 +146,55 @@ func (s *Server) UpdateVrf(ctx context.Context, in *pb.UpdateVrfRequest) (*pb.Vr
 func (s *Server) GetVrf(ctx context.Context, in *pb.GetVrfRequest) (*pb.Vrf, error) {
 	// check input correctness
 	if err := s.validateGetVrfRequest(in); err != nil {
+		fmt.Printf("GetVrf(): validation failure: %v", err)
 		return nil, err
 	}
 	// fetch object from the database
-	obj := new(pb.Vrf)
-	ok, err := s.store.Get(in.Name, obj)
+	vrfObj, err := s.getVrf(in.Name)
 	if err != nil {
-		fmt.Printf("Failed to interact with store: %v", err)
+		if err != infradb.ErrKeyNotFound {
+			fmt.Printf("Failed to interact with store: %v", err)
+			return nil, err
+		}
+		err = status.Errorf(codes.NotFound, "unable to find key %s", in.Name)
+		fmt.Printf("GetVrf(): Vrf with id %v: Not Found %v", in.Name, err)
 		return nil, err
 	}
-	if !ok {
-		err := status.Errorf(codes.NotFound, "unable to find key %s", in.Name)
-		return nil, err
-	}
-	resourceID := path.Base(obj.Name)
-	_, err = s.nLink.LinkByName(ctx, resourceID)
-	if err != nil {
-		err := status.Errorf(codes.NotFound, "unable to find key %s", resourceID)
-		return nil, err
-	}
-	// TODO
-	return &pb.Vrf{Name: in.Name, Spec: &pb.VrfSpec{Vni: obj.Spec.Vni}, Status: &pb.VrfStatus{LocalAs: 77}}, nil
+
+	return vrfObj, nil
 }
 
 // ListVrfs lists logical bridges
 func (s *Server) ListVrfs(_ context.Context, in *pb.ListVrfsRequest) (*pb.ListVrfsResponse, error) {
 	// check required fields
-	if err := fieldbehavior.ValidateRequiredFields(in); err != nil {
+	if err := s.validateListVrfsRequest(in); err != nil {
+		fmt.Printf("ListVrfs(): validation failure: %v", err)
 		return nil, err
 	}
 	// fetch pagination from the database, calculate size and offset
-	size, offset, perr := utils.ExtractPagination(in.PageSize, in.PageToken, s.Pagination)
-	if perr != nil {
-		return nil, perr
+	size, offset, err := utils.ExtractPagination(in.PageSize, in.PageToken, s.Pagination)
+	if err != nil {
+		return nil, err
 	}
 	// fetch object from the database
 	Blobarray := []*pb.Vrf{}
+	// Dimitris: ListHelper is a  go map that helps on retrieving the objects
+	// from DB by name. The reason that we need it is because the DB doesn't support any
+	// List() function to retrieve all the VRF objects in one operation by using a prefix as key and not
+	// the full name. The prefix can be: "//network.opiproject.org/vrfs"
+	// In a replay scenario the List must be filled again as it will be out of sync with the DB status.
 	for key := range s.ListHelper {
-		if !strings.HasPrefix(key, "//network.opiproject.org/vrfs") {
-			continue
-		}
-		vrf := new(pb.Vrf)
-		ok, err := s.store.Get(key, vrf)
+		vrfObj, err := s.getVrf(key)
 		if err != nil {
-			fmt.Printf("Failed to interact with store: %v", err)
-			return nil, err
-		}
-		if !ok {
+			if err != badger.ErrKeyNotFound {
+				fmt.Printf("Failed to interact with store: %v", err)
+				return nil, err
+			}
 			err := status.Errorf(codes.NotFound, "unable to find key %s", key)
+			fmt.Printf("ListVrfs(): Vrf with id %v: Not Found %v", key, err)
 			return nil, err
 		}
-		Blobarray = append(Blobarray, vrf)
+		Blobarray = append(Blobarray, vrfObj)
 	}
 	// sort is needed, since MAP is unsorted in golang, and we might get different results
 	sortVrfs(Blobarray)

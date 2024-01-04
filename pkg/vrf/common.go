@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2022-2023 Dell Inc, or its subsidiaries.
+// Copyright (C) 2023 Nordix Foundation.
 
 // Package vrf is the main package of the application
 package vrf
@@ -13,21 +14,72 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/philippgille/gokv/gomap"
+	//"github.com/philippgille/gokv/gomap"
 	"go.einride.tech/aip/resourcename"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 
 	pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
-	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
+	//"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils/mocks"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 )
 
 func sortVrfs(vrfs []*pb.Vrf) {
 	sort.Slice(vrfs, func(i int, j int) bool {
 		return vrfs[i].Name < vrfs[j].Name
 	})
+}
+
+func (s *Server) createVrf(vrf *pb.Vrf) (*pb.Vrf, error) {
+	// check parameters
+	if err := s.validateVrfSpec(vrf); err != nil {
+		return nil, err
+	}
+
+	// translation of pb to domain object
+	domainVrf := infradb.NewVrf(vrf)
+	// Note: The status of the object will be generated in infraDB operation not here
+	if err := infradb.CreateVrf(domainVrf); err != nil {
+		return nil, err
+	}
+	s.ListHelper[vrf.Name] = false
+	return domainVrf.ToPb(), nil
+}
+
+func (s *Server) deleteVrf(name string) error {
+
+	// Note: The status of the object will be generated in infraDB operation not here
+	if err := infradb.DeleteVrf(name); err != nil {
+		return err
+	}
+
+	delete(s.ListHelper, name)
+	return nil
+}
+
+func (s *Server) getVrf(name string) (*pb.Vrf, error) {
+	domainVrf, err := infradb.GetVrf(name)
+	if err != nil {
+		return nil, err
+	}
+	return domainVrf.ToPb(), nil
+}
+
+func (s *Server) updateVrf(vrf *pb.Vrf) (*pb.Vrf, error) {
+	// check parameters
+	if err := s.validateVrfSpec(vrf); err != nil {
+		return nil, err
+	}
+
+	// translation of pb to domain object
+	domainVrf := infradb.NewVrf(vrf)
+	// Note: The status of the object will be generated in infraDB operation not here
+	if err := infradb.UpdateVrf(domainVrf); err != nil {
+		return nil, err
+	}
+	return domainVrf.ToPb(), nil
 }
 
 func resourceIDToFullName(resourceID string) string {
@@ -66,11 +118,12 @@ func (e *testEnv) Close() {
 }
 
 func newTestEnv(ctx context.Context, t *testing.T) *testEnv {
-	store := gomap.NewStore(gomap.Options{Codec: utils.ProtoCodec{}})
+	//store := gomap.NewStore(gomap.Options{Codec: utils.ProtoCodec{}})
 	env := &testEnv{}
 	env.mockNetlink = mocks.NewNetlink(t)
 	env.mockFrr = mocks.NewFrr(t)
-	env.opi = NewServerWithArgs(env.mockNetlink, env.mockFrr, store)
+	//env.opi = NewServerWithArgs(env.mockNetlink, env.mockFrr, store)
+	env.opi = NewServer()
 	conn, err := grpc.DialContext(ctx,
 		"",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2022-2023 Dell Inc, or its subsidiaries.
+// Copyright (C) 2023 Nordix Foundation.
 
 // Package port is the main package of the application
 package port
@@ -11,7 +12,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/philippgille/gokv/gomap"
+	//"github.com/philippgille/gokv/gomap"
 	"go.einride.tech/aip/resourcename"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -20,14 +21,65 @@ import (
 
 	pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pc "github.com/opiproject/opi-api/network/opinetcommon/v1alpha1/gen/go"
-	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
+	//"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils/mocks"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 )
 
 func sortBridgePorts(ports []*pb.BridgePort) {
 	sort.Slice(ports, func(i int, j int) bool {
 		return ports[i].Name < ports[j].Name
 	})
+}
+
+func (s *Server) createBridgePort(bp *pb.BridgePort) (*pb.BridgePort, error) {
+	// check parameters
+	if err := s.validateBridgePortSpec(bp); err != nil {
+		return nil, err
+	}
+
+	// translation of pb to domain object
+	domainBP := infradb.NewBridgePort(bp)
+	// Note: The status of the object will be generated in infraDB operation not here
+	if err := infradb.CreateBP(domainBP); err != nil {
+		return nil, err
+	}
+	s.ListHelper[bp.Name] = false
+	return domainBP.ToPb(), nil
+}
+
+func (s *Server) deleteBridgePort(name string) error {
+
+	// Note: The status of the object will be generated in infraDB operation not here
+	if err := infradb.DeleteBP(name); err != nil {
+		return err
+	}
+
+	delete(s.ListHelper, name)
+	return nil
+}
+
+func (s *Server) getBridgePort(name string) (*pb.BridgePort, error) {
+	domainBP, err := infradb.GetBP(name)
+	if err != nil {
+		return nil, err
+	}
+	return domainBP.ToPb(), nil
+}
+
+func (s *Server) updateBridgePort(bp *pb.BridgePort) (*pb.BridgePort, error) {
+	// check parameters
+	if err := s.validateBridgePortSpec(bp); err != nil {
+		return nil, err
+	}
+
+	// translation of pb to domain object
+	domainBP := infradb.NewBridgePort(bp)
+	// Note: The status of the object will be generated in infraDB operation not here
+	if err := infradb.UpdateBP(domainBP); err != nil {
+		return nil, err
+	}
+	return domainBP.ToPb(), nil
 }
 
 func resourceIDToFullName(resourceID string) string {
@@ -84,11 +136,12 @@ func (e *testEnv) Close() {
 }
 
 func newTestEnv(ctx context.Context, t *testing.T) *testEnv {
-	store := gomap.NewStore(gomap.Options{Codec: utils.ProtoCodec{}})
+	//store := gomap.NewStore(gomap.Options{Codec: utils.ProtoCodec{}})
 	env := &testEnv{}
 	env.mockNetlink = mocks.NewNetlink(t)
 	env.mockFrr = mocks.NewFrr(t)
-	env.opi = NewServerWithArgs(env.mockNetlink, env.mockFrr, store)
+	//env.opi = NewServerWithArgs(env.mockNetlink, env.mockFrr, store)
+	env.opi = NewServer()
 	conn, err := grpc.DialContext(ctx,
 		"",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),

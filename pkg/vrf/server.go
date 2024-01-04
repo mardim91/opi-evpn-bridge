@@ -1,20 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2022-2023 Dell Inc, or its subsidiaries.
+// Copyright (C) 2023 Nordix Foundation.
 
 // Package vrf is the main package of the application
 package vrf
 
 import (
-	"log"
-
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/philippgille/gokv"
-
 	pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
-
-	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 )
 
 // Server represents the Server object
@@ -22,22 +17,18 @@ type Server struct {
 	pb.UnimplementedVrfServiceServer
 	Pagination map[string]int
 	ListHelper map[string]bool
-	nLink      utils.Netlink
-	frr        utils.Frr
 	tracer     trace.Tracer
-	store      gokv.Store
 }
 
 // NewServer creates initialized instance of EVPN server
-func NewServer(store gokv.Store) *Server {
-	nLink := utils.NewNetlinkWrapper()
-	frr := utils.NewFrrWrapper()
-	return NewServerWithArgs(nLink, frr, store)
+func NewServer() *Server {
+	return &Server{
+		ListHelper: make(map[string]bool),
+		Pagination: make(map[string]int),
+		tracer:     otel.Tracer(""),
+	}
 }
-
-// NewServerWithArgs creates initialized instance of EVPN server
-// with externally created Netlink
-func NewServerWithArgs(nLink utils.Netlink, frr utils.Frr, store gokv.Store) *Server {
+/*func NewServerWithArgs(nLink utils.Netlink, frr utils.Frr, store gokv.Store) *Server {
 	if frr == nil {
 		log.Panic("nil for Frr is not allowed")
 	}
@@ -50,9 +41,6 @@ func NewServerWithArgs(nLink utils.Netlink, frr utils.Frr, store gokv.Store) *Se
 	return &Server{
 		ListHelper: make(map[string]bool),
 		Pagination: make(map[string]int),
-		nLink:      nLink,
-		frr:        frr,
 		tracer:     otel.Tracer(""),
-		store:      store,
 	}
-}
+}*/
