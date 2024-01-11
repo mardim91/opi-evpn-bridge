@@ -4,7 +4,7 @@ import (
         "io/ioutil"
         "log"
 	"reflect"
-	"time"
+//	"time"
         "github.com/opiproject/opi-evpn-bridge/pkg/infradb/subsrciber_framework/event_bus"
         "github.com/opiproject/opi-evpn-bridge/pkg/infradb"
         "gopkg.in/yaml.v2"
@@ -47,7 +47,7 @@ func run(cmd []string,flag bool) (string, int) {
             if flag {
                    panic(fmt.Sprintf("LGM: Command %s': exit code %s;",out,err.Error()))
             }
-            fmt.Printf("LGM: Command %s': exit code %s;",out,err)
+            fmt.Printf("LGM: Command %s': exit code %s;\n",out,err)
             return "Error",-1
     }
     output := string(out[:])
@@ -66,25 +66,49 @@ func (h *ModulelvmHandler) HandleEvent(eventType string, eventData *event_bus.Ev
 			} else {
 				fmt.Printf("LGM : GetVRF Name: %s\n", VRF.Name)
 			}
+			  if (len(VRF.Status.Components) != 0 ){
+                		for i:=0;i<len(VRF.Status.Components);i++ {
+		                        if (VRF.Status.Components[i].Name == "LGM") {
+                	                comp = VRF.Status.Components[i]
+                		        }
+        	        	}
+	       		  }
+
 		if (VRF.Status.VrfOperStatus !=infradb.VRF_OPER_STATUS_TO_BE_DELETED){
-                        detail,status := set_up_vrf(&VRF)
-					 if (status == "Success") {
-                                                comp.Details= detail
-                                                comp.CompStatus= infradb.COMP_STATUS_SUCCESS
-                                                comp.Name= "LGM"
-                                                comp.Timer = 0
-                                         } else {
-                                                if comp.Timer ==0 {  // wait timer is 2 powerof natural numbers ex : 1,2,3...
-                                                        comp.Timer=2
-                                                } else {
-                                                        comp.Timer=comp.Timer*2
-                                                }
-                                                comp.CompStatus= infradb.COMP_STATUS_ERROR
-                                         }
-                                fmt.Printf(" LGM: %+v\n",comp)
-                                        infradb.UpdateVrfStatus(eventData.Name,eventData.ResourceVer,comp)
+                        details,status := set_up_vrf(&VRF)
+			 if (status == true) {
+                                 comp.Details= details
+                                 comp.CompStatus= infradb.COMP_STATUS_SUCCESS
+                                 comp.Name= "LGM"
+                                 comp.Timer = 0
+                         } else {
+                             if comp.Timer ==0 {  // wait timer is 2 powerof natural numbers ex : 1,2,3...
+                                   comp.Timer=2
+                             } else {
+                                   comp.Timer=comp.Timer*2
+                             }
+                             comp.Name= "LGM"
+                             comp.CompStatus= infradb.COMP_STATUS_ERROR
+                          }
+                   	   fmt.Printf("LGM: %+v\n",comp)
+                           infradb.UpdateVrfStatus(eventData.Name,eventData.ResourceVer,comp)
 		} else {
-		 tear_down_vrf(&VRF)
+		 status := tear_down_vrf(&VRF)
+		   if (status == true){
+			comp.CompStatus = infradb.COMP_STATUS_SUCCESS
+			comp.Name= "LGM"
+			comp.Timer=0	
+		   } else {
+                        comp.CompStatus= infradb.COMP_STATUS_ERROR
+			comp.Name= "LGM"
+			if comp.Timer ==0 {  // wait timer is 2 powerof natural numbers ex : 1,2,3...
+                               comp.Timer=2
+                        } else {
+                              comp.Timer=comp.Timer*2
+                        }
+		   }
+                   fmt.Printf("LGM: %+v\n",comp)
+                   infradb.UpdateVrfStatus(eventData.Name,eventData.ResourceVer,comp)
 		}
         case "SVI":
                 //handlesvi(eventData.Name)
@@ -129,54 +153,34 @@ func Init() {
 
 }
 
-func disable_rp_filter(Interface string ){
-    // Work-around for the observation that sometimes the sysctl -w command did not take effect.
-    rp_filter_disabled := false
-    for i:=0; i<3 ; i++{
-        rp_disable := fmt.Sprintf("net.ipv4.conf.%s.rp_filter=0",Interface)
-        run([]string{"sysctl","-w",rp_disable},false)
-        time.Sleep(2 * time.Millisecond)
-        rp_disable = fmt.Sprintf("net.ipv4.conf.%s.rp_filter",Interface)
-        CP,err := run([]string{"sysctl","-n",rp_disable},false)
-        if err ==0 && strings.HasPrefix(CP, "0"){
-            rp_filter_disabled = true
-            break
-	}
-    }
-    if !rp_filter_disabled{
-        fmt.Sprintf("Failed to disable rp_filtering on interface %s\n",Interface)
-    }
-}
-
-
-
-func routing_table_busy(table uint32) bool{
-    CP,err := run([]string{"ip","route","show","table", strconv.Itoa(int(table))}, false)
+func routing_table_busy(table string) bool{
+    CP,err := run([]string{"ip","route","show","table", table}, false)
     if (err != 0){
-         fmt.Println(CP)
+         fmt.Println("%s\n",CP)
          return false
     }
     return true //reflect.ValueOf(CP).IsZero() && len(CP)!= 0
 }
 
 
-func set_up_vrf(VRF *infradb.Vrf)(string,string) {
-	vtip := fmt.Sprintf("%+v",VRF.Spec.VtepIP)
-	routing_table  := fmt.Sprintf("%+v",VRF.Spec.RoutingTable) 	
+func set_up_vrf(VRF *infradb.Vrf)(string,bool) {
+	vtip := fmt.Sprintf("%+v",VRF.Spec.VtepIP.IP)
+	VNI := fmt.Sprintf("%+v",VRF.Spec.Vni)
+	routing_table  := fmt.Sprintf("%+v",VRF.Spec.Vni) 	
 	Ip_Mtu := fmt.Sprintf("%+v",ip_mtu) 	
 	if VRF.Name == "GRD"{
-                return "", "Error"
+                return  "",false
         }
-	if !routing_table_busy(VRF.Spec.RoutingTable) {
-		fmt.Printf("LGM :Routing table %s is not empty\n",VRF.Spec.RoutingTable)	
-		return "","Error"
+	if routing_table_busy(routing_table) {
+		fmt.Printf("LGM :Routing table %s is not empty\n",routing_table)	
+		//return "Error"
 	}
 	if reflect.ValueOf(VRF.Spec.VtepIP).IsZero(){
         	// Verify that the specified VTEP IP exists as local IP
 	        _,err := run([]string{"ip","route","list","exact", vtip,"table","local"}, false)
         	if (err != 0) {
 	            	fmt.Printf(" LGM: VTEP IP not found: %+v\n",VRF.Spec.VtepIP)
-			return "" , "Error"
+			return "",false
 		}
 	} else {
         // Pick the IP of interface default VTEP interface
@@ -186,31 +190,36 @@ func set_up_vrf(VRF *infradb.Vrf)(string,string) {
 	// Create the VRF interface for the specified routing table and add loopback address
     	CP,err :=run([]string{"ip","link","add",VRF.Name,"type","vrf","table",routing_table},false)
 	if err!=0 {
-		fmt.Printf("LGM: Error in exectuing command %s %s","link add VRF type vrf table ",routing_table)
+		fmt.Printf("LGM: Error in exectuing command %s %s\n","link add VRF type vrf table ",routing_table)
 		fmt.Printf("%s\n",CP)	
-		return "", "Error"	
+		return "",false	
 	}
+	fmt.Printf("LGM Executed : ip link add %s type vrf table %s\n",VRF.Name,routing_table)
         CP,err = run([]string{"ip","link","set",VRF.Name,"up","mtu",Ip_Mtu},false)
 	if err!=0 {
-		fmt.Printf("LGM:Error in exectuing command %s %s","link set VRF MTU ",Ip_Mtu)	
+		fmt.Printf("LGM:Error in exectuing command %s %s\n","link set VRF MTU ",Ip_Mtu)	
 		fmt.Printf("%s\n",CP)	
-		return "", "Error"	
+		return "",false	
 	}
-	CP,err =run([]string{"ip","address","add",string(VRF.Spec.LoopbackIP.IP),"dev",VRF.Name},false)
+	fmt.Printf("LGM Executed : ip link set %s up mtu  %s\n",VRF.Name,Ip_Mtu)
+	Lbip:=fmt.Sprintf("%+v",VRF.Spec.LoopbackIP.IP)
+	CP,err =run([]string{"ip","address","add",Lbip,"dev",VRF.Name},false)
 	if err!=0 {
-		fmt.Printf("LGM: Error in exectuing command %s %s","address add LoopbackIP",string(VRF.Spec.LoopbackIP.IP))	
+		fmt.Printf("LGM: Error in exectuing command %s %s\n","address add LoopbackIP",Lbip)	
 		fmt.Printf("%s\n",CP)	
-		return "", "Error"	
+		return "",false
 	}
+	fmt.Printf("LGM Executed : ip address add %s dev %s\n",Lbip,VRF.Name)
     //Add low-prio default route. Otherwise a miss leads to lookup in the next higher table
         CP,err =run([]string{"ip","route","add","throw","default","table",routing_table,"proto","ipu_infra_mgr","metric","9999"},false)
 	if err!=0 {
-		fmt.Printf("LGM: Error in exectuing command %s %s","route add throw default table ",routing_table)	
+		fmt.Printf("LGM: Error in exectuing command %s %s\n","route add throw default table ",routing_table)	
 		fmt.Printf("%s\n",CP)	
-		return "", "Error"	
+		return "",false	
 	}
+	fmt.Printf("LGM Executed : ip route add throw default table  %s proto ipu_infra_gmr metric 9999\n",routing_table)
 	// Disable reverse-path filtering to accept ingress traffic punted by the pipeline
-	disable_rp_filter("rep-"+VRF.Name)
+	//disable_rp_filter("rep-"+VRF.Name)
    // Configuration specific for VRFs associated with L3 EVPN
     if (!reflect.ValueOf(VRF.Spec.Vni).IsZero()){
         // Create bridge for external VXLAN under VRF
@@ -220,39 +229,45 @@ func set_up_vrf(VRF *infradb.Vrf)(string,string) {
         rmac := fmt.Sprintf("%+v",GenerateMac()) // str(macaddress.MAC(b'\x00'+random.randbytes(5))).replace("-", ":")
 	CP, err:=run([]string{"ip","link","add","br-"+VRF.Name,"address",rmac,"type","bridge"},false)
 	if err !=0 {
+		fmt.Printf("LGM Rmac : %s\n",rmac)
 		fmt.Printf("LGM: Error in exectuing command %s %s\n","ip link add address rmac",CP)
-		return "","Error"	
+		return "",false
 	}
+	fmt.Printf("LGM Executed : ip link add br-%s address %s tyoe bridge\n",VRF.Name,rmac)
         CP,err = run([]string{"ip","link","set","br-"+VRF.Name,"master",VRF.Name,"up","mtu",Ip_Mtu},false)
          if err !=0 {
                 fmt.Printf("LGM: Error in exectuing command %s %s\n","ip link set master VRF mtu",CP)
-                return "","Error"
+                return "",false
         }	
+	fmt.Printf("LGM Executed : ip link set  br-%s master  %s up mtu \n",VRF.Name,Ip_Mtu)
 	// Create the VXLAN link in the external bridge
-         CP,err = run([]string{"ip","link","add","vxlan-"+VRF.Name,"type","vxlan","id",string(VRF.Spec.Vni),"local", vtip,"dstport","4789","nolearning proxy"},false)
+         CP,err = run([]string{"ip","link","add","vxlan-"+VRF.Name,"type","vxlan","id",VNI,"local", vtip,"dstport","4789","nolearning","proxy"},false)
 	if err !=0 {
-                fmt.Printf("LGM: Error in exectuing command %s %s\n","ip link add vxlan id local VTEIP dstport",CP)
-                return "","Error"
+                fmt.Printf("LGM: Error in exectuing command ip link add vxlan-%s type vxlan id %s local %s dstport 4789 nolearning proxy\n",VRF.Name,VNI,vtip,CP)
+                return "",false
         }
+	fmt.Printf("LGM Executed : ip link add vxlan-%s type vxlan id %s local %s dstport 4789 nolearning proxy\n",VRF.Name,VNI,vtip)
         CP,err = run([]string{"ip","link","set","vxlan-"+VRF.Name,"master","br-"+VRF.Name,"up","mtu",Ip_Mtu},false)
 	if err !=0 {
                 fmt.Printf("LGM: Error in exectuing command %s %s\n","ip link set master BR up mtu",CP)
-                return "","Error"
+                return "",false
         }
+	fmt.Printf("LGM Executed : ip link set vxlan-%s master br-%s up mtu %s\n",VRF.Name,VRF.Name,Ip_Mtu)
    }	
-	return "", "Success"	
+	details:=fmt.Sprintf("{\"routing_table\":\"%s\"}",routing_table)
+	return details,true	
 }
 
 func GenerateMac() (net.HardwareAddr) {
-        buf := make([]byte, 6)
+        buf := make([]byte, 5)
         var mac net.HardwareAddr
         _, err  := rand.Read(buf)
         if err != nil {}
 	
         // Set the local bit 
-        buf[0] |= 2
+      //  buf[0] |= 8
 
-        mac = append(mac, buf[0], buf[1], buf[2], buf[3], buf[4], buf[5])
+        mac = append(mac, 00, buf[0],buf[1], buf[2], buf[3], buf[4])
 
         return mac 
 } 
@@ -324,7 +339,7 @@ func get_ip_address(dev string)net.IPNet{
 		}
 	//Res := CP[2:len(CP)-3]
 	Res := strings.Split(CP[2:len(CP)-3], "]},{")
-	fmt.Printf("JSON1 %+v \n",Res[0])
+	//fmt.Printf("JSON1 %+v \n",Res[0])
 	// From the only interface in the list pick the first IP address
 	// outside 127.0.0.0/8 loopback network.
 	for i := 0; i<len(Res); i++{
@@ -361,34 +376,37 @@ func get_ip_address(dev string)net.IPNet{
 }
 
 
-func tear_down_vrf(VRF *infradb.Vrf)(string,string) {
+func tear_down_vrf(VRF *infradb.Vrf)bool {
 	if VRF.Name == "GRD"{
-                return "", "Error"
+                return false
         }
+	routing_table  := fmt.Sprintf("%+v",VRF.Spec.RoutingTable)
     // Delete the Linux networking artefacts in reverse order
-    run([]string{"ip","link","delete","rep-"+VRF.Name},false)
     if (!reflect.ValueOf(VRF.Spec.Vni).IsZero()){
         CP,err :=run([]string{"ip","link","delete","vxlan-"+VRF.Name}, false)
 	if err !=0 {
                 fmt.Printf("LGM: Error in exectuing command %s %s\n","ip link deleted vxlan ",CP)
-                return "","Error"
+                return false
         }
+	fmt.Printf("LGM Executed : ip link delete vxlan-%s\n",VRF.Name)
         CP,err =run([]string{"ip","link","delete","br-"+VRF.Name},false)
 	if err !=0 {
                 fmt.Printf("LGM: Error in exectuing command %s %s\n","ip link delete br-vrf ",CP)
-                return "","Error"
+                return false
         }
-        CP,err =run([]string{"ip","route","flush","table",string(VRF.Spec.RoutingTable)},false)
+	fmt.Printf("LGM Executed : ip link delete br-%s\n",VRF.Name)
+        CP,err =run([]string{"ip","route","flush","table",routing_table},false)
 	if err !=0 {
-                fmt.Printf("LGM: Error in exectuing command %s %s\n","ip route flush table",CP)
-                return "","Error"
+                fmt.Printf("LGM: Error in exectuing command ip route flush table %s\n",routing_table,CP)
+                return false
         }
+	fmt.Printf("LGM Executed : ip link flush table %s\n",routing_table)
         CP,err =run([]string{"ip","link","delete",VRF.Name},false)
 	if err !=0 {
-                fmt.Printf("LGM: Error in exectuing command %s %s\n","ip link delete VRF",CP)
-                return "","Error"
+                fmt.Printf("LGM: Error in exectuing command ip link delete %s: %s\n",VRF.Name,CP)
+                return false
         }
+	fmt.Printf("LGM Executed : ip link delete  %s\n",VRF.Name)
     }	
-
-	return "","Success"
+	return true
 }
