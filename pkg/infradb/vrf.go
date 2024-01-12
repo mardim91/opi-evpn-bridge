@@ -7,9 +7,9 @@ package infradb
 import (
 	"encoding/binary"
 	"net"
-	//"time"
 
-	pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
+	//pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
+	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pc "github.com/opiproject/opi-api/network/opinetcommon/v1alpha1/gen/go"
 )
 
@@ -29,7 +29,8 @@ const (
 type COMP_STATUS int
 
 const (
-	COMP_STATUS_PENDING COMP_STATUS = iota + 1
+	COMP_STATUS_UNSPECIFIED COMP_STATUS = iota + 1
+	COMP_STATUS_PENDING
 	COMP_STATUS_SUCCESS
 	COMP_STATUS_ERROR
 )
@@ -52,9 +53,9 @@ type VrfSpec struct {
 	Vni          uint32
 	LoopbackIP   net.IPNet
 	VtepIP       net.IPNet
-	LocalAs      uint32
-	RoutingTable uint32
-	MacAddress   net.HardwareAddr
+	//LocalAs      uint32
+	//RoutingTable uint32
+	//MacAddress   net.HardwareAddr
 }
 
 type Vrf struct {
@@ -69,7 +70,7 @@ var _ EvpnObject[*pb.Vrf] = (*Vrf)(nil)
 
 // NewVrf creates new VRF object from protobuf message
 func NewVrf(in *pb.Vrf) *Vrf {
-	mac := net.HardwareAddr(in.Status.Rmac)
+	//mac := net.HardwareAddr(in.Status.Rmac)
 	loopip := make(net.IP, 4)
 	binary.BigEndian.PutUint32(loopip, in.Spec.LoopbackIpPrefix.Addr.GetV4Addr())
 	lip := net.IPNet{IP: loopip, Mask: net.CIDRMask(int(in.Spec.LoopbackIpPrefix.Len), 32)}
@@ -84,9 +85,9 @@ func NewVrf(in *pb.Vrf) *Vrf {
 			Vni:          *in.Spec.Vni,
 			LoopbackIP:   lip,
 			VtepIP:       vip,
-			LocalAs:      in.Status.LocalAs,
-			RoutingTable: in.Status.RoutingTable,
-			MacAddress:   mac,
+			//LocalAs:      in.Status.LocalAs,
+			//RoutingTable: in.Status.RoutingTable,
+			//MacAddress:   mac,
 		},
 		Status: VrfStatus{
 			VrfOperStatus: VRF_OPER_STATUS(VRF_OPER_STATUS_DOWN),
@@ -112,7 +113,7 @@ func (in *Vrf) ToPb() *pb.Vrf {
 			VtepIpPrefix: vtepip,
 		},
 		Status: &pb.VrfStatus{
-			LocalAs: in.Spec.LocalAs,
+			//LocalAs: in.Spec.LocalAs,
 		},
 	}
 	if in.Status.VrfOperStatus == VRF_OPER_STATUS_DOWN {
@@ -121,6 +122,20 @@ func (in *Vrf) ToPb() *pb.Vrf {
 		vrf.Status.OperStatus = pb.VRFOperStatus_VRF_OPER_STATUS_UP
 	} else if in.Status.VrfOperStatus == VRF_OPER_STATUS_UNSPECIFIED {
 		vrf.Status.OperStatus = pb.VRFOperStatus_VRF_OPER_STATUS_UNSPECIFIED
+	}
+	for _, comp := range in.Status.Components {
+		component := &pb.Component{Name: comp.Name, Details: comp.Details}
+
+		if comp.CompStatus == COMP_STATUS_PENDING {
+			component.Status = pb.CompStatus_COMP_STATUS_PENDING
+		} else if comp.CompStatus == COMP_STATUS_SUCCESS {
+			component.Status = pb.CompStatus_COMP_STATUS_SUCCESS
+		} else if comp.CompStatus == COMP_STATUS_SUCCESS {
+			component.Status = pb.CompStatus_COMP_STATUS_ERROR
+		} else {
+			component.Status = pb.CompStatus_COMP_STATUS_UNSPECIFIED
+		}
+		vrf.Status.Components = append(vrf.Status.Components, component)
 	}
 	// TODO: add LocalAs, LoopbackIP, VtepIP
 	return vrf

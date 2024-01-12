@@ -9,7 +9,6 @@ import (
 	"github.com/philippgille/gokv"
 	"log"
 	"sync"
-	//"github.com/opiproject/opi-evpn-bridge/pkg/infradb/models"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subsrciber_framework/event_bus"
 	"github.com/opiproject/opi-evpn-bridge/pkg/storage"
 )
@@ -181,10 +180,28 @@ func DeleteVrf(Name string) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
-	err := infradb.client.Delete(Name)
+	/*err := infradb.client.Delete(Name)
 	if err != nil {
 		log.Fatal(err)
+	}*/
+	vrf := Vrf{}
+	found, err := infradb.client.Get(Name, &vrf)
+	if found != true {
+		return ErrKeyNotFound
 	}
+
+	vrf.ResourceVersion = generateVersion()
+	vrf.Status.VrfOperStatus = VRF_OPER_STATUS_TO_BE_DELETED
+
+	err = infradb.client.Set(vrf.Name, vrf)
+	if err != nil {
+		return err
+	}
+
+	/* Create task manager task
+	taskMgr.CreateTask(vrf.name,vrf.ResourceVersion, subscribers )
+	*/
+
 	return err
 }
 func GetVrf(Name string) (*Vrf, error) {

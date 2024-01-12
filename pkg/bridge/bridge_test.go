@@ -23,7 +23,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
-	pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
+	//pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
+	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pc "github.com/opiproject/opi-api/network/opinetcommon/v1alpha1/gen/go"
 
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils"

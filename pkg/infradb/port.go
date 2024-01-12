@@ -8,7 +8,8 @@ import (
 	"net"
 	"time"
 
-	pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
+	//pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
+	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 )
 
 // BridgePortType reflects the different types of a Bridge Port
