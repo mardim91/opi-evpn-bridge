@@ -1,4 +1,4 @@
-package taskmanager
+package task_manager
 
 type TaskQueue struct {
 	channel chan *Task

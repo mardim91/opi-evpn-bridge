@@ -2,13 +2,20 @@
 // Copyright (C) 2023 Nordix Foundation.
 
 // Package taskmanager contains the task manager logic
-package taskmanager
+package task_manager
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
+
+	// Typo
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
 )
+
+var TaskMan = newTaskManager()
 
 type TaskManager struct {
 	taskQueue      *TaskQueue
@@ -20,8 +27,8 @@ type Task struct {
 	objectType      string
 	resourceVersion string
 	sub_index       int
-	timer           time.Second
-	subs            []*Subscriber
+	retryTimer      time.Duration
+	subs            []*event_bus.Subscriber
 }
 
 type TaskStatus struct {
@@ -30,7 +37,7 @@ type TaskStatus struct {
 	resourceVersion string
 	notificationId  string
 	dropTask        bool
-	component       infradb.Component
+	component       *common.Component
 }
 
 func newTaskManager() *TaskManager {
@@ -40,7 +47,7 @@ func newTaskManager() *TaskManager {
 	}
 }
 
-func newTask(name, objectType, resourceVersion string, subs []*Subscriber) *Task {
+func newTask(name, objectType, resourceVersion string, subs []*event_bus.Subscriber) *Task {
 	return &Task{
 		name:            name,
 		objectType:      objectType,
@@ -50,35 +57,42 @@ func newTask(name, objectType, resourceVersion string, subs []*Subscriber) *Task
 	}
 }
 
-func newTaskStatus(name, objectType, resourceVersion, notificationId string, dropTask bool, component infradb.Component) *TaskStatus {
+func newTaskStatus(name, objectType, resourceVersion, notificationId string, dropTask bool, component *common.Component) *TaskStatus {
 	return &TaskStatus{
 		name:            name,
 		objectType:      objectType,
 		resourceVersion: resourceVersion,
 		notificationId:  notificationId,
 		dropTask:        dropTask,
-		component:       infradb.Component,
+		component:       component,
 	}
 }
 
 func (t *TaskManager) StartTaskManager() {
 
 	go t.processTasks()
+	fmt.Println("Task Manager has started")
 }
 
-func (t *TaskManager) CreateTask(name, objectType, resourceVersion string, subs []*Subscriber) {
+func (t *TaskManager) CreateTask(name, objectType, resourceVersion string, subs []*event_bus.Subscriber) {
 	task := newTask(name, objectType, resourceVersion, subs)
 	// The reason that we use a go routing to enqueue the task is because we do not want the main thread to block
 	// if the queue is full but only the go routine to block
 	go t.taskQueue.Enqueue(task)
+	fmt.Printf("CreateTask(): New Task has been created: %+v\n", task)
 
 }
 
-func (t *TaskManager) StatusUpdated(name, objectType, resourceVersion, notificationId string, dropTask bool, component infradb.Component) {
+func (t *TaskManager) StatusUpdated(name, objectType, resourceVersion, notificationId string, dropTask bool, component *common.Component) {
 
 	taskStatus := newTaskStatus(name, objectType, resourceVersion, notificationId, dropTask, component)
 
+	// Do we need to make this call happen in a goroutine in order to not make the
+	// StatusUpdated function stuck in case that nobody reads what is written on the channel ?
+	// Is there any case where this can happen
+	// (nobody reads what is written on the channel and the StatusUpdated gets stuck) ?
 	t.taskStatusChan <- taskStatus
+	fmt.Printf("StatusUpdated(): New Task Status has been created and sent to channel: %+v\n", taskStatus)
 
 }
 
@@ -88,10 +102,12 @@ func (t *TaskManager) processTasks() {
 
 	for {
 		task := t.taskQueue.Dequeue()
+		fmt.Printf("processTasks(): Task has been dequeued for processing: %+v\n", task)
+
 	loopTwo:
 		for i, sub := range task.subs[task.sub_index:] {
 			// TODO: We need a newObjectData function to create the ObjectData objects
-			objectData := &ObjectData{
+			objectData := &event_bus.ObjectData{
 				name:            task.name,
 				resourceVersion: task.resourceVersion,
 				// We need this notificationId in order to tell if the status that we got
@@ -99,9 +115,9 @@ func (t *TaskManager) processTasks() {
 				// (e.g. Maybe you have a timeout on the subscribers and you got the notification after the timeout have passed)
 				notificationId: uuid.NewString(),
 			}
-			subFrame.Publish(objectData, sub)
+			event_bus.EBus.Publish(objectData, sub)
+			fmt.Printf("processTasks(): Notification has been sent to subscriber %+v with data %+v\n", sub, objectData)
 
-			//TODO: What do we do if the subscriber is not replying ? I can not wait forever in the channel.
 		loopThree:
 			for {
 				// We have this for loop in order to assert that the taskStatus that recieved from the channel is related to the current task.
@@ -109,31 +125,41 @@ func (t *TaskManager) processTasks() {
 				// If not we just ignore the taskStatus that we have recieved and loop again.
 				select {
 				case taskStatus = <-t.taskStatusChan:
+
+					fmt.Printf("processTasks(): Task Status has been received from the channel %+v\n", taskStatus)
 					if taskStatus.notificationId == objectData.notificationId {
+						fmt.Printf("processTasks(): received notification id %+v equals the sent notification id %+v\n", taskStatus.notificationId, objectData.notificationId)
 						break loopThree
 					}
+					fmt.Printf("processTasks(): received notification id %+v doesn't equal the sent notification id %+v\n", taskStatus.notificationId, objectData.notificationId)
+
 				// We need a timeout in case that the subscriber doesn't update the status at all for whatever reason.
 				// If that occurs then we just take a note which subscriber need to revisit and we requeue the task without any timer
 				case <-time.After(30 * time.Second):
+					fmt.Printf("processTasks(): No task status has been received in the channel from subscriber %+v. The task %+v will be requeued immediately\n", sub, task)
 					task.sub_index = i
 					go t.taskQueue.Enqueue(task)
 					break loopThree
 				}
 			}
 
-			//This check is needed in order to move to the next task if the status channel has timed out or we need to drop the task in case that
+			// This check is needed in order to move to the next task if the status channel has timed out or we need to drop the task in case that
 			// the task of the object is refering to an old allready updated object or the object is no longer in the database (has been deleted).
 			if taskStatus == nil || taskStatus.dropTask {
+				fmt.Println("processTasks(): Move to the next Task in the queue")
 				break loopTwo
 			}
 
-			switch taskStatus.component.Status {
-			case "success":
+			switch taskStatus.component.CompStatus {
+			case common.COMP_STATUS_SUCCESS:
+				fmt.Printf("processTasks(): Subscriber %+v has processed the task %+v succesfully\n", sub, task)
 				continue loopTwo
 			default:
+				fmt.Printf("processTasks(): Subscriber %+v has not processed the task %+v succesfully\n", sub, task)
 				task.sub_index = i
-				task.timer = taskStatus.component.timer
-				time.AfterFunc(task.timer, func() {
+				task.retryTimer = taskStatus.component.Timer
+				fmt.Printf("processTasks(): The Task will be requeued after %+v\n", task.retryTimer)
+				time.AfterFunc(task.retryTimer, func() {
 					t.taskQueue.Enqueue(task)
 				})
 				break loopTwo

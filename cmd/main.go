@@ -12,9 +12,9 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"time"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -23,12 +23,13 @@ import (
 	//pe "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pe "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	"github.com/opiproject/opi-evpn-bridge/pkg/bridge"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/task_manager"
 	"github.com/opiproject/opi-evpn-bridge/pkg/port"
 	"github.com/opiproject/opi-evpn-bridge/pkg/svi"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 	"github.com/opiproject/opi-evpn-bridge/pkg/vrf"
 	"github.com/opiproject/opi-smbios-bridge/pkg/inventory"
-	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -36,38 +37,37 @@ import (
 
 	//"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-
 	//"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 )
 
 const (
-        configFilePath = "./"
+	configFilePath = "./"
 )
-var config struct {
-	CfgFile      string
-	GRPCPort     int
-	HTTPPort     int
-	TLSFiles     string
-	Database     string
-	DBAddress    string
-	FRRAddress   string
 
+var config struct {
+	CfgFile    string
+	GRPCPort   int
+	HTTPPort   int
+	TLSFiles   string
+	Database   string
+	DBAddress  string
+	FRRAddress string
 }
 var rootCmd = &cobra.Command{
-        Use:   "opi-evpn-bridge",
-        Short: "evpn bridge",
-        Long:  "evpn bridge application",
-        PreRunE: func(cmd *cobra.Command, args []string) error {
-                return validateConfigs()
-        },
-        Run: func(_ *cobra.Command, _ []string) {
+	Use:   "opi-evpn-bridge",
+	Short: "evpn bridge",
+	Long:  "evpn bridge application",
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		return validateConfigs()
+	},
+	Run: func(_ *cobra.Command, _ []string) {
 
-                fmt.Printf("GRPCPort: %d\n", viper.GetInt("grpc_port"))
-                fmt.Printf("HTTPPort: %d\n", viper.GetInt("http_port"))
-                fmt.Printf("TLSFiles: %s\n", viper.GetString("tls"))
-                fmt.Printf("DBAddress: %s\n", viper.GetString("db_addr"))
-                fmt.Printf("FRRAddress: %s\n", viper.GetString("frr_addr"))
-                fmt.Printf("Database: %s\n", viper.GetString("database"))
+		fmt.Printf("GRPCPort: %d\n", viper.GetInt("grpc_port"))
+		fmt.Printf("HTTPPort: %d\n", viper.GetInt("http_port"))
+		fmt.Printf("TLSFiles: %s\n", viper.GetString("tls"))
+		fmt.Printf("DBAddress: %s\n", viper.GetString("db_addr"))
+		fmt.Printf("FRRAddress: %s\n", viper.GetString("frr_addr"))
+		fmt.Printf("Database: %s\n", viper.GetString("database"))
 
 		config.GRPCPort = viper.GetInt("grpc_port")
 		config.HTTPPort = viper.GetInt("http_port")
@@ -76,9 +76,9 @@ var rootCmd = &cobra.Command{
 		config.DBAddress = viper.GetString("db_addr")
 		config.FRRAddress = viper.GetString("frr_addr")
 
-		err:=infradb.NewInfraDB(config.DBAddress,config.Database)
+		err := infradb.NewInfraDB(config.DBAddress, config.Database)
 		if err != nil {
-			fmt.Printf("\n error in creating db %s",err)
+			fmt.Printf("\n error in creating db %s", err)
 		}
 		go runGatewayServer(config.GRPCPort, config.HTTPPort)
 
@@ -147,42 +147,44 @@ var rootCmd = &cobra.Command{
 			fmt.Printf("GetVRF VRF Name: %+v\n", br4)
 		}*/
 		runGrpcServer(config.GRPCPort, config.TLSFiles)
-        },
+	},
 }
 
 func init() {
 
-        cobra.OnInitialize(initConfig)
+	cobra.OnInitialize(initConfig)
 
-        rootCmd.PersistentFlags().StringVarP(&config.CfgFile, "config", "c", "/etc/evpn.yaml", "config file (default is /etc/infra/evpn.yaml)")
-        rootCmd.PersistentFlags().IntVar(&config.GRPCPort, "grpc_port", 50151, "The gRPC server port")
-        rootCmd.PersistentFlags().IntVar(&config.HTTPPort, "http_port", 8082, "The HTTP server port")
-        rootCmd.PersistentFlags().StringVar(&config.TLSFiles, "tls", "", "TLS files in server_cert:server_key:ca_cert format.")
-        rootCmd.PersistentFlags().StringVar(&config.DBAddress, "db_addr", "127.0.0.1:6379", "db address in ip_address:port format")
-        rootCmd.PersistentFlags().StringVar(&config.FRRAddress, "frr_addr", "127.0.0.1", "Frr address in ip_address format, no port")
-        rootCmd.PersistentFlags().StringVar(&config.Database, "database", "redis", "Database connection string")
+	rootCmd.PersistentFlags().StringVarP(&config.CfgFile, "config", "c", "/etc/evpn.yaml", "config file (default is /etc/infra/evpn.yaml)")
+	rootCmd.PersistentFlags().IntVar(&config.GRPCPort, "grpc_port", 50151, "The gRPC server port")
+	rootCmd.PersistentFlags().IntVar(&config.HTTPPort, "http_port", 8082, "The HTTP server port")
+	rootCmd.PersistentFlags().StringVar(&config.TLSFiles, "tls", "", "TLS files in server_cert:server_key:ca_cert format.")
+	rootCmd.PersistentFlags().StringVar(&config.DBAddress, "db_addr", "127.0.0.1:6379", "db address in ip_address:port format")
+	rootCmd.PersistentFlags().StringVar(&config.FRRAddress, "frr_addr", "127.0.0.1", "Frr address in ip_address format, no port")
+	rootCmd.PersistentFlags().StringVar(&config.Database, "database", "redis", "Database connection string")
 
-        if err := viper.GetViper().BindPFlags(rootCmd.PersistentFlags()); err != nil {
-                fmt.Printf("Error binding flags to Viper: %v\n", err)
-                os.Exit(1)
-        }
+	// Starting Task Manager process
+	task_manager.TaskMan.StartTaskManager()
+
+	if err := viper.GetViper().BindPFlags(rootCmd.PersistentFlags()); err != nil {
+		fmt.Printf("Error binding flags to Viper: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 func initConfig() {
 
-        if config.CfgFile != "" {
-                viper.SetConfigFile(config.CfgFile)
-        } else {
-                // Search config in the default location
-                viper.AddConfigPath(configFilePath)
-                viper.SetConfigType("yaml")
-                viper.SetConfigName("evpn.yaml")
-        }
+	if config.CfgFile != "" {
+		viper.SetConfigFile(config.CfgFile)
+	} else {
+		// Search config in the default location
+		viper.AddConfigPath(configFilePath)
+		viper.SetConfigType("yaml")
+		viper.SetConfigName("evpn.yaml")
+	}
 
-        if err := viper.ReadInConfig(); err == nil {
-                fmt.Println("Using config file:", viper.ConfigFileUsed())
-        }
-
+	if err := viper.ReadInConfig(); err == nil {
+		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	}
 
 }
 
@@ -191,43 +193,43 @@ func validateConfigs() error {
 
 	grpcPort := viper.GetInt("grpc_port")
 	if grpcPort <= 0 || grpcPort > 65535 {
-	    err = fmt.Errorf("GRPCPort must be a positive integer between 1 and 65535")
-	    return err
+		err = fmt.Errorf("GRPCPort must be a positive integer between 1 and 65535")
+		return err
 	}
 
 	httpPort := viper.GetInt("http_port")
 	if httpPort <= 0 || httpPort > 65535 {
-	    err = fmt.Errorf("HTTPPort must be a positive integer between 1 and 65535")
-	    return err
+		err = fmt.Errorf("HTTPPort must be a positive integer between 1 and 65535")
+		return err
 	}
 
 	dbAddr := viper.GetString("db_addr")
 	_, port, err := net.SplitHostPort(dbAddr)
 	if err != nil {
-	    err = fmt.Errorf("Invalid DBAddress format. It should be in ip_address:port format")
-	    return err
+		err = fmt.Errorf("Invalid DBAddress format. It should be in ip_address:port format")
+		return err
 	}
 
 	dbPort, err := strconv.Atoi(port)
 	if err != nil || dbPort <= 0 || dbPort > 65535 {
-	    err = fmt.Errorf("Invalid db port. It must be a positive integer between 1 and 65535")
-	    return err
+		err = fmt.Errorf("Invalid db port. It must be a positive integer between 1 and 65535")
+		return err
 	}
 
 	frrAddr := viper.GetString("frr_addr")
 	if net.ParseIP(frrAddr) == nil {
-	    err = fmt.Errorf("Invalid FRRAddress format. It should be a valid IP address")
-	    return err
+		err = fmt.Errorf("Invalid FRRAddress format. It should be a valid IP address")
+		return err
 	}
 
 	return nil
-    }
+}
 
 func main() {
-        if err := rootCmd.Execute(); err != nil {
-                fmt.Println(err)
-                os.Exit(1)
-        }
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 
 }
 
