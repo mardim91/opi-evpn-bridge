@@ -19,7 +19,8 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/proto"
 
-	pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
+	//pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
+	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pc "github.com/opiproject/opi-api/network/opinetcommon/v1alpha1/gen/go"
 	//"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils/mocks"
@@ -149,7 +150,7 @@ var (
 		Name: testVrfName,
 		Spec: testVrf.Spec,
 		Status: &pb.VrfStatus{
-			LocalAs: 4,
+			//LocalAs: 4, //no field in vrf
 		},
 	}
 )

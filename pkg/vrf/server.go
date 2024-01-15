@@ -9,7 +9,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 
-	pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
+	//pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
+	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 )
 
 // Server represents the Server object

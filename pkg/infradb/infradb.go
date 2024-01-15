@@ -9,9 +9,10 @@ import (
 	"github.com/philippgille/gokv"
 	"log"
 	"sync"
-	//"github.com/opiproject/opi-evpn-bridge/pkg/infradb/models"
-	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subsrciber_framework/event_bus"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
 	"github.com/opiproject/opi-evpn-bridge/pkg/storage"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/task_manager"
 )
 
 var infradb *InfraDB
@@ -158,7 +159,7 @@ func CreateVrf(vrf *Vrf) error {
 	}
 
 	for _, sub := range subscribers {
-		component := Component{Name: sub.Name, CompStatus: COMP_STATUS_PENDING, Details: ""}
+		component := common.Component{Name: sub.Name, CompStatus: common.COMP_STATUS_PENDING, Details: ""}
 		vrf.Status.Components = append(vrf.Status.Components, component)
 	}
 
@@ -170,9 +171,8 @@ func CreateVrf(vrf *Vrf) error {
 		return err
 	}
 
-	/* Create task manager task
-	taskMgr.CreateTask(vrf.name,vrf.ResourceVersion, subscribers )
-	*/
+	task_manager.TaskMan.CreateTask(vrf.Name, "VRF", vrf.ResourceVersion, subscribers )
+
 
 	return nil
 }
@@ -181,10 +181,28 @@ func DeleteVrf(Name string) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
-	err := infradb.client.Delete(Name)
+	/*err := infradb.client.Delete(Name)
 	if err != nil {
 		log.Fatal(err)
+	}*/
+	vrf := Vrf{}
+	found, err := infradb.client.Get(Name, &vrf)
+	if found != true {
+		return ErrKeyNotFound
 	}
+
+	vrf.ResourceVersion = generateVersion()
+	vrf.Status.VrfOperStatus = VRF_OPER_STATUS_TO_BE_DELETED
+
+	err = infradb.client.Set(vrf.Name, vrf)
+	if err != nil {
+		return err
+	}
+
+	/* Create task manager task
+	taskMgr.CreateTask(vrf.name,vrf.ResourceVersion, subscribers )
+	*/
+
 	return err
 }
 func GetVrf(Name string) (*Vrf, error) {
@@ -209,7 +227,7 @@ func UpdateVrf(vrf *Vrf) error {
 	vrf.ResourceVersion = generateVersion()
 
 	for _, component := range vrf.Status.Components {
-		component.CompStatus = COMP_STATUS_PENDING
+		component.CompStatus = common.COMP_STATUS_PENDING
 		fmt.Printf("Component: %s, Value: %d\n", component.Name, component.CompStatus)
 	}
 	err := infradb.client.Set(vrf.Name, vrf)
@@ -218,7 +236,7 @@ func UpdateVrf(vrf *Vrf) error {
 	}
 	return nil
 }
-func UpdateVrfStatus(Name string, resourceVersion string, component Component) error {
+func UpdateVrfStatus(Name string, resourceVersion string, notificationId string, component common.Component) error {
 
 	vrf := Vrf{}
 	found, err := infradb.client.Get(Name, &vrf)
@@ -244,6 +262,10 @@ func UpdateVrfStatus(Name string, resourceVersion string, component Component) e
 		}
 	}
 
+	/* Create task manager task
+	taskMgr.StatusUpdated(vrf.name,vrf.ResourceVersion, component )
+	*/
+
 	/*vrf.Status.Components = append(vrf.Status.Components, component)
 
 	err = infradb.client.Set(vrf.Name, vrf)
@@ -253,9 +275,7 @@ func UpdateVrfStatus(Name string, resourceVersion string, component Component) e
 		return err
 	}*/
 
-	/* Create task manager task
-	taskMgr.StatusUpdated(vrf.name,vrf.ResourceVersion, component )
-	*/
+
 
 	return nil
 }

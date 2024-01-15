@@ -16,7 +16,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
+	//pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
+	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 )
 
@@ -48,7 +49,7 @@ func (s *Server) validateBridgePortSpec(bp *pb.BridgePort) error {
 	}
 
 	// for Access type, the LogicalBridge list must have only one item
-	if bp.Spec.Ptype == pb.BridgePortType_ACCESS {
+	if bp.Spec.Ptype == pb.BridgePortType_BRIDGE_PORT_TYPE_ACCESS {
 		if bp.Spec.LogicalBridges == nil {
 			msg := fmt.Sprintf("LogicalBridges field cannot be empty when the Bridge Port is of type ACCESS")
 			return status.Errorf(codes.InvalidArgument, msg)
