@@ -11,11 +11,12 @@ import(
     "strconv"
     "io/ioutil"
     "reflect"
-    //"time"
+    "time"
     "net"
     "encoding/json"	
-    "github.com/opiproject/opi-evpn-bridge/pkg/infradb/subsrciber_framework/event_bus"
+    "github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
     "github.com/opiproject/opi-evpn-bridge/pkg/infradb" 
+    "github.com/opiproject/opi-evpn-bridge/pkg/infradb/common" 
 )
 
 type SubscriberConfig struct {
@@ -62,13 +63,13 @@ type Config struct {
 type ModulefrrHandler struct{}
 
 
-func (h *ModulefrrHandler) HandleEvent(eventType string, eventData *event_bus.EventData) {
+func (h *ModulefrrHandler) HandleEvent(eventType string, objectData *event_bus.ObjectData) {
 	switch eventType {
 		case "VRF"://"VRF_added":
-			var comp infradb.Component
-				VRF,err := infradb.GetVrf(eventData.Name)
+			var comp common.Component
+				VRF,err := infradb.GetVrf(objectData.Name)
 				if err != nil {
-					fmt.Printf("GetVRF error: %s %s\n", err,eventData.Name)
+					fmt.Printf("GetVRF error: %s %s\n", err,objectData.Name)
 						return
 				} else {
 					fmt.Printf("FRR :GetVRF Name: %s\n", VRF.Name)
@@ -81,27 +82,28 @@ func (h *ModulefrrHandler) HandleEvent(eventType string, eventData *event_bus.Ev
                 		    }
 		                }
 			if (VRF.Status.VrfOperStatus !=infradb.VRF_OPER_STATUS_TO_BE_DELETED){
-				detail,status := set_up_vrf(&VRF)
+				detail,status := set_up_vrf(VRF)
 					if (status == true) {
 						comp.Details= detail
-						comp.CompStatus= infradb.COMP_STATUS_SUCCESS
+						comp.CompStatus= common.COMP_STATUS_SUCCESS
 						comp.Name= "FRR"
 						comp.Timer = 0
 					} else {
+						fmt.Printf("FRR: Error case \n")
 						if comp.Timer ==0 {  // wait timer is 2 powerof natural numbers ex : 1,2,3... 	
-							comp.Timer=2
+							comp.Timer=2 * time.Second
 						} else {
-							comp.Timer=comp.Timer*2	
+							comp.Timer=comp.Timer*2 * time.Second	
 						}
 						comp.Name= "FRR"
-						comp.CompStatus= infradb.COMP_STATUS_ERROR
+						comp.CompStatus= common.COMP_STATUS_ERROR
 					}
 				fmt.Printf("%+v\n",comp) 	
-					infradb.UpdateVrfStatus(eventData.Name,eventData.ResourceVer,comp)
+					infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,comp)
 			} else {
-				status :=tear_down_vrf(&VRF)
+				status :=tear_down_vrf(VRF)
 				 if (status == true) {
-                                                comp.CompStatus= infradb.COMP_STATUS_SUCCESS
+                                                comp.CompStatus= common.COMP_STATUS_SUCCESS
                                                 comp.Name= "FRR"
                                                 comp.Timer = 0
                                         } else {
@@ -111,13 +113,13 @@ func (h *ModulefrrHandler) HandleEvent(eventType string, eventData *event_bus.Ev
                                                         comp.Timer=comp.Timer*2
                                                 }
                                                 comp.Name= "FRR"
-                                                comp.CompStatus= infradb.COMP_STATUS_ERROR
+                                                comp.CompStatus= common.COMP_STATUS_ERROR
                                         }
                         	        fmt.Printf("%+v\n",comp)
-                                        infradb.UpdateVrfStatus(eventData.Name,eventData.ResourceVer,comp)
+                                        infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,comp)
 			}
 		case "SVI":
-			SVI,_ := infradb.GetSvi(eventData.Name)
+			SVI,_ := infradb.GetSvi(objectData.Name)
 				//	    if (SVI.componant.operstatus!="TO_BE_DELETE"){
 				set_up_svi(&SVI)        
 				//	    } else {	  
@@ -261,6 +263,9 @@ type Bgp_vrf_cmd struct {
 
 func set_up_vrf(VRF *infradb.Vrf)(string,bool) {
 	//This function must not be executed for the VRF representing the GRD
+	Ifname := strings.Split(VRF.Name,"/")
+	ifwlen := len(Ifname)
+	VRF.Name  = Ifname[ifwlen-1]	
 	if VRF.Name == "GRD"{
 		return "", false
 	}
@@ -271,7 +276,7 @@ func set_up_vrf(VRF *infradb.Vrf)(string,bool) {
 		  vni_id := fmt.Sprintf("vni %s", strconv.Itoa(int(VRF.Spec.Vni)))
 		  CP ,err := run([]string{"vtysh","-c","conf","t","-c",vrf_name,"-c",vni_id,"-c","exit-vrf","-c","exit"},false)
 		  if (err != 0 || check_frr_result(CP,false)){
-			  fmt.Printf("FRR: Error in conf VRF/VNI conf command %s\n",CP)
+			  fmt.Printf("FRR: Error in conf VRF/VNI conf VRF/VNI %s %s command %s\n",vrf_name,vni_id,CP)
 				  return "",false
 		  }
 		  fmt.Printf("FRR: Executed frr config t %s %s exit-vrf exit\n",vrf_name,vni_id ) 	
@@ -328,7 +333,8 @@ cmd :=fmt.Sprintf("show bgp l2vpn evpn vni %s json", strconv.Itoa(int(VRF.Spec.V
 	     fmt.Printf("FRR: Executed show bgp vrf %s json\n",VRF.Name) 	
 details := fmt.Sprintf("{ \"rd\":\"%s\",\"rmac\":\"%s\",\"importRts\":[\"%s\"],\"exportRts\":[\"%s\"],\"localAS\":%d }",bgp_l2vpn.Rd,bgp_l2vpn.Rmac,bgp_l2vpn.ImportRts,bgp_l2vpn.ExportRts,bgp_vrf.LocalAS)
 		 fmt.Printf("FRR Details %s\n",details)
-		 return details,true
+		 //return details,true // Only for testing purpose
+		 return "",false
 	}
 	return "",false
 }
@@ -339,6 +345,9 @@ func check_frr_result(CP string,show bool)bool {
 
 func tear_down_vrf(VRF *infradb.Vrf)(bool) {//interface{}){
         //This function must not be executed for the VRF representing the GRD
+	Ifname := strings.Split(VRF.Name,"/")
+	ifwlen := len(Ifname)
+	VRF.Name  = Ifname[ifwlen-1]	
 	if VRF.Name == "GRD"{
 		return false
 	}

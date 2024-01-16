@@ -104,16 +104,17 @@ func (t *TaskManager) processTasks() {
 		task := t.taskQueue.Dequeue()
 		fmt.Printf("processTasks(): Task has been dequeued for processing: %+v\n", task)
 
+		subsToIterate := task.subs[task.sub_index:]
 	loopTwo:
-		for i, sub := range task.subs[task.sub_index:] {
+		for i, sub := range subsToIterate {
 			// TODO: We need a newObjectData function to create the ObjectData objects
 			objectData := &event_bus.ObjectData{
-				name:            task.name,
-				resourceVersion: task.resourceVersion,
+				Name:            task.name,
+				ResourceVersion: task.resourceVersion,
 				// We need this notificationId in order to tell if the status that we got
 				// in the taskStatusChan corresponds to the latest notificiation that we have sent or not.
 				// (e.g. Maybe you have a timeout on the subscribers and you got the notification after the timeout have passed)
-				notificationId: uuid.NewString(),
+				NotificationId: uuid.NewString(),
 			}
 			event_bus.EBus.Publish(objectData, sub)
 			fmt.Printf("processTasks(): Notification has been sent to subscriber %+v with data %+v\n", sub, objectData)
@@ -123,21 +124,22 @@ func (t *TaskManager) processTasks() {
 				// We have this for loop in order to assert that the taskStatus that recieved from the channel is related to the current task.
 				// We do that by checking the notificationId
 				// If not we just ignore the taskStatus that we have recieved and loop again.
+				taskStatus = nil
 				select {
 				case taskStatus = <-t.taskStatusChan:
 
 					fmt.Printf("processTasks(): Task Status has been received from the channel %+v\n", taskStatus)
-					if taskStatus.notificationId == objectData.notificationId {
-						fmt.Printf("processTasks(): received notification id %+v equals the sent notification id %+v\n", taskStatus.notificationId, objectData.notificationId)
+					if taskStatus.notificationId == objectData.NotificationId {
+						fmt.Printf("processTasks(): received notification id %+v equals the sent notification id %+v\n", taskStatus.notificationId, objectData.NotificationId)
 						break loopThree
 					}
-					fmt.Printf("processTasks(): received notification id %+v doesn't equal the sent notification id %+v\n", taskStatus.notificationId, objectData.notificationId)
+					fmt.Printf("processTasks(): received notification id %+v doesn't equal the sent notification id %+v\n", taskStatus.notificationId, objectData.NotificationId)
 
 				// We need a timeout in case that the subscriber doesn't update the status at all for whatever reason.
 				// If that occurs then we just take a note which subscriber need to revisit and we requeue the task without any timer
 				case <-time.After(30 * time.Second):
-					fmt.Printf("processTasks(): No task status has been received in the channel from subscriber %+v. The task %+v will be requeued immediately\n", sub, task)
-					task.sub_index = i
+					fmt.Printf("processTasks(): No task status has been received in the channel from subscriber %+v. The task %+v will be requeued immediately Task Status %+v\n", sub, task,taskStatus)
+					task.sub_index = task.sub_index + i
 					go t.taskQueue.Enqueue(task)
 					break loopThree
 				}
@@ -156,7 +158,7 @@ func (t *TaskManager) processTasks() {
 				continue loopTwo
 			default:
 				fmt.Printf("processTasks(): Subscriber %+v has not processed the task %+v succesfully\n", sub, task)
-				task.sub_index = i
+				task.sub_index = task.sub_index + i
 				task.retryTimer = taskStatus.component.Timer
 				fmt.Printf("processTasks(): The Task will be requeued after %+v\n", task.retryTimer)
 				time.AfterFunc(task.retryTimer, func() {

@@ -38,6 +38,9 @@ import (
 	//"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	//"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	frr "github.com/opiproject/opi-evpn-bridge/pkg/frr"
+        lgm "github.com/opiproject/opi-evpn-bridge/pkg/LinuxGeneralModule"
+        lvm "github.com/opiproject/opi-evpn-bridge/pkg/LinuxVendorModule"
 )
 
 const (
@@ -146,6 +149,9 @@ var rootCmd = &cobra.Command{
 		} else {
 			fmt.Printf("GetVRF VRF Name: %+v\n", br4)
 		}*/
+		lgm.Init()
+                lvm.Init()
+                frr.Init()
 		runGrpcServer(config.GRPCPort, config.TLSFiles)
 	},
 }

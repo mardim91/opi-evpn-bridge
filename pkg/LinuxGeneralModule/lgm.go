@@ -4,9 +4,10 @@ import (
         "io/ioutil"
         "log"
 	"reflect"
-//	"time"
-        "github.com/opiproject/opi-evpn-bridge/pkg/infradb/subsrciber_framework/event_bus"
+	"time"
+        "github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
         "github.com/opiproject/opi-evpn-bridge/pkg/infradb"
+        "github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
         "gopkg.in/yaml.v2"
         "os/exec"
 	"encoding/json"
@@ -55,51 +56,50 @@ func run(cmd []string,flag bool) (string, int) {
 }
 
 
-func (h *ModulelvmHandler) HandleEvent(eventType string, eventData *event_bus.EventData) {
+func (h *ModulelvmHandler) HandleEvent(eventType string, objectData *event_bus.ObjectData) {
         switch eventType {
         case "VRF":
-		var comp infradb.Component
-			VRF,err := infradb.GetVrf(eventData.Name)
+		var comp common.Component
+			VRF,err := infradb.GetVrf(objectData.Name)
 			if err != nil {
-				fmt.Printf("LGM: GetVRF error: %s %s\n", err,eventData.Name)
+				fmt.Printf("LGM: GetVRF error: %s %s\n", err,objectData.Name)
 					return
 			} else {
 				fmt.Printf("LGM : GetVRF Name: %s\n", VRF.Name)
 			}
-			  if (len(VRF.Status.Components) != 0 ){
+			 if (len(VRF.Status.Components) != 0 ){
                 		for i:=0;i<len(VRF.Status.Components);i++ {
 		                        if (VRF.Status.Components[i].Name == "LGM") {
                 	                comp = VRF.Status.Components[i]
                 		        }
         	        	}
 	       		  }
-
 		if (VRF.Status.VrfOperStatus !=infradb.VRF_OPER_STATUS_TO_BE_DELETED){
-                        details,status := set_up_vrf(&VRF)
+                        details,status := set_up_vrf(VRF)
 			 if (status == true) {
                                  comp.Details= details
-                                 comp.CompStatus= infradb.COMP_STATUS_SUCCESS
+                                 comp.CompStatus= common.COMP_STATUS_SUCCESS
                                  comp.Name= "LGM"
                                  comp.Timer = 0
                          } else {
                              if comp.Timer ==0 {  // wait timer is 2 powerof natural numbers ex : 1,2,3...
-                                   comp.Timer=2
+                                   comp.Timer=2 * time.Second
                              } else {
-                                   comp.Timer=comp.Timer*2
+                                   comp.Timer=comp.Timer*2 * time.Second
                              }
                              comp.Name= "LGM"
-                             comp.CompStatus= infradb.COMP_STATUS_ERROR
+                             comp.CompStatus= common.COMP_STATUS_ERROR
                           }
                    	   fmt.Printf("LGM: %+v\n",comp)
-                           infradb.UpdateVrfStatus(eventData.Name,eventData.ResourceVer,comp)
+                           infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,comp)
 		} else {
-		 status := tear_down_vrf(&VRF)
+		 status := tear_down_vrf(VRF)
 		   if (status == true){
-			comp.CompStatus = infradb.COMP_STATUS_SUCCESS
+			comp.CompStatus = common.COMP_STATUS_SUCCESS
 			comp.Name= "LGM"
 			comp.Timer=0	
 		   } else {
-                        comp.CompStatus= infradb.COMP_STATUS_ERROR
+                        comp.CompStatus= common.COMP_STATUS_ERROR
 			comp.Name= "LGM"
 			if comp.Timer ==0 {  // wait timer is 2 powerof natural numbers ex : 1,2,3...
                                comp.Timer=2
@@ -108,10 +108,10 @@ func (h *ModulelvmHandler) HandleEvent(eventType string, eventData *event_bus.Ev
                         }
 		   }
                    fmt.Printf("LGM: %+v\n",comp)
-                   infradb.UpdateVrfStatus(eventData.Name,eventData.ResourceVer,comp)
+                   infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,comp)
 		}
         case "SVI":
-                //handlesvi(eventData.Name)
+                //handlesvi(objectData.Name)
         default:
                 fmt.Println("LGM: error: Unknown event type %s", eventType)
 }
@@ -167,7 +167,10 @@ func set_up_vrf(VRF *infradb.Vrf)(string,bool) {
 	vtip := fmt.Sprintf("%+v",VRF.Spec.VtepIP.IP)
 	VNI := fmt.Sprintf("%+v",VRF.Spec.Vni)
 	routing_table  := fmt.Sprintf("%+v",VRF.Spec.Vni) 	
-	Ip_Mtu := fmt.Sprintf("%+v",ip_mtu) 	
+	Ip_Mtu := fmt.Sprintf("%+v",ip_mtu) 
+	Ifname := strings.Split(VRF.Name,"/")
+	ifwlen := len(Ifname)
+	VRF.Name  = Ifname[ifwlen-1]	
 	if VRF.Name == "GRD"{
                 return  "",false
         }
@@ -380,7 +383,10 @@ func tear_down_vrf(VRF *infradb.Vrf)bool {
 	if VRF.Name == "GRD"{
                 return false
         }
-	routing_table  := fmt.Sprintf("%+v",VRF.Spec.RoutingTable)
+	routing_table  := fmt.Sprintf("%+v",VRF.Spec.Vni)
+	Ifname := strings.Split(VRF.Name,"/")
+	ifwlen := len(Ifname)
+	VRF.Name  = Ifname[ifwlen-1]	
     // Delete the Linux networking artefacts in reverse order
     if (!reflect.ValueOf(VRF.Spec.Vni).IsZero()){
         CP,err :=run([]string{"ip","link","delete","vxlan-"+VRF.Name}, false)

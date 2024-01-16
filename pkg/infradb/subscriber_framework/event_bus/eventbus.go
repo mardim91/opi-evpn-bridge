@@ -24,13 +24,15 @@ type Subscriber struct {
 }
 
 type EventHandler interface {
-        HandleEvent(string, *EventData)
+        HandleEvent(string, *ObjectData)
 }
 
-type EventData struct {
-        ResourceVer float32
+type ObjectData struct {
+        ResourceVersion string
         Name string
+	NotificationId string
 }
+
 //Modules will call StartSubscriber to initialise and start listening for event eventType
 func (e *EventBus) StartSubscriber(moduleName, eventType string, priority int, eventHandler EventHandler) {
         subscriber := e.Subscribe(moduleName, eventType, priority, eventHandler)
@@ -43,8 +45,8 @@ func (e *EventBus) StartSubscriber(moduleName, eventType string, priority int, e
 
                                 handlerKey := moduleName + "." + eventType
                                 if handler, ok := e.eventHandlers[handlerKey]; ok {
-                                        if eventData, ok := event.(*EventData); ok {
-                                                handler.HandleEvent(eventType, eventData)
+                                        if objectData, ok := event.(*ObjectData); ok {
+                                                handler.HandleEvent(eventType, objectData)
                                         } else {
                                                 subscriber.Ch <- "error: unexpected event type"
                                         }
@@ -98,10 +100,10 @@ func (e *EventBus) GetSubscribers(eventType string) []*Subscriber {
 	return e.subscribers[eventType]
 }
 // Publish api notifies the subscribers with certain eventType
-func (e *EventBus) Publish(eventData *EventData, subscriber *Subscriber) {
+func (e *EventBus) Publish(objectData *ObjectData, subscriber *Subscriber) {
 	e.publishL.RLock()
 	defer e.publishL.RUnlock()
-	subscriber.Ch <- eventData
+	subscriber.Ch <- objectData
 }
 // Unsubscribex the subscriber, which delete the subscriber(all resourceses will be washed out)
 func (e *EventBus) Unsubscribe(subscriber *Subscriber) {

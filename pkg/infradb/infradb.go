@@ -153,7 +153,7 @@ func CreateVrf(vrf *Vrf) error {
 	defer globalLock.Unlock()
 
 	vrf.ResourceVersion = generateVersion()
-	subscribers := event_bus.EBus.GetSubscribers("vrf")
+	subscribers := event_bus.EBus.GetSubscribers("VRF")
 	if subscribers == nil {
 		fmt.Printf("No subscriber for Vrf: \n")
 	}
@@ -247,8 +247,9 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationId string,
 	vrf.ResourceVersion = resourceVersion
 
 	for i, comp := range vrf.Status.Components {
+		fmt.Printf("Infradb component.Name %s comp name %s \n",component.Name,comp.Name)
 		if comp.Name == component.Name {
-
+			
 			vrf.Status.Components[i] = component
 
 			err = infradb.client.Set(vrf.Name, vrf)
@@ -265,15 +266,17 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationId string,
 	/* Create task manager task
 	taskMgr.StatusUpdated(vrf.name,vrf.ResourceVersion, component )
 	*/
+	task_manager.TaskMan.StatusUpdated(vrf.Name,"VRF",vrf.ResourceVersion,notificationId,false, &component )
 
-	/*vrf.Status.Components = append(vrf.Status.Components, component)
+
+	vrf.Status.Components = append(vrf.Status.Components, component)
 
 	err = infradb.client.Set(vrf.Name, vrf)
 
 	if err != nil {
 		log.Fatal(err)
 		return err
-	}*/
+	}
 
 
 
