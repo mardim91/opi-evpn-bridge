@@ -6,13 +6,14 @@ package infradb
 import (
 	"errors"
 	"fmt"
-	"github.com/philippgille/gokv"
 	"log"
 	"sync"
-	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
-	"github.com/opiproject/opi-evpn-bridge/pkg/storage"
+
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/task_manager"
+	"github.com/opiproject/opi-evpn-bridge/pkg/storage"
+	"github.com/philippgille/gokv"
 )
 
 var infradb *InfraDB
@@ -171,8 +172,7 @@ func CreateVrf(vrf *Vrf) error {
 		return err
 	}
 
-	task_manager.TaskMan.CreateTask(vrf.Name, "VRF", vrf.ResourceVersion, subscribers )
-
+	task_manager.TaskMan.CreateTask(vrf.Name, "VRF", vrf.ResourceVersion, subscribers)
 
 	return nil
 }
@@ -213,7 +213,6 @@ func GetVrf(Name string) (*Vrf, error) {
 	vrf := Vrf{}
 	found, err := infradb.client.Get(Name, &vrf)
 
-
 	if !found {
 		return &vrf, ErrKeyNotFound
 	}
@@ -238,49 +237,82 @@ func UpdateVrf(vrf *Vrf) error {
 }
 func UpdateVrfStatus(Name string, resourceVersion string, notificationId string, component common.Component) error {
 
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	var lastCompSuccsess bool
+
+	// When we get an error from an operation to the Database then we just return it. The
+	// Task manager will just expire the task and retry.
 	vrf := Vrf{}
 	found, err := infradb.client.Get(Name, &vrf)
-	if found != true {
-		return ErrKeyNotFound
-	}
-
-	vrf.ResourceVersion = resourceVersion
-
-	for i, comp := range vrf.Status.Components {
-		fmt.Printf("Infradb component.Name %s comp name %s \n",component.Name,comp.Name)
-		if comp.Name == component.Name {
-			
-			vrf.Status.Components[i] = component
-
-			err = infradb.client.Set(vrf.Name, vrf)
-
-			if err != nil {
-				log.Fatal(err)
-				return err
-			}
-
-			return nil
-		}
-	}
-
-	/* Create task manager task
-	taskMgr.StatusUpdated(vrf.name,vrf.ResourceVersion, component )
-	*/
-	task_manager.TaskMan.StatusUpdated(vrf.Name,"VRF",vrf.ResourceVersion,notificationId,false, &component )
-
-
-	vrf.Status.Components = append(vrf.Status.Components, component)
-
-	err = infradb.client.Set(vrf.Name, vrf)
-
 	if err != nil {
 		log.Fatal(err)
 		return err
 	}
 
+	if !found {
+		// No VRF object has been found in the database so we will instruct TaskManager to drop the Task that is related with this status update.
+		task_manager.TaskMan.StatusUpdated(vrf.Name, "vrf", vrf.ResourceVersion, notificationId, true, &component)
+		fmt.Printf("UpdateVrfStatus(): No VRF object has been found in DB with Name %s\n", Name)
+		return nil
+	}
 
+	if vrf.ResourceVersion != resourceVersion {
+		// VRF object in the database with different resourceVersion so we will instruct TaskManager to drop the Task that is related with this status update.
+		task_manager.TaskMan.StatusUpdated(vrf.Name, "vrf", vrf.ResourceVersion, notificationId, true, &component)
+		fmt.Printf("UpdateVrfStatus(): Invalid resourceVersion %s for VRF %+v\n", resourceVersion, vrf)
+		return nil
+	}
+
+	vrfComponents := vrf.Status.Components
+	for i, comp := range vrfComponents {
+		compCounter := i + 1
+		if comp.Name == component.Name {
+
+			vrf.Status.Components[i] = component
+
+			if compCounter == len(vrfComponents) && vrf.Status.Components[i].CompStatus == common.COMP_STATUS_SUCCESS {
+				lastCompSuccsess = true
+			}
+
+			break
+		}
+
+	}
+
+	// Is it ok to delete an object before we update the last component status to success ?
+	if lastCompSuccsess {
+		if vrf.Status.VrfOperStatus == VRF_OPER_STATUS_TO_BE_DELETED {
+			err = infradb.client.Delete(vrf.Name)
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+			fmt.Printf("UpdateVrfStatus(): VRF %s has been deleted\n", Name)
+		} else {
+			vrf.Status.VrfOperStatus = VRF_OPER_STATUS_UP
+			err = infradb.client.Set(vrf.Name, vrf)
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+			fmt.Printf("UpdateVrfStatus(): VRF %s has been updated: %+v\n", Name, vrf)
+		}
+	} else {
+
+		err = infradb.client.Set(vrf.Name, vrf)
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
+		fmt.Printf("UpdateVrfStatus(): VRF %s has been updated: %+v\n", Name, vrf)
+	}
+
+	task_manager.TaskMan.StatusUpdated(vrf.Name, "vrf", vrf.ResourceVersion, notificationId, false, &component)
 
 	return nil
+
 }
 
 func CreateSvi(svi *Svi) error {
