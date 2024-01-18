@@ -153,18 +153,12 @@ func CreateVrf(vrf *Vrf) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
-	vrf.ResourceVersion = generateVersion()
 	subscribers := event_bus.EBus.GetSubscribers("vrf")
 	if subscribers == nil {
-		fmt.Printf("No subscriber for Vrf: \n")
+		fmt.Println("CreateVrf(): No subscribers for Vrf objects")
 	}
 
-	for _, sub := range subscribers {
-		component := common.Component{Name: sub.Name, CompStatus: common.COMP_STATUS_PENDING, Details: ""}
-		vrf.Status.Components = append(vrf.Status.Components, component)
-	}
-
-	fmt.Printf("Create Vrf: %+v\n", vrf)
+	fmt.Printf("CreateVrf(): Create Vrf: %+v\n", vrf)
 
 	err := infradb.client.Set(vrf.Name, vrf)
 	if err != nil {

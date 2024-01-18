@@ -6,12 +6,15 @@ package infradb
 
 import (
 	"encoding/binary"
+	"fmt"
 	"net"
+
 	//"time"
 	//pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pc "github.com/opiproject/opi-api/network/opinetcommon/v1alpha1/gen/go"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
 )
 
 type VRF_OPER_STATUS int32
@@ -27,33 +30,37 @@ const (
 	VRF_OPER_STATUS_TO_BE_DELETED = iota
 )
 
-/*type COMP_STATUS int
+/*
+type COMP_STATUS int
 
 const (
+
 	COMP_STATUS_UNSPECIFIED COMP_STATUS = iota + 1
 	COMP_STATUS_PENDING
 	COMP_STATUS_SUCCESS
 	COMP_STATUS_ERROR
+
 )
 
 // Vrf object, separate from protobuf for decoupling
 
-type Component struct {
-	Name       string
-	CompStatus COMP_STATUS
-	//Free format json string
-	Details string
-	Timer   time.Duration
-}*/
+	type Component struct {
+		Name       string
+		CompStatus COMP_STATUS
+		//Free format json string
+		Details string
+		Timer   time.Duration
+	}
+*/
 type VrfStatus struct {
 	VrfOperStatus VRF_OPER_STATUS
 	Components    []common.Component
 }
 type VrfSpec struct {
-	Name         string
-	Vni          uint32
-	LoopbackIP   net.IPNet
-	VtepIP       net.IPNet
+	Name       string
+	Vni        uint32
+	LoopbackIP net.IPNet
+	VtepIP     net.IPNet
 	//LocalAs      uint32
 	//RoutingTable uint32
 	//MacAddress   net.HardwareAddr
@@ -71,31 +78,38 @@ var _ EvpnObject[*pb.Vrf] = (*Vrf)(nil)
 
 // NewVrf creates new VRF object from protobuf message
 func NewVrf(in *pb.Vrf) *Vrf {
-	//mac := net.HardwareAddr(in.Status.Rmac)
+
+	var components []common.Component
+
 	loopip := make(net.IP, 4)
 	binary.BigEndian.PutUint32(loopip, in.Spec.LoopbackIpPrefix.Addr.GetV4Addr())
 	lip := net.IPNet{IP: loopip, Mask: net.CIDRMask(int(in.Spec.LoopbackIpPrefix.Len), 32)}
 	vtepip := make(net.IP, 4)
 	binary.BigEndian.PutUint32(vtepip, in.Spec.VtepIpPrefix.Addr.GetV4Addr())
 	vip := net.IPNet{IP: vtepip, Mask: net.CIDRMask(int(in.Spec.VtepIpPrefix.Len), 32)}
-	//return &Vrf{Spec.oopbackIP: lip, Spec.MacAddress: mac, Spec.RoutingTable: in.Status.RoutingTable,ResourceVersion:generateVersion()}
+
+	subscribers := event_bus.EBus.GetSubscribers("vrf")
+	if subscribers == nil {
+		fmt.Println("NewVrf(): No subscribers for Vrf objects")
+	}
+
+	for _, sub := range subscribers {
+		component := common.Component{Name: sub.Name, CompStatus: common.COMP_STATUS_PENDING, Details: ""}
+		components = append(components, component)
+	}
+
 	return &Vrf{
 		Name: in.Name,
 		Spec: VrfSpec{
-			Name:         in.Name,
-			Vni:          *in.Spec.Vni,
-			LoopbackIP:   lip,
-			VtepIP:       vip,
-			//LocalAs:      in.Status.LocalAs,
-			//RoutingTable: in.Status.RoutingTable,
-			//MacAddress:   mac,
+			Name:       in.Name,
+			Vni:        *in.Spec.Vni,
+			LoopbackIP: lip,
+			VtepIP:     vip,
 		},
 		Status: VrfStatus{
 			VrfOperStatus: VRF_OPER_STATUS(VRF_OPER_STATUS_DOWN),
-			/*Components: []Component{
-					{Name: "FRR", CompStatus: COMP_STATUS_PENDING, details: ""},
-					{Name: "Linux", CompStatus: COMP_STATUS_PENDING, details: ""},
-			},*/
+
+			Components: components,
 		},
 		ResourceVersion: generateVersion(),
 	}
