@@ -53,10 +53,10 @@ func run(cmd []string,flag bool) (string, int) {
 
 func (h *ModulelvmHandler) HandleEvent(eventType string, objectData *event_bus.ObjectData) {
 	switch eventType {
-	case "VRF":
+	case "vrf":
 		fmt.Printf("LVM recevied %s %s\n",eventType,objectData.Name)
 		handlevrf(objectData)
-	case "SVI":
+	case "svi":
 		handlesvi(objectData.Name)
 	default:
 		fmt.Println("error: Unknown event type %s", eventType)
@@ -76,39 +76,37 @@ func handlevrf(objectData *event_bus.ObjectData){
 	}
 	if (len(VRF.Status.Components) != 0 ){
 		for i:=0;i<len(VRF.Status.Components);i++ {
-			if (VRF.Status.Components[i].Name == "LVM") {
+			if (VRF.Status.Components[i].Name == "lvm") {
 				comp = VRF.Status.Components[i]
 			}
 		}	
 	}
 	if (VRF.Status.VrfOperStatus !=infradb.VRF_OPER_STATUS_TO_BE_DELETED){
-		status_update := configure_linux(VRF)
+		status_update := set_up_vrf(VRF)
+			comp.Name= "lvm"
 		if status_update == true {
 			comp.Details= ""
 			comp.CompStatus= common.COMP_STATUS_SUCCESS
-			comp.Name= "LVM"
 			comp.Timer = 0
 		} else {
 			if comp.Timer == 0 {
 				comp.Timer=2 * time.Second
 			}else {
-				comp.Timer = comp.Timer*2 * time.Second
+				comp.Timer = comp.Timer*2 
 			}
-			comp.Name= "LVM"
 			comp.CompStatus = common.COMP_STATUS_ERROR
 		}
 		infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,comp)
 	} else {
+			comp.Name= "lvm"
 		if tear_down_vrf(VRF) {
 			comp.CompStatus= common.COMP_STATUS_SUCCESS
-			comp.Name= "LVM"
 		} else {
 			if comp.Timer == 0 {
 				comp.Timer=2
 			} else {
 				comp.Timer = comp.Timer*2
 			}
-			comp.Name= "LVM"
 			comp.CompStatus = common.COMP_STATUS_ERROR
 			infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,comp)
 		}
@@ -136,7 +134,7 @@ func disable_rp_filter(Interface string ){
 }
 
 
-func configure_linux(VRF *infradb.Vrf)bool{
+func set_up_vrf(VRF *infradb.Vrf)bool{
 	fmt.Printf("LVM configure linux function \n")
 	Ifname := strings.Split(VRF.Name,"/")
 	ifwlen := len(Ifname)

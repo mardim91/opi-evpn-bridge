@@ -154,7 +154,7 @@ func CreateVrf(vrf *Vrf) error {
 	defer globalLock.Unlock()
 
 	vrf.ResourceVersion = generateVersion()
-	subscribers := event_bus.EBus.GetSubscribers("VRF")
+	subscribers := event_bus.EBus.GetSubscribers("vrf")
 	if subscribers == nil {
 		fmt.Printf("No subscriber for Vrf: \n")
 	}
@@ -172,7 +172,7 @@ func CreateVrf(vrf *Vrf) error {
 		return err
 	}
 
-	task_manager.TaskMan.CreateTask(vrf.Name, "VRF", vrf.ResourceVersion, subscribers)
+	task_manager.TaskMan.CreateTask(vrf.Name, "vrf", vrf.ResourceVersion, subscribers)
 
 	return nil
 }

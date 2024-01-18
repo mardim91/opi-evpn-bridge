@@ -58,7 +58,24 @@ func run(cmd []string,flag bool) (string, int) {
 
 func (h *ModulelvmHandler) HandleEvent(eventType string, objectData *event_bus.ObjectData) {
         switch eventType {
-        case "VRF":
+        case "vrf":
+	 	fmt.Printf("LGM recevied %s %s\n",eventType,objectData.Name)
+                handlevrf(objectData)
+        case "svi":
+		fmt.Printf("LGM recevied %s %s\n",eventType,objectData.Name)	
+                handlesvi(objectData.Name)
+        default:
+                fmt.Println("LGM: error: Unknown event type %s", eventType)
+}
+}
+
+
+func handlesvi(eventName string){
+        fmt.Printf("dummy %s\n", eventName)
+}
+
+
+func handlevrf(objectData *event_bus.ObjectData){
 		var comp common.Component
 			VRF,err := infradb.GetVrf(objectData.Name)
 			if err != nil {
@@ -69,40 +86,38 @@ func (h *ModulelvmHandler) HandleEvent(eventType string, objectData *event_bus.O
 			}
 			 if (len(VRF.Status.Components) != 0 ){
                 		for i:=0;i<len(VRF.Status.Components);i++ {
-		                        if (VRF.Status.Components[i].Name == "LGM") {
+		                        if (VRF.Status.Components[i].Name == "lgm") {
                 	                comp = VRF.Status.Components[i]
                 		        }
         	        	}
 	       		  }
 		if (VRF.Status.VrfOperStatus !=infradb.VRF_OPER_STATUS_TO_BE_DELETED){
                         details,status := set_up_vrf(VRF)
+                                 comp.Name= "lgm"
 			 if (status == true) {
                                  comp.Details= details
                                  comp.CompStatus= common.COMP_STATUS_SUCCESS
-                                 comp.Name= "LGM"
                                  comp.Timer = 0
                          } else {
                              if comp.Timer ==0 {  // wait timer is 2 powerof natural numbers ex : 1,2,3...
                                    comp.Timer=2 * time.Second
                              } else {
-                                   comp.Timer=comp.Timer*2 * time.Second
+                                   comp.Timer=comp.Timer*2 
                              }
-                             comp.Name= "LGM"
                              comp.CompStatus= common.COMP_STATUS_ERROR
                           }
                    	   fmt.Printf("LGM: %+v\n",comp)
                            infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,comp)
 		} else {
 		 status := tear_down_vrf(VRF)
+			comp.Name= "lgm"
 		   if (status == true){
 			comp.CompStatus = common.COMP_STATUS_SUCCESS
-			comp.Name= "LGM"
 			comp.Timer=0	
 		   } else {
                         comp.CompStatus= common.COMP_STATUS_ERROR
-			comp.Name= "LGM"
 			if comp.Timer ==0 {  // wait timer is 2 powerof natural numbers ex : 1,2,3...
-                               comp.Timer=2
+                               comp.Timer=2 * time.Second
                         } else {
                               comp.Timer=comp.Timer*2
                         }
@@ -110,11 +125,6 @@ func (h *ModulelvmHandler) HandleEvent(eventType string, objectData *event_bus.O
                    fmt.Printf("LGM: %+v\n",comp)
                    infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,comp)
 		}
-        case "SVI":
-                //handlesvi(objectData.Name)
-        default:
-                fmt.Println("LGM: error: Unknown event type %s", eventType)
-}
 }
 
 

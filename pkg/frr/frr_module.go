@@ -65,7 +65,29 @@ type ModulefrrHandler struct{}
 
 func (h *ModulefrrHandler) HandleEvent(eventType string, objectData *event_bus.ObjectData) {
 	switch eventType {
-		case "VRF"://"VRF_added":
+		case "vrf"://"VRF_added":
+			  fmt.Printf("FRR recevied %s %s\n",eventType,objectData.Name)
+	                  handlevrf(objectData)
+		case "svi":
+			  fmt.Printf("FRR recevied %s %s\n",eventType,objectData.Name)
+	                  handlesvi(objectData)
+		default:
+			fmt.Println("error: Unknown event type %s", eventType)
+	}
+}
+
+
+func handlesvi(objectData *event_bus.ObjectData){
+			SVI,_ := infradb.GetSvi(objectData.Name)
+	 //          if (SVI.componant.operstatus!="TO_BE_DELETE"){
+                                set_up_svi(&SVI)
+                                //          } else {
+                                //    case "SVI_deleted":
+                                tear_down_svi(&SVI)
+                                //          }
+}	
+
+func handlevrf(objectData *event_bus.ObjectData){
 			var comp common.Component
 				VRF,err := infradb.GetVrf(objectData.Name)
 				if err != nil {
@@ -76,62 +98,47 @@ func (h *ModulefrrHandler) HandleEvent(eventType string, objectData *event_bus.O
 				}
 				if (len(VRF.Status.Components) != 0 ){
         		            for i:=0;i<len(VRF.Status.Components);i++ {
-	                              if (VRF.Status.Components[i].Name == "FRR") {
+	                              if (VRF.Status.Components[i].Name == "frr") {
                                  	 comp = VRF.Status.Components[i]
                        		       }
                 		    }
 		                }
 			if (VRF.Status.VrfOperStatus !=infradb.VRF_OPER_STATUS_TO_BE_DELETED){
 				detail,status := set_up_vrf(VRF)
+						comp.Name= "frr"
 					if (status == true) {
 						comp.Details= detail
 						comp.CompStatus= common.COMP_STATUS_SUCCESS
-						comp.Name= "FRR"
 						comp.Timer = 0
 					} else {
-						fmt.Printf("FRR: Error case \n")
 						if comp.Timer ==0 {  // wait timer is 2 powerof natural numbers ex : 1,2,3... 	
 							comp.Timer=2 * time.Second
 						} else {
-							comp.Timer=comp.Timer*2 * time.Second	
+							comp.Timer=comp.Timer*2
 						}
-						comp.Name= "FRR"
 						comp.CompStatus= common.COMP_STATUS_ERROR
 					}
 				fmt.Printf("%+v\n",comp) 	
 					infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,comp)
 			} else {
 				status :=tear_down_vrf(VRF)
+                                                comp.Name= "frr"
 				 if (status == true) {
                                                 comp.CompStatus= common.COMP_STATUS_SUCCESS
-                                                comp.Name= "FRR"
                                                 comp.Timer = 0
                                         } else {
                                                 if comp.Timer ==0 {  // wait timer is 2 powerof natural numbers ex : 1,2,3...
-                                                        comp.Timer=2
+                                                        comp.Timer=2 * time.Second
+
                                                 } else {
                                                         comp.Timer=comp.Timer*2
                                                 }
-                                                comp.Name= "FRR"
                                                 comp.CompStatus= common.COMP_STATUS_ERROR
                                         }
                         	        fmt.Printf("%+v\n",comp)
                                         infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,comp)
 			}
-		case "SVI":
-			SVI,_ := infradb.GetSvi(objectData.Name)
-				//	    if (SVI.componant.operstatus!="TO_BE_DELETE"){
-				set_up_svi(&SVI)        
-				//	    } else {	  
-				//    case "SVI_deleted":
-				tear_down_svi(&SVI)        
-				//	    }
-		default:
-				fmt.Println("error: Unknown event type %s", eventType)
-	}
-}
-
-
+}			
 
 func run(cmd []string,flag bool) (string, int) {
 //  fmt.Println("FRR: Executing command", cmd)
