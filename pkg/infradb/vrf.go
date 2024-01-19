@@ -71,6 +71,10 @@ type Vrf struct {
 	Spec            VrfSpec
 	Status          VrfStatus
 	ResourceVersion string
+	// We add a pointer here because the default value of uint32 type is "0"
+	// and that can be considered a legit value. Using *uint32 the default value
+	// will be nil
+	RoutingTable *uint32
 }
 
 // build time check that struct implements interface

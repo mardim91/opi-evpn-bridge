@@ -33,8 +33,8 @@ func NewInfraDB(address string, dbtype string) error {
 
 	store, err := storage.NewStore(dbtype, address)
 	if err != nil {
-		return err
 		log.Fatal(err)
+		return err
 	}
 
 	infradb = &InfraDB{
