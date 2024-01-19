@@ -23,8 +23,8 @@ import (
 	//pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	//"github.com/opiproject/opi-evpn-bridge/pkg/utils"
-	"github.com/opiproject/opi-evpn-bridge/pkg/utils/mocks"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
+	"github.com/opiproject/opi-evpn-bridge/pkg/utils/mocks"
 )
 
 func sortVrfs(vrfs []*pb.Vrf) {
@@ -45,7 +45,6 @@ func (s *Server) createVrf(vrf *pb.Vrf) (*pb.Vrf, error) {
 	if err := infradb.CreateVrf(domainVrf); err != nil {
 		return nil, err
 	}
-	s.ListHelper[vrf.Name] = false
 	return domainVrf.ToPb(), nil
 }
 
@@ -55,8 +54,6 @@ func (s *Server) deleteVrf(name string) error {
 	if err := infradb.DeleteVrf(name); err != nil {
 		return err
 	}
-
-	delete(s.ListHelper, name)
 	return nil
 }
 
@@ -66,6 +63,19 @@ func (s *Server) getVrf(name string) (*pb.Vrf, error) {
 		return nil, err
 	}
 	return domainVrf.ToPb(), nil
+}
+
+func (s *Server) getAllVrfs() ([]*pb.Vrf, error) {
+	vrfs := []*pb.Vrf{}
+	domainVrfs, err := infradb.GetAllVrfs()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, domainVrf := range domainVrfs {
+		vrfs = append(vrfs, domainVrf.ToPb())
+	}
+	return vrfs, nil
 }
 
 func (s *Server) updateVrf(vrf *pb.Vrf) (*pb.Vrf, error) {

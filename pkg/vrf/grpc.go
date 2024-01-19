@@ -18,11 +18,11 @@ import (
 
 	//pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	"go.einride.tech/aip/resourceid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 )
 
 // CreateVrf executes the creation of the VRF
@@ -178,23 +178,15 @@ func (s *Server) ListVrfs(_ context.Context, in *pb.ListVrfsRequest) (*pb.ListVr
 	}
 	// fetch object from the database
 	Blobarray := []*pb.Vrf{}
-	// Dimitris: ListHelper is a  go map that helps on retrieving the objects
-	// from DB by name. The reason that we need it is because the DB doesn't support any
-	// List() function to retrieve all the VRF objects in one operation by using a prefix as key and not
-	// the full name. The prefix can be: "//network.opiproject.org/vrfs"
-	// In a replay scenario the List must be filled again as it will be out of sync with the DB status.
-	for key := range s.ListHelper {
-		vrfObj, err := s.getVrf(key)
-		if err != nil {
-			if err != badger.ErrKeyNotFound {
-				fmt.Printf("Failed to interact with store: %v", err)
-				return nil, err
-			}
-			err := status.Errorf(codes.NotFound, "unable to find key %s", key)
-			fmt.Printf("ListVrfs(): Vrf with id %v: Not Found %v", key, err)
+	Blobarray, err = s.getAllVrfs()
+	if err != nil {
+		if err != infradb.ErrKeyNotFound {
+			fmt.Printf("Failed to interact with store: %v", err)
 			return nil, err
 		}
-		Blobarray = append(Blobarray, vrfObj)
+		err := status.Errorf(codes.NotFound, "Error: %v", err)
+		fmt.Printf("ListVrfs(): %v", err)
+		return nil, err
 	}
 	// sort is needed, since MAP is unsorted in golang, and we might get different results
 	sortVrfs(Blobarray)

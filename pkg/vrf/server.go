@@ -17,18 +17,17 @@ import (
 type Server struct {
 	pb.UnimplementedVrfServiceServer
 	Pagination map[string]int
-	ListHelper map[string]bool
 	tracer     trace.Tracer
 }
 
 // NewServer creates initialized instance of EVPN server
 func NewServer() *Server {
 	return &Server{
-		ListHelper: make(map[string]bool),
 		Pagination: make(map[string]int),
 		tracer:     otel.Tracer(""),
 	}
 }
+
 /*func NewServerWithArgs(nLink utils.Netlink, frr utils.Frr, store gokv.Store) *Server {
 	if frr == nil {
 		log.Panic("nil for Frr is not allowed")

@@ -166,6 +166,24 @@ func CreateVrf(vrf *Vrf) error {
 		return err
 	}
 
+	// Add the New Created VRF to the "vrfs" map
+	vrfs := make(map[string]bool)
+	_, err = infradb.client.Get("vrfs", vrfs)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+	// The reason that we use a map and not a list is
+	// because in the delete case we can delete the vrf from the
+	// map by just using the name. No need to iterate the whole list until
+	// we find the vrf and then delete it.
+	vrfs[vrf.Name] = false
+	err = infradb.client.Set("vrfs", vrfs)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
 	task_manager.TaskMan.CreateTask(vrf.Name, "vrf", vrf.ResourceVersion, subscribers)
 
 	return nil
@@ -185,6 +203,7 @@ func DeleteVrf(Name string) error {
 		return ErrKeyNotFound
 	}
 
+	//Dimitris: Do we need to generateVersion again ? Why ?
 	vrf.ResourceVersion = generateVersion()
 	vrf.Status.VrfOperStatus = VRF_OPER_STATUS_TO_BE_DELETED
 
@@ -211,6 +230,41 @@ func GetVrf(Name string) (*Vrf, error) {
 		return &vrf, ErrKeyNotFound
 	}
 	return &vrf, err
+}
+
+func GetAllVrfs() ([]*Vrf, error) {
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	vrfs := []*Vrf{}
+	vrfsMap := make(map[string]bool)
+	found, err := infradb.client.Get("vrfs", vrfsMap)
+
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+
+	if !found {
+		fmt.Println("GetAllVrfs(): No VRFs has been found")
+		return nil, ErrKeyNotFound
+	}
+
+	for key := range vrfsMap {
+		vrf, err := GetVrf(key)
+		if err != nil {
+			if err != ErrKeyNotFound {
+				fmt.Printf("GetAllVrfs(): Failed to get the VRF %s store: %v", vrf.Name, err)
+				return nil, err
+			}
+			fmt.Printf("GetAllVrfs(): VRF %s not found: %v", vrf.Name, err)
+			return nil, err
+		}
+		vrfs = append(vrfs, vrf)
+	}
+
+	return vrfs, nil
+
 }
 func UpdateVrf(vrf *Vrf) error {
 
@@ -283,6 +337,25 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationId string,
 				log.Fatal(err)
 				return err
 			}
+
+			vrfs := make(map[string]bool)
+			found, err = infradb.client.Get("vrfs", vrfs)
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+			if !found {
+				fmt.Println("UpdateVrfStatus(): No VRFs has been found")
+				return ErrKeyNotFound
+			}
+
+			delete(vrfs, vrf.Name)
+			err = infradb.client.Set("vrfs", vrfs)
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+
 			fmt.Printf("UpdateVrfStatus(): VRF %s has been deleted\n", Name)
 		} else {
 			vrf.Status.VrfOperStatus = VRF_OPER_STATUS_UP
