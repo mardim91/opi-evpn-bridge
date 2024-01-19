@@ -168,7 +168,7 @@ func CreateVrf(vrf *Vrf) error {
 
 	// Add the New Created VRF to the "vrfs" map
 	vrfs := make(map[string]bool)
-	_, err = infradb.client.Get("vrfs", vrfs)
+	_, err = infradb.client.Get("vrfs", &vrfs)
 	if err != nil {
 		log.Fatal(err)
 		return err
@@ -178,7 +178,7 @@ func CreateVrf(vrf *Vrf) error {
 	// map by just using the name. No need to iterate the whole list until
 	// we find the vrf and then delete it.
 	vrfs[vrf.Name] = false
-	err = infradb.client.Set("vrfs", vrfs)
+	err = infradb.client.Set("vrfs", &vrfs)
 	if err != nil {
 		log.Fatal(err)
 		return err
@@ -238,7 +238,7 @@ func GetAllVrfs() ([]*Vrf, error) {
 
 	vrfs := []*Vrf{}
 	vrfsMap := make(map[string]bool)
-	found, err := infradb.client.Get("vrfs", vrfsMap)
+	found, err := infradb.client.Get("vrfs", &vrfsMap)
 
 	if err != nil {
 		log.Fatal(err)
@@ -339,7 +339,7 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationId string,
 			}
 
 			vrfs := make(map[string]bool)
-			found, err = infradb.client.Get("vrfs", vrfs)
+			found, err = infradb.client.Get("vrfs", &vrfs)
 			if err != nil {
 				log.Fatal(err)
 				return err
@@ -350,7 +350,7 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationId string,
 			}
 
 			delete(vrfs, vrf.Name)
-			err = infradb.client.Set("vrfs", vrfs)
+			err = infradb.client.Set("vrfs",&vrfs)
 			if err != nil {
 				log.Fatal(err)
 				return err

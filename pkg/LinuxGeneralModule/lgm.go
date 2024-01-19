@@ -93,7 +93,7 @@ func handlevrf(objectData *event_bus.ObjectData){
 	       		  }
 		if (VRF.Status.VrfOperStatus !=infradb.VRF_OPER_STATUS_TO_BE_DELETED){
                         details,status := set_up_vrf(VRF)
-                                 comp.Name= "lgm"
+			 comp.Name= "lgm"
 			 if (status == true) {
                                  comp.Details= details
                                  comp.CompStatus= common.COMP_STATUS_SUCCESS
@@ -106,7 +106,7 @@ func handlevrf(objectData *event_bus.ObjectData){
                              }
                              comp.CompStatus= common.COMP_STATUS_ERROR
                           }
-                   	   fmt.Printf("LGM: %+v\n",comp)
+			  fmt.Printf("LGM: %+v \n",comp)
                            infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,comp)
 		} else {
 		 status := tear_down_vrf(VRF)
@@ -268,6 +268,7 @@ func set_up_vrf(VRF *infradb.Vrf)(string,bool) {
 	fmt.Printf("LGM Executed : ip link set vxlan-%s master br-%s up mtu %s\n",VRF.Name,VRF.Name,Ip_Mtu)
    }	
 	details:=fmt.Sprintf("{\"routing_table\":\"%s\"}",routing_table)
+	VRF.RoutingTable= &VRF.Spec.Vni
 	return details,true	
 }
 

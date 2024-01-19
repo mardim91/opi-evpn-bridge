@@ -340,8 +340,7 @@ cmd :=fmt.Sprintf("show bgp l2vpn evpn vni %s json", strconv.Itoa(int(VRF.Spec.V
 	     fmt.Printf("FRR: Executed show bgp vrf %s json\n",VRF.Name) 	
 details := fmt.Sprintf("{ \"rd\":\"%s\",\"rmac\":\"%s\",\"importRts\":[\"%s\"],\"exportRts\":[\"%s\"],\"localAS\":%d }",bgp_l2vpn.Rd,bgp_l2vpn.Rmac,bgp_l2vpn.ImportRts,bgp_l2vpn.ExportRts,bgp_vrf.LocalAS)
 		 fmt.Printf("FRR Details %s\n",details)
-		 //return details,true // Only for testing purpose
-		 return "",false
+		 return details,true 
 	}
 	return "",false
 }
