@@ -66,15 +66,19 @@ type VrfSpec struct {
 	//MacAddress   net.HardwareAddr
 }
 
-type Vrf struct {
-	Name            string
-	Spec            VrfSpec
-	Status          VrfStatus
-	ResourceVersion string
+type VrfMetadata struct {
 	// We add a pointer here because the default value of uint32 type is "0"
 	// and that can be considered a legit value. Using *uint32 the default value
 	// will be nil
 	RoutingTable *uint32
+}
+
+type Vrf struct {
+	Name            string
+	Spec            VrfSpec
+	Status          VrfStatus
+	Metadata        *VrfMetadata
+	ResourceVersion string
 }
 
 // build time check that struct implements interface
@@ -115,6 +119,7 @@ func NewVrf(in *pb.Vrf) *Vrf {
 
 			Components: components,
 		},
+		Metadata:        &VrfMetadata{},
 		ResourceVersion: generateVersion(),
 	}
 }

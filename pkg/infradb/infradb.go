@@ -283,7 +283,7 @@ func UpdateVrf(vrf *Vrf) error {
 	}
 	return nil
 }
-func UpdateVrfStatus(Name string, resourceVersion string, notificationId string, component common.Component) error {
+func UpdateVrfStatus(Name string, resourceVersion string, notificationId string, vrfMeta *VrfMetadata, component common.Component) error {
 
 	globalLock.Lock()
 	defer globalLock.Unlock()
@@ -329,6 +329,11 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationId string,
 
 	}
 
+	// Parse the Metadata that has been sent from the Component
+	if vrfMeta != nil {
+		vrf.Metadata.RoutingTable = vrfMeta.RoutingTable
+	}
+
 	// Is it ok to delete an object before we update the last component status to success ?
 	if lastCompSuccsess {
 		if vrf.Status.VrfOperStatus == VRF_OPER_STATUS_TO_BE_DELETED {
@@ -350,7 +355,7 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationId string,
 			}
 
 			delete(vrfs, vrf.Name)
-			err = infradb.client.Set("vrfs",&vrfs)
+			err = infradb.client.Set("vrfs", &vrfs)
 			if err != nil {
 				log.Fatal(err)
 				return err
