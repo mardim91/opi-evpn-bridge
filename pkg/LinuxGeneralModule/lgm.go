@@ -107,7 +107,7 @@ func handlevrf(objectData *event_bus.ObjectData){
                              comp.CompStatus= common.COMP_STATUS_ERROR
                           }
 			  fmt.Printf("LGM: %+v \n",comp)
-                           infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,comp)
+                           infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,VRF.Metadata,comp)
 		} else {
 		 status := tear_down_vrf(VRF)
 			comp.Name= "lgm"
@@ -123,7 +123,7 @@ func handlevrf(objectData *event_bus.ObjectData){
                         }
 		   }
                    fmt.Printf("LGM: %+v\n",comp)
-                   infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,comp)
+                   infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
 		}
 }
 
@@ -268,7 +268,7 @@ func set_up_vrf(VRF *infradb.Vrf)(string,bool) {
 	fmt.Printf("LGM Executed : ip link set vxlan-%s master br-%s up mtu %s\n",VRF.Name,VRF.Name,Ip_Mtu)
    }	
 	details:=fmt.Sprintf("{\"routing_table\":\"%s\"}",routing_table)
-	VRF.RoutingTable= &VRF.Spec.Vni
+	VRF.Metadata.RoutingTable= &VRF.Spec.Vni
 	return details,true	
 }
 

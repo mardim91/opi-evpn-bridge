@@ -119,7 +119,7 @@ func handlevrf(objectData *event_bus.ObjectData){
 						comp.CompStatus= common.COMP_STATUS_ERROR
 					}
 				fmt.Printf("%+v\n",comp) 	
-					infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,comp)
+					infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
 			} else {
 				status :=tear_down_vrf(VRF)
                                                 comp.Name= "frr"
@@ -136,7 +136,7 @@ func handlevrf(objectData *event_bus.ObjectData){
                                                 comp.CompStatus= common.COMP_STATUS_ERROR
                                         }
                         	        fmt.Printf("%+v\n",comp)
-                                        infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,comp)
+                                        infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
 			}
 }			
 
