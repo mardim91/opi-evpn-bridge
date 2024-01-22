@@ -251,14 +251,17 @@ func GetAllVrfs() ([]*Vrf, error) {
 	}
 
 	for key := range vrfsMap {
-		vrf, err := GetVrf(key)
+		vrf := &Vrf{}
+		found, err := infradb.client.Get(key, vrf)
+
 		if err != nil {
-			if err != ErrKeyNotFound {
-				fmt.Printf("GetAllVrfs(): Failed to get the VRF %s store: %v", vrf.Name, err)
-				return nil, err
-			}
-			fmt.Printf("GetAllVrfs(): VRF %s not found: %v", vrf.Name, err)
+			fmt.Printf("GetAllVrfs(): Failed to get the VRF %s from store: %v", key, err)
 			return nil, err
+		}
+
+		if !found {
+			fmt.Printf("GetAllVrfs(): VRF %s not found", key)
+			return nil, ErrKeyNotFound
 		}
 		vrfs = append(vrfs, vrf)
 	}
