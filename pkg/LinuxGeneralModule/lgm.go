@@ -18,7 +18,7 @@ import (
         "strconv"
 )
 
-type ModulelvmHandler struct{}
+type ModulelgmHandler struct{}
 
 type SubscriberConfig struct {
         Name     string   `yaml:"name"`
@@ -56,7 +56,7 @@ func run(cmd []string,flag bool) (string, int) {
 }
 
 
-func (h *ModulelvmHandler) HandleEvent(eventType string, objectData *event_bus.ObjectData) {
+func (h *ModulelgmHandler) HandleEvent(eventType string, objectData *event_bus.ObjectData) {
         switch eventType {
         case "vrf":
 	 	fmt.Printf("LGM recevied %s %s\n",eventType,objectData.Name)
@@ -154,7 +154,7 @@ func Init() {
         for _, subscriberConfig := range config.Subscribers {
                 if subscriberConfig.Name == "lgm" {
                         for _, eventType := range subscriberConfig.Events {
-                                eb.StartSubscriber(subscriberConfig.Name, eventType, subscriberConfig.Priority, &ModulelvmHandler{})
+                                eb.StartSubscriber(subscriberConfig.Name, eventType, subscriberConfig.Priority, &ModulelgmHandler{})
                 	}
         	}
 	}
