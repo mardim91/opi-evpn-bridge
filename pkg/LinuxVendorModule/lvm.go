@@ -23,6 +23,7 @@ type Linux_frrConfig struct {
 	Default_vtep string   `yaml:"default_vtep"`
 	Port_mux     string   `yaml:"port_mux"`
 	Vrf_mux      string   `yaml:"vrf_mux"`
+	Ip_mtu       int      `yaml:"ip_mtu"`
 }
 
 type Config struct {
@@ -136,6 +137,7 @@ func disable_rp_filter(Interface string ){
 
 func set_up_vrf(VRF *infradb.Vrf)bool{
 	fmt.Printf("LVM configure linux function \n")
+	Ip_Mtu :=fmt.Sprintf("%+v",ip_mtu)	
 	Ifname := strings.Split(VRF.Name,"/")
 	ifwlen := len(Ifname)
 	VRF.Name  = Ifname[ifwlen-1]	
@@ -145,12 +147,12 @@ func set_up_vrf(VRF *infradb.Vrf)bool{
 		return false
 	}
 	fmt.Printf(" LVM: Executed ip link add link %s name rep-%s type vlan id %s\n",vrf_mux,VRF.Name,strconv.Itoa(int(VRF.Spec.Vni)))
-	out,err = run([]string{"ip","link","set","rep-"+VRF.Name,"master",VRF.Name,"up"},false)
+	out,err = run([]string{"ip","link","set","rep-"+VRF.Name,"master",VRF.Name,"up","mtu",Ip_Mtu},false)
 	if (err != 0){
 		fmt.Printf("LVM configure linux function ip link set rep-%s master %s: %s\n",VRF.Name,VRF.Name,out)
 		return false
 	}
-	fmt.Printf(" LVM: Executed ip link set rep-%s master %s up\n",VRF.Name,VRF.Name)
+	fmt.Printf(" LVM: Executed ip link set rep-%s master %s up mtu %s\n",VRF.Name,VRF.Name,Ip_Mtu)
 	disable_rp_filter("rep-"+VRF.Name)
 	return true
 }
@@ -170,6 +172,7 @@ func tear_down_vrf(VRF *infradb.Vrf)bool {
 	return true
 }
 
+var ip_mtu int
 func Init() {
 	config, err := readConfig("config.yaml")
 	if err != nil {
@@ -185,6 +188,7 @@ func Init() {
 	}
 	port_mux = config.Linux_frr.Port_mux
 	vrf_mux = config.Linux_frr.Vrf_mux
+	ip_mtu = config.Linux_frr.Ip_mtu	
 }
 
 func readConfig(filename string) (*Config, error) {

@@ -164,9 +164,9 @@ func Init() {
 }
 
 func routing_table_busy(table string) bool{
-    CP,err := run([]string{"ip","route","show","table", table}, false)
+    _,err := run([]string{"ip","route","show","table", table}, false)
     if (err != 0){
-         fmt.Println("%s\n",CP)
+         //fmt.Println("%s\n",CP)
          return false
     }
     return true //reflect.ValueOf(CP).IsZero() && len(CP)!= 0
