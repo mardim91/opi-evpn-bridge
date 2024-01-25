@@ -140,19 +140,21 @@ func set_up_vrf(VRF *infradb.Vrf)bool{
 	Ip_Mtu :=fmt.Sprintf("%+v",ip_mtu)	
 	Ifname := strings.Split(VRF.Name,"/")
 	ifwlen := len(Ifname)
-	VRF.Name  = Ifname[ifwlen-1]	
-	out,err := run([]string{"ip","link","add","link", vrf_mux, "name", "rep-"+VRF.Name, "type", "vlan", "id", strconv.Itoa(int(VRF.Spec.Vni))}, false)
-	if (err != 0){
-		fmt.Printf("LVM configure linux function ip link add link %s name rep-%s type vlan id %s : %s\n",vrf_mux,VRF.Name,strconv.Itoa(int(VRF.Spec.Vni)),out)
-		return false
+	VRF.Name  = Ifname[ifwlen-1]
+	if VRF.Name != "GRD" {
+		out,err := run([]string{"ip","link","add","link", vrf_mux, "name", "rep-"+VRF.Name, "type", "vlan", "id", strconv.Itoa(int(VRF.Spec.Vni))}, false)
+		if (err != 0){
+			fmt.Printf("LVM configure linux function ip link add link %s name rep-%s type vlan id %s : %s\n",vrf_mux,VRF.Name,strconv.Itoa(int(VRF.Spec.Vni)),out)
+			return false
+		}
+		fmt.Printf(" LVM: Executed ip link add link %s name rep-%s type vlan id %s\n",vrf_mux,VRF.Name,strconv.Itoa(int(VRF.Spec.Vni)))
+		out,err = run([]string{"ip","link","set","rep-"+VRF.Name,"master",VRF.Name,"up","mtu",Ip_Mtu},false)
+		if (err != 0){
+			fmt.Printf("LVM configure linux function ip link set rep-%s master %s: %s\n",VRF.Name,VRF.Name,out)
+			return false
+		}
+		fmt.Printf(" LVM: Executed ip link set rep-%s master %s up mtu %s\n",VRF.Name,VRF.Name,Ip_Mtu)
 	}
-	fmt.Printf(" LVM: Executed ip link add link %s name rep-%s type vlan id %s\n",vrf_mux,VRF.Name,strconv.Itoa(int(VRF.Spec.Vni)))
-	out,err = run([]string{"ip","link","set","rep-"+VRF.Name,"master",VRF.Name,"up","mtu",Ip_Mtu},false)
-	if (err != 0){
-		fmt.Printf("LVM configure linux function ip link set rep-%s master %s: %s\n",VRF.Name,VRF.Name,out)
-		return false
-	}
-	fmt.Printf(" LVM: Executed ip link set rep-%s master %s up mtu %s\n",VRF.Name,VRF.Name,Ip_Mtu)
 	disable_rp_filter("rep-"+VRF.Name)
 	return true
 }
