@@ -30,7 +30,7 @@ import (
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 	"github.com/opiproject/opi-evpn-bridge/pkg/vrf"
 	"github.com/opiproject/opi-smbios-bridge/pkg/inventory"
-	
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
@@ -38,12 +38,11 @@ import (
 	//"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	//"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	lgm "github.com/opiproject/opi-evpn-bridge/pkg/LinuxGeneralModule"
+	lvm "github.com/opiproject/opi-evpn-bridge/pkg/LinuxVendorModule"
 	frr "github.com/opiproject/opi-evpn-bridge/pkg/frr"
-        lgm "github.com/opiproject/opi-evpn-bridge/pkg/LinuxGeneralModule"
-        lvm "github.com/opiproject/opi-evpn-bridge/pkg/LinuxVendorModule"
 	netlink "github.com/opiproject/opi-evpn-bridge/pkg/netlink"
 	ipu "github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/intel/p4runtime/p4translation"
-
 )
 
 const (
@@ -153,10 +152,15 @@ var rootCmd = &cobra.Command{
 			fmt.Printf("GetVRF VRF Name: %+v\n", br4)
 		}*/
 		lgm.Init()
-                lvm.Init()
-                frr.Init()
+		lvm.Init()
+		frr.Init()
 		netlink.Init()
 		ipu.Init()
+
+		err = infradb.CreateGrdVrf()
+		if err != nil {
+			fmt.Printf("Error in creating GRD VRF %+v\n", err)
+		}
 
 		runGrpcServer(config.GRPCPort, config.TLSFiles)
 	},

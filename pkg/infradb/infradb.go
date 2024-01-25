@@ -188,6 +188,66 @@ func CreateVrf(vrf *Vrf) error {
 
 	return nil
 }
+
+// Dimitris: We need to address this case properly. As we have a
+// lot duplicated code.
+func CreateGrdVrf() error {
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	var components []common.Component
+
+	subscribers := event_bus.EBus.GetSubscribers("vrf")
+	if subscribers == nil {
+		fmt.Println("CreateGrdVrf(): No subscribers for Vrf objects")
+	}
+
+	for _, sub := range subscribers {
+		component := common.Component{Name: sub.Name, CompStatus: common.COMP_STATUS_PENDING, Details: ""}
+		components = append(components, component)
+	}
+
+	vrf := &Vrf{
+		Name: "//network.opiproject.org/vrfs/GRD",
+		Status: VrfStatus{
+			VrfOperStatus: VRF_OPER_STATUS(VRF_OPER_STATUS_DOWN),
+			Components:    components,
+		},
+		Metadata:        &VrfMetadata{},
+		ResourceVersion: generateVersion(),
+	}
+
+	fmt.Printf("CreateGrdVrf(): Create Grd Vrf: %+v\n", vrf)
+
+	err := infradb.client.Set(vrf.Name, vrf)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	// Add the New Created GRD VRF to the "vrfs" map
+	vrfs := make(map[string]bool)
+	_, err = infradb.client.Get("vrfs", &vrfs)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+	// The reason that we use a map and not a list is
+	// because in the delete case we can delete the vrf from the
+	// map by just using the name. No need to iterate the whole list until
+	// we find the vrf and then delete it.
+	vrfs[vrf.Name] = false
+	err = infradb.client.Set("vrfs", &vrfs)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	task_manager.TaskMan.CreateTask(vrf.Name, "vrf", vrf.ResourceVersion, subscribers)
+
+	return nil
+}
+
 func DeleteVrf(Name string) error {
 
 	globalLock.Lock()

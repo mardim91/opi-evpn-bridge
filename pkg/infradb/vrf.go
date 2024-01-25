@@ -57,7 +57,6 @@ type VrfStatus struct {
 	Components    []common.Component
 }
 type VrfSpec struct {
-	Name       string
 	Vni        uint32
 	LoopbackIP net.IPNet
 	VtepIP     net.IPNet
@@ -70,7 +69,7 @@ type VrfMetadata struct {
 	// We add a pointer here because the default value of uint32 type is "0"
 	// and that can be considered a legit value. Using *uint32 the default value
 	// will be nil
-	RoutingTable *uint32
+	RoutingTable []*uint32
 }
 
 type Vrf struct {
@@ -109,7 +108,6 @@ func NewVrf(in *pb.Vrf) *Vrf {
 	return &Vrf{
 		Name: in.Name,
 		Spec: VrfSpec{
-			Name:       in.Name,
 			Vni:        *in.Spec.Vni,
 			LoopbackIP: lip,
 			VtepIP:     vip,
