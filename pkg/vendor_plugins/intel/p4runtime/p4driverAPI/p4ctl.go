@@ -84,7 +84,7 @@ func Buildmfs(tablefield TableField) (map[string]client.MatchInterface, bool, er
 					fmt.Println("mask is:",maskSize)}
 			case net.IP:
 				if value[1].(string) == "lpm" {
-					mfs[key] = &client.LpmMatch{Value: value[0].(net.IP).To4(), PLen: 31}
+					mfs[key] = &client.LpmMatch{Value: value[0].(net.IP).To4(), PLen: 24}
 				}else if value[1].(string) == "ternary" {
 					isTernary = true
 					mfs[key] = &client.TernaryMatch{Value: []byte(v), Mask: uint32toBytes(4294967295)}
@@ -149,7 +149,7 @@ func mustMarshal(msg proto.Message) []byte {
 
 func Add_entry(Entry TableEntry) error {
 	Options := &client.TableEntryOptions{
-		Priority: Entry.TableField.Priority,
+		Priority: Entry.TableField.Priority+1,
 	}
 	mfs, isTernary, err := Buildmfs(Entry.TableField)
 	if err != nil {

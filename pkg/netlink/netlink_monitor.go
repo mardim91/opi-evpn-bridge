@@ -1217,7 +1217,7 @@ func  get_neighbor_routes() []Route_cmd_info{ // []map[string]string{
                 //if N.Type == PHY || N.Type == SVI {
                 if ((Name_index[N.Neigh0.LinkIndex] == "enp0s1f0d1" || Name_index[N.Neigh0.LinkIndex] == "enp0s1f0d3") && N.Neigh0.State == vn.NUD_REACHABLE ) {
 			vrf,_:=infradb.GetVrf(N.Vrf_name)
-			table := int(*vrf.Metadata.RoutingTable)
+			table := int(*vrf.Metadata.RoutingTable[0])
 			
                     //# Create a special route with dst == gateway to resolve
                     //# the nexthop to the existing neighbor
@@ -1317,14 +1317,15 @@ func read_route_from_ip(V *infradb.Vrf) {
 		var Rl Route_list
 		var rm []Route_cmd_info //map[string]string
 		//TODO
-		//for _,Rt := range V.Metadata.Routing_table {
-			Rt := int(*V.Metadata.RoutingTable)
-			Raw,err:=run([]string{"ip","-j","-d","route", "show","table",strconv.Itoa(Rt)})
+		//for _,Rt := range V.Metadata.RoutingTable {
+			Rt1 := int(*V.Metadata.RoutingTable[0])
+			//Rt1 := int(*Rt)
+			Raw,err:=run([]string{"ip","-j","-d","route", "show","table",strconv.Itoa(Rt1)})
 			if err != nil {
 				log.Printf("Err Command route\n")
 				return
 			}
-			Rl = cmd_process_Rt(V,Raw,int(Rt))
+			Rl = cmd_process_Rt(V,Raw,int(Rt1))
 			for _,R := range Rl.RS {
 		               add_route(R)
 			}

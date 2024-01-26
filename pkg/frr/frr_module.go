@@ -274,7 +274,7 @@ func set_up_vrf(VRF *infradb.Vrf)(string,bool) {
 	ifwlen := len(Ifname)
 	VRF.Name  = Ifname[ifwlen-1]	
 	if VRF.Name == "GRD"{
-		return "", false
+		return "", true
 	}
         bgp_vrf_name := fmt.Sprintf("router bgp 65000 vrf %s",VRF.Name)
 	if  (!reflect.ValueOf(VRF.Spec.Vni).IsZero()){
@@ -355,7 +355,7 @@ func tear_down_vrf(VRF *infradb.Vrf)(bool) {//interface{}){
 	ifwlen := len(Ifname)
 	VRF.Name  = Ifname[ifwlen-1]	
 	if VRF.Name == "GRD"{
-		return false
+		return true
 	}
 	// Clean up FRR last
 	if  (!reflect.ValueOf(VRF.Spec.Vni).IsZero()){

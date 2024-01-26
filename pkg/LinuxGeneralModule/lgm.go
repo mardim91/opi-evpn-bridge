@@ -180,9 +180,14 @@ func set_up_vrf(VRF *infradb.Vrf)(string,bool) {
 	Ip_Mtu := fmt.Sprintf("%+v",ip_mtu) 
 	Ifname := strings.Split(VRF.Name,"/")
 	ifwlen := len(Ifname)
-	VRF.Name  = Ifname[ifwlen-1]	
+	VRF.Name  = Ifname[ifwlen-1]
+	VRF.Metadata.RoutingTable = make([]*uint32, 2)
 	if VRF.Name == "GRD"{
-                return  "",false
+		VRF.Metadata.RoutingTable[0] = new(uint32)
+		VRF.Metadata.RoutingTable[1] = new(uint32)
+		*VRF.Metadata.RoutingTable[0] = 254
+		*VRF.Metadata.RoutingTable[1] = 255
+                return  "",true
         }
 	if routing_table_busy(routing_table) {
 		fmt.Printf("LGM :Routing table %s is not empty\n",routing_table)	
@@ -201,14 +206,14 @@ func set_up_vrf(VRF *infradb.Vrf)(string,bool) {
         	VRF.Spec.VtepIP = get_ip_address(default_vtep)
 	}
 	// Create the VRF interface for the specified routing table and add loopback address
-    	CP,err :=run([]string{"ip","link","add",VRF.Name,"type","vrf","table",routing_table},false)
+	CP,err :=run([]string{"ip","link","add",VRF.Name,"type","vrf","table",routing_table},false)
 	if err!=0 {
 		fmt.Printf("LGM: Error in exectuing command %s %s\n","link add VRF type vrf table ",routing_table)
 		fmt.Printf("%s\n",CP)	
 		return "",false	
 	}
 	fmt.Printf("LGM Executed : ip link add %s type vrf table %s\n",VRF.Name,routing_table)
-        CP,err = run([]string{"ip","link","set",VRF.Name,"up","mtu",Ip_Mtu},false)
+	CP,err = run([]string{"ip","link","set",VRF.Name,"up","mtu",Ip_Mtu},false)
 	if err!=0 {
 		fmt.Printf("LGM:Error in exectuing command %s %s\n","link set VRF MTU ",Ip_Mtu)	
 		fmt.Printf("%s\n",CP)	
@@ -223,8 +228,8 @@ func set_up_vrf(VRF *infradb.Vrf)(string,bool) {
 		return "",false
 	}
 	fmt.Printf("LGM Executed : ip address add %s dev %s\n",Lbip,VRF.Name)
-    //Add low-prio default route. Otherwise a miss leads to lookup in the next higher table
-        CP,err =run([]string{"ip","route","add","throw","default","table",routing_table,"proto","ipu_infra_mgr","metric","9999"},false)
+	//Add low-prio default route. Otherwise a miss leads to lookup in the next higher table
+	CP,err =run([]string{"ip","route","add","throw","default","table",routing_table,"proto","ipu_infra_mgr","metric","9999"},false)
 	if err!=0 {
 		fmt.Printf("LGM: Error in exectuing command %s %s\n","route add throw default table ",routing_table)	
 		fmt.Printf("%s\n",CP)	
@@ -234,7 +239,7 @@ func set_up_vrf(VRF *infradb.Vrf)(string,bool) {
 	// Disable reverse-path filtering to accept ingress traffic punted by the pipeline
 	//disable_rp_filter("rep-"+VRF.Name)
    // Configuration specific for VRFs associated with L3 EVPN
-    if (!reflect.ValueOf(VRF.Spec.Vni).IsZero()){
+	if (!reflect.ValueOf(VRF.Spec.Vni).IsZero()){
         // Create bridge for external VXLAN under VRF
         // Linux apparently creates a deterministic MAC address for a bridge type link with a given
         // name. We need to assign a true random MAC address to avoid collisions when pairing two
@@ -268,7 +273,7 @@ func set_up_vrf(VRF *infradb.Vrf)(string,bool) {
 	fmt.Printf("LGM Executed : ip link set vxlan-%s master br-%s up mtu %s\n",VRF.Name,VRF.Name,Ip_Mtu)
    }	
 	details:=fmt.Sprintf("{\"routing_table\":\"%s\"}",routing_table)
-	VRF.Metadata.RoutingTable= &VRF.Spec.Vni
+	VRF.Metadata.RoutingTable[0] = &VRF.Spec.Vni
 	return details,true	
 }
 
@@ -391,39 +396,39 @@ func get_ip_address(dev string)net.IPNet{
 
 
 func tear_down_vrf(VRF *infradb.Vrf)bool {
-	if VRF.Name == "GRD"{
-                return false
-        }
 	routing_table  := fmt.Sprintf("%+v",VRF.Spec.Vni)
 	Ifname := strings.Split(VRF.Name,"/")
 	ifwlen := len(Ifname)
-	VRF.Name  = Ifname[ifwlen-1]	
+	VRF.Name  = Ifname[ifwlen-1]
+	if VRF.Name == "GRD"{
+		return true
+	}
     // Delete the Linux networking artefacts in reverse order
-    if (!reflect.ValueOf(VRF.Spec.Vni).IsZero()){
-        CP,err :=run([]string{"ip","link","delete","vxlan-"+VRF.Name}, false)
-	if err !=0 {
-                fmt.Printf("LGM: Error in exectuing command %s %s\n","ip link deleted vxlan ",CP)
-                return false
-        }
-	fmt.Printf("LGM Executed : ip link delete vxlan-%s\n",VRF.Name)
-        CP,err =run([]string{"ip","link","delete","br-"+VRF.Name},false)
-	if err !=0 {
-                fmt.Printf("LGM: Error in exectuing command %s %s\n","ip link delete br-vrf ",CP)
-                return false
-        }
-	fmt.Printf("LGM Executed : ip link delete br-%s\n",VRF.Name)
-        CP,err =run([]string{"ip","route","flush","table",routing_table},false)
-	if err !=0 {
-                fmt.Printf("LGM: Error in exectuing command ip route flush table %s\n",routing_table,CP)
-                return false
-        }
-	fmt.Printf("LGM Executed : ip link flush table %s\n",routing_table)
-        CP,err =run([]string{"ip","link","delete",VRF.Name},false)
-	if err !=0 {
-                fmt.Printf("LGM: Error in exectuing command ip link delete %s: %s\n",VRF.Name,CP)
-                return false
-        }
-	fmt.Printf("LGM Executed : ip link delete  %s\n",VRF.Name)
-    }	
+	if (!reflect.ValueOf(VRF.Spec.Vni).IsZero()){
+		CP,err :=run([]string{"ip","link","delete","vxlan-"+VRF.Name}, false)
+		if err !=0 {
+			fmt.Printf("LGM: Error in exectuing command %s %s\n","ip link deleted vxlan ",CP)
+			return false
+		}
+		fmt.Printf("LGM Executed : ip link delete vxlan-%s\n",VRF.Name)
+		CP,err =run([]string{"ip","link","delete","br-"+VRF.Name},false)
+		if err !=0 {
+			fmt.Printf("LGM: Error in exectuing command %s %s\n","ip link delete br-vrf ",CP)
+			return false
+		}
+		fmt.Printf("LGM Executed : ip link delete br-%s\n",VRF.Name)
+		CP,err =run([]string{"ip","route","flush","table",routing_table},false)
+		if err !=0 {
+			fmt.Printf("LGM: Error in exectuing command ip route flush table %s\n",routing_table,CP)
+			return false
+		}
+		fmt.Printf("LGM Executed : ip link flush table %s\n",routing_table)
+		CP,err =run([]string{"ip","link","delete",VRF.Name},false)
+		if err !=0 {
+			fmt.Printf("LGM: Error in exectuing command ip link delete %s: %s\n",VRF.Name,CP)
+			return false
+		}
+		fmt.Printf("LGM Executed : ip link delete  %s\n",VRF.Name)
+	}
 	return true
 }

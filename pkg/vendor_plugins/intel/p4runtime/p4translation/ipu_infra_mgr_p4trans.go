@@ -567,30 +567,42 @@ func (h *ModuleipuHandler) HandleEvent(eventType string, objectData *event_bus.O
 }
 
 func offload_vrf(VRF *infradb.Vrf) (string, bool) {
+	Ifname := strings.Split(VRF.Name,"/")
+        ifwlen := len(Ifname)
+        VRF.Name  = Ifname[ifwlen-1]
+	if VRF.Name == "GRD" {
+		return "",true
+	}
 	var entries []interface{}
         entries = Vxlan.translate_added_vrf(VRF)
         for _, entry := range entries {
-                if e, ok := entry.(p4client.TableEntry); ok {
-                       p4client.Add_entry(e)
-                } else {
-                        fmt.Println("Entry is not of type p4client.TableEntry:-",e)
+		if e, ok := entry.(p4client.TableEntry); ok {
+			p4client.Add_entry(e)
+		} else {
+			fmt.Println("Entry is not of type p4client.TableEntry:-",e)
 			return "",false
-                }
-        }
+		}
+	}
 	return "",true
 }
 
 func tear_down_vrf(VRF *infradb.Vrf)bool {
+	Ifname := strings.Split(VRF.Name,"/")
+	ifwlen := len(Ifname)
+	VRF.Name  = Ifname[ifwlen-1]
+	if VRF.Name == "GRD" {
+		return true
+	}
 	var entries []interface{}
-        entries = Vxlan.translate_deleted_vrf(VRF)
+	entries = Vxlan.translate_deleted_vrf(VRF)
 	for _, entry := range entries {
-                if e, ok := entry.(p4client.TableEntry); ok {
-                        p4client.Del_entry(e)
-                } else {
-                        fmt.Println("Entry is not of type p4client.TableEntry")
+		if e, ok := entry.(p4client.TableEntry); ok {
+			p4client.Del_entry(e)
+		} else {
+			fmt.Println("Entry is not of type p4client.TableEntry")
 			return false
-                }
-        }
+		}
+	}
 	return true
 }
 
