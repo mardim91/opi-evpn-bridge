@@ -120,6 +120,13 @@ func (s *Server) UpdateVrf(ctx context.Context, in *pb.UpdateVrfRequest) (*pb.Vr
 		}
 		return response, nil
 	}
+
+	// Check if the object for update is currently in TO_BE_DELETED status
+	if err := checkTobeDeletedStatus(vrfObj); err != nil {
+		log.Printf("UpdateVrf(): Vrf with id %v, Error: %v", in.Vrf.Name, err)
+		return nil, err
+	}
+
 	// We do that because we need to see if the object before and after the application of the mask is equal.
 	// If it is the we just return the old object.
 	updatedvrfObj := utils.ProtoClone(vrfObj)

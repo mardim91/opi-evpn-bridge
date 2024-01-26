@@ -112,6 +112,14 @@ func generateRandMAC() ([]byte, error) {
 	return buf, nil
 }
 
+func checkTobeDeletedStatus(vrf *pb.Vrf) error {
+	if vrf.Status.OperStatus == pb.VRFOperStatus_VRF_OPER_STATUS_TO_BE_DELETED {
+		return fmt.Errorf("VRF %s in to be deleted status", vrf.Name)
+	}
+
+	return nil
+}
+
 // TODO: move all of this to a common place
 
 type testEnv struct {

@@ -253,30 +253,37 @@ func DeleteVrf(Name string) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
-	/*err := infradb.client.Delete(Name)
-	if err != nil {
-		log.Fatal(err)
-	}*/
+	var components []common.Component
+
+	subscribers := event_bus.EBus.GetSubscribers("vrf")
+	if subscribers == nil {
+		fmt.Println("DeleteVrf(): No subscribers for Vrf objects")
+	}
+
+	for _, sub := range subscribers {
+		component := common.Component{Name: sub.Name, CompStatus: common.COMP_STATUS_PENDING, Details: ""}
+		components = append(components, component)
+	}
+
 	vrf := Vrf{}
 	found, err := infradb.client.Get(Name, &vrf)
 	if found != true {
 		return ErrKeyNotFound
 	}
 
-	//Dimitris: Do we need to generateVersion again ? Why ?
+	// New resource generation is needed to distinguish from old objects
 	vrf.ResourceVersion = generateVersion()
 	vrf.Status.VrfOperStatus = VRF_OPER_STATUS_TO_BE_DELETED
+	vrf.Status.Components = components
 
 	err = infradb.client.Set(vrf.Name, vrf)
 	if err != nil {
 		return err
 	}
 
-	/* Create task manager task
-	taskMgr.CreateTask(vrf.name,vrf.ResourceVersion, subscribers )
-	*/
+	task_manager.TaskMan.CreateTask(vrf.Name, "vrf", vrf.ResourceVersion, subscribers)
 
-	return err
+	return nil
 }
 func GetVrf(Name string) (*Vrf, error) {
 
@@ -329,21 +336,25 @@ func GetAllVrfs() ([]*Vrf, error) {
 	return vrfs, nil
 
 }
+
 func UpdateVrf(vrf *Vrf) error {
 
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
-	vrf.ResourceVersion = generateVersion()
-
-	for _, component := range vrf.Status.Components {
-		component.CompStatus = common.COMP_STATUS_PENDING
-		fmt.Printf("Component: %s, Value: %d\n", component.Name, component.CompStatus)
+	subscribers := event_bus.EBus.GetSubscribers("vrf")
+	if subscribers == nil {
+		fmt.Println("CreateVrf(): No subscribers for Vrf objects")
 	}
+
 	err := infradb.client.Set(vrf.Name, vrf)
 	if err != nil {
 		log.Fatal(err)
+		return err
 	}
+
+	task_manager.TaskMan.CreateTask(vrf.Name, "vrf", vrf.ResourceVersion, subscribers)
+
 	return nil
 }
 func UpdateVrfStatus(Name string, resourceVersion string, notificationId string, vrfMeta *VrfMetadata, component common.Component) error {
