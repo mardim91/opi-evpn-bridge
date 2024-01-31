@@ -10,6 +10,7 @@ import (
 	"log"
 	"strconv"
         "time"
+	"path"
 	"google.golang.org/grpc"
 	p4client "github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/intel/p4runtime/p4driverAPI"
 	eb "github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/event_bus"
@@ -145,7 +146,6 @@ func handleRouteAdded(route interface{}) {
         //}
         for _, entry := range entries {
                 if e, ok := entry.(p4client.TableEntry); ok {
-                        fmt.Println("RouteAdded entry is:", e)
                         p4client.Add_entry(e)
                 } else {
 			fmt.Println("Entry is not of type p4client.TableEntry:-",e)
@@ -211,6 +211,7 @@ func handleNexthopAdded(nexthop interface{}) {
 	//entries = append(entries, Vxlan.translate_added_nexthop(nexthopData))
 	entries =  L3.translate_added_nexthop(nexthopData)
         //}
+
         for _, entry := range entries {
                 if e, ok := entry.(p4client.TableEntry); ok {
                         p4client.Add_entry(e)
@@ -267,7 +268,7 @@ func handleNexthopUpdated(nexthop interface{}) {
 	entries = Vxlan.translate_added_nexthop(nexthopData)
         for _, entry := range entries {
                 if e, ok := entry.(p4client.TableEntry); ok {
-                        p4client.Add_entry(e)
+                         p4client.Add_entry(e)
                 } else {
                         fmt.Println("Entry is not of type p4client.TableEntry")
                 }
@@ -567,10 +568,7 @@ func (h *ModuleipuHandler) HandleEvent(eventType string, objectData *event_bus.O
 }
 
 func offload_vrf(VRF *infradb.Vrf) (string, bool) {
-	Ifname := strings.Split(VRF.Name,"/")
-        ifwlen := len(Ifname)
-        VRF.Name  = Ifname[ifwlen-1]
-	if VRF.Name == "GRD" {
+	if path.Base(VRF.Name) == "GRD" {
 		return "",true
 	}
 	var entries []interface{}
@@ -587,10 +585,7 @@ func offload_vrf(VRF *infradb.Vrf) (string, bool) {
 }
 
 func tear_down_vrf(VRF *infradb.Vrf)bool {
-	Ifname := strings.Split(VRF.Name,"/")
-	ifwlen := len(Ifname)
-	VRF.Name  = Ifname[ifwlen-1]
-	if VRF.Name == "GRD" {
+	if path.Base(VRF.Name) == "GRD" {
 		return true
 	}
 	var entries []interface{}
@@ -610,7 +605,8 @@ func tear_down_vrf(VRF *infradb.Vrf)bool {
 func Init(){
 	//Netlink Listener
 	startSubscriber(nm.EventBus, "route_added")
-        /*startSubscriber(nm.EventBus, "route_updated")
+
+        startSubscriber(nm.EventBus, "route_updated")
         startSubscriber(nm.EventBus, "route_deleted")
         startSubscriber(nm.EventBus, "nexthop_added")
         startSubscriber(nm.EventBus, "nexthop_updated")
@@ -620,7 +616,7 @@ func Init(){
         startSubscriber(nm.EventBus, "fdb_entry_deleted")
         startSubscriber(nm.EventBus, "l2_nexthop_added")
         startSubscriber(nm.EventBus, "l2_nexthop_updated")
-        startSubscriber(nm.EventBus, "l2_nexthop_deleted")*/
+        startSubscriber(nm.EventBus, "l2_nexthop_deleted")
 
 	//InfraDB Listener
 
@@ -681,6 +677,7 @@ func Init(){
 	L3 = L3.L3DecoderInit(representors)
 	Pod = Pod.PodDecoderInit(representors)
 	//decoders = []interface{}{L3, Vxlan, Pod}
+	Vxlan = Vxlan.VxlanDecoderInit(representors)
 	L3entries := L3.Static_additions()
 	for _, entry := range L3entries {
 		if e, ok := entry.(p4client.TableEntry); ok {

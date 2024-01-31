@@ -77,11 +77,17 @@ func Buildmfs(tablefield TableField) (map[string]client.MatchInterface, bool, er
 				}else {
 					mfs[key] = &client.ExactMatch{Value: uint16toBytes(value[0].(uint16))}
 				}
-			case net.IPNet:
+			case *net.IPNet:
+				maskSize, _ := v.Mask.Size()
+				ip := v.IP.To4()
 				if value[1].(string) == "lpm" {
-					fmt.Println("ip is:",v.IP)
-					maskSize, _ := v.Mask.Size()
-					fmt.Println("mask is:",maskSize)}
+					mfs[key] = &client.LpmMatch{Value: v.IP.To4(), PLen: int32(maskSize)}
+				}else if value[1].(string) == "ternary" {
+					isTernary = true
+					mfs[key] = &client.TernaryMatch{Value: []byte(ip), Mask: uint32toBytes(4294967295)}
+				}else{
+					mfs[key] = &client.ExactMatch{Value: []byte(ip)}
+				}
 			case net.IP:
 				if value[1].(string) == "lpm" {
 					mfs[key] = &client.LpmMatch{Value: value[0].(net.IP).To4(), PLen: 24}
@@ -184,12 +190,12 @@ func Add_entry(Entry TableEntry) error {
 				return nil
 		}
 	}
-	
+
 	actionSet := P4RtC.NewTableActionDirect(Entry.Action.Action_name, params)
 	
 	if isTernary {
 		entry := P4RtC.NewTableEntry(Entry.Tablename, mfs, actionSet, Options)
-		fmt.Println("Table Name---",Entry.Tablename)
+		fmt.Println("isTernary Table Name---",Entry.Tablename)
 		fmt.Println("Rule----",entry)
 		return P4RtC.InsertTableEntry(Ctx, entry)
 	}else{

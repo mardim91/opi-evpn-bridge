@@ -11,6 +11,7 @@ import(
         netlink_polling "github.com/opiproject/opi-evpn-bridge/pkg/netlink"
 	binarypack "github.com/roman-kachanovsky/go-binary-pack/binary-pack"
         "github.com/opiproject/opi-evpn-bridge/pkg/infradb"
+	"encoding/json"
 )
 var TcamPrefix = struct{
 	GRD,VRF uint32
@@ -427,6 +428,13 @@ func _is_l3vpn_enabled(VRF *infradb.Vrf) uint32{
 	return VRF.Spec.Vni
 }
 
+func bigEndian16(id uint32) interface{}{
+	buf := make([]byte, 2)
+	binary.BigEndian.PutUint16(buf, uint16(id))
+	unpackedData := binary.BigEndian.Uint16(buf)
+	return unpackedData
+}
+
 func _big_endian_16(id interface{}) interface{}{
         var bp = new(binarypack.BinaryPack)
         var pack_format = []string{"H"}
@@ -475,7 +483,8 @@ func _directions_of(entry interface{}) []int{
         }
         if direction == int(netlink_polling.TX) || direction == int(netlink_polling.RX_TX){
 		directions = append(directions, Direction.Tx)
-	} else if direction == int(netlink_polling.RX) || direction == int(netlink_polling.RX_TX){
+	}
+	if direction == int(netlink_polling.RX) || direction == int(netlink_polling.RX_TX){
 		directions = append(directions, Direction.Rx)
 	}
 	return directions
@@ -580,7 +589,7 @@ type L3Decoder struct{
 func (l L3Decoder) L3DecoderInit(representors map[string][2]string)(L3Decoder){
 	s := L3Decoder{
 		_mux_vsi: l.set_mux_vsi(representors),
-		_default_vsi: 0x25,
+		_default_vsi: 0x6,
 		_phy_ports: l._get_phy_info(representors),
 		_grpc_ports: l._get_grpc_info(representors),
 	}
@@ -651,8 +660,8 @@ func (l L3Decoder) _l3_host_route(route netlink_polling.Route_struct, Delete str
         var vrf_id = l.get_vrf_id(route)
 	var directions = _directions_of(route)
 	//var host = _ip_addr(route.dst) //?? TODO
-	var host = route.Route0.Dst.IP.String() //?? TODO
-	//var host = route.Route0.Dst
+	//var host = route.Route0.Dst.IP.String() //?? TODO
+	var host = route.Route0.Dst
 	var entries []interface{}
 	if Delete == "TRUE"{
 		for _, dir := range directions {
@@ -662,8 +671,7 @@ func (l L3Decoder) _l3_host_route(route netlink_polling.Route_struct, Delete str
 				FieldValue: map[string][2]interface{}{
                                         "vrf": {_big_endian_16(vrf_id),"exact"},
                                         "direction": {uint16(dir),"exact"},
-                                        "dst_ip": /*{host}*/{net.ParseIP(host),"exact"},
-					//*"dst_ip": {host},"exact"},
+					"dst_ip": {host,"exact"},
                                 },
                                 Priority: int32(0),
 				},
@@ -675,15 +683,16 @@ func (l L3Decoder) _l3_host_route(route netlink_polling.Route_struct, Delete str
                                 Tablename: L3_RT_HOST,
                                 TableField: p4client.TableField{
                                 FieldValue: map[string][2]interface{}{
-                                        "vrf": {_big_endian_16(vrf_id),"exact"},
+                                        "vrf": {bigEndian16(vrf_id),"exact"},
                                         "direction": {uint16(dir),"exact"},
-                                        "dst_ip": {net.ParseIP(host),"exact"},
+                                        //"dst_ip": {net.ParseIP(host),"exact"},
+					"dst_ip": {host,"exact"},
                                 },
                                 Priority: int32(0),
                                 },
 				Action: p4client.Action{
                         	Action_name : "linux_networking_control.set_neighbor",
-                       	 	Params : []interface{}{route.Metadata["nh_ids"].(uint16)},
+                       	 	Params : []interface{}{uint16(route.Metadata["nh_ids"].(int))},
                         	},
                         })
                 }
@@ -768,7 +777,9 @@ func (l L3Decoder) translate_added_nexthop(nexthop netlink_polling.Nexthop_struc
         var key []interface{}
         key = append(key,nexthop.Key.VRF_name, nexthop.Key.Dst, nexthop.Key.Dev, nexthop.Key.Local)
         var mod_ptr = ptr_pool.get_id(EntryType.L3_NH, key)
-        var nh_id = _big_endian_16(nexthop.Id)
+	var nh_id interface{}
+
+	nh_id = uint16(nexthop.Id)
         var entries []interface{}
 
         if nexthop.Nh_type == netlink_polling.PHY{
@@ -800,7 +811,7 @@ func (l L3Decoder) translate_added_nexthop(nexthop netlink_polling.Nexthop_struc
                         },
                         Action: p4client.Action{
                                 Action_name : "linux_networking_control.push_mac",
-                                Params: []interface{}{uint32(mod_ptr), port_id.(uint16)},
+                                Params: []interface{}{uint32(mod_ptr), uint16(port_id.(int))},
                         },
                 })
         } else if (nexthop.Nh_type == netlink_polling.ACC){
@@ -918,7 +929,8 @@ func (l L3Decoder) translate_deleted_nexthop(nexthop netlink_polling.Nexthop_str
         var key []interface{}
         key = append(key,nexthop.Key.VRF_name, nexthop.Key.Dst, nexthop.Key.Dev, nexthop.Key.Local)
         var mod_ptr = ptr_pool.get_id(EntryType.L3_NH, key)
-        var nh_id = _big_endian_16(nexthop.Id)
+	var nh_id interface{}
+	nh_id = uint16(nexthop.Id)
             var entries []interface{}
 
         if nexthop.Nh_type  == netlink_polling.PHY{
@@ -1238,15 +1250,15 @@ func (l L3Decoder) Static_deletions() []interface{}{
 }
 
 type VxlanDecoder struct{
-        VXLAN_UDP_PORT int
+        VXLAN_UDP_PORT uint32
         _mux_vsi int
         _default_vsi int
 }
 func (v VxlanDecoder) VxlanDecoderInit(representors map[string][2]string)VxlanDecoder{
         var mux_vsi, _ = strconv.Atoi(representors["vrf_mux"][0])
         s := VxlanDecoder{
-                VXLAN_UDP_PORT: 4089,
-                _default_vsi: 0xa,
+                VXLAN_UDP_PORT: 4789,
+                _default_vsi: 0xb,
                 _mux_vsi: mux_vsi,
         }
         return s
@@ -1267,14 +1279,37 @@ func(v VxlanDecoder) translate_added_vrf(VRF *infradb.Vrf) []interface{}{
                 return entries
 	}*/
 	var tcam_prefix, _ = _get_tcam_prefix(VRF.Spec.Vni, Direction.Rx)
-
+	G,_ := infradb.GetVrf(VRF.Name)
+        var detail map[string]interface{}
+        var Rmac net.HardwareAddr
+        for _,com := range G.Status.Components {
+                        if com.Name == "frr" {
+                                err := json.Unmarshal([]byte(com.Details), &detail)
+                                if err != nil {
+                                        fmt.Println("Error:", err)
+                                }
+                                rmac,found := detail["rmac"].(string)
+                                if !found {
+                                        fmt.Println("Key 'rmac' not found")
+                                        break
+                                }
+                                Rmac, err = net.ParseMAC(rmac)
+                                if err != nil {
+                                        fmt.Println("Error parsing MAC address:", err)
+                                }
+                        }
+                }
+	if (reflect.ValueOf(Rmac).IsZero()){
+		fmt.Println("Rmac not found for Vtep :", VRF.Spec.VtepIP.IP)
+		return entries
+        }
 	entries = append(entries, p4client.TableEntry{
                         Tablename: PHY_IN_VXLAN,
                         TableField: p4client.TableField{
 				FieldValue: map[string][2]interface{}{
 					"dst_ip":{VRF.Spec.VtepIP.IP,"exact"},
 					"vni":{uint32(VRF.Spec.Vni),"exact"},
-					//"da": {VRF.Spec.MacAddress,"exact"},
+					"da": {Rmac,"exact"},
 				},
 				Priority: int32(0),
 			},
@@ -1298,7 +1333,7 @@ func (v VxlanDecoder) translate_deleted_vrf(VRF *infradb.Vrf) []interface{}{
                                 FieldValue: map[string][2]interface{}{
 					"dst_ip":{VRF.Spec.VtepIP.IP,"exact"},
 					"vni":{uint32(VRF.Spec.Vni),"exact"},
-					//"da": {VRF.Spec.MacAddress,"exact"},
+				//	"da": {Rmac,"exact"},
 				},
 				Priority: int32(0),
                         },
@@ -1357,7 +1392,8 @@ func (v VxlanDecoder) translate_deleted_lb(lb LogicalBridge) []interface{}{
         key = append(key,nexthop.Key.VRF_name, nexthop.Key.Dev,nexthop.Key.Dst, nexthop.Key.Dev, nexthop.Key.Local)
         
         var mod_ptr = ptr_pool.get_id(EntryType.L3_NH, key)
-        var nh_id = _big_endian_16(nexthop.Id)
+	var nh_id interface{}
+        nh_id = uint16(nexthop.Id)
 	var vport = nexthop.Metadata["egress_vport"].(int)
 	var smac, _ = net.ParseMAC(nexthop.Metadata["phy_smac"].(string))
         var dmac, _ = net.ParseMAC(nexthop.Metadata["phy_dmac"].(string))
@@ -1366,7 +1402,6 @@ func (v VxlanDecoder) translate_deleted_lb(lb LogicalBridge) []interface{}{
 	var vni = nexthop.Metadata["vni"]
 	var inner_smac_addr, _ = net.ParseMAC(nexthop.Metadata["inner_smac"].(string))
         var inner_dmac_addr, _ = net.ParseMAC(nexthop.Metadata["inner_dmac"].(string))
-        
         entries = append(entries, p4client.TableEntry{
                         Tablename: PUSH_VXLAN_HDR,
                         TableField: p4client.TableField{

@@ -181,14 +181,16 @@ func set_up_vrf(VRF *infradb.Vrf)(string,bool) {
 	Ifname := strings.Split(VRF.Name,"/")
 	ifwlen := len(Ifname)
 	VRF.Name  = Ifname[ifwlen-1]
-	VRF.Metadata.RoutingTable = make([]*uint32, 2)
 	if VRF.Name == "GRD"{
+		VRF.Metadata.RoutingTable = make([]*uint32, 2)
 		VRF.Metadata.RoutingTable[0] = new(uint32)
 		VRF.Metadata.RoutingTable[1] = new(uint32)
 		*VRF.Metadata.RoutingTable[0] = 254
 		*VRF.Metadata.RoutingTable[1] = 255
                 return  "",true
         }
+	VRF.Metadata.RoutingTable = make([]*uint32, 1)
+	VRF.Metadata.RoutingTable[0] = new(uint32)
 	if routing_table_busy(routing_table) {
 		fmt.Printf("LGM :Routing table %s is not empty\n",routing_table)	
 		//return "Error"
@@ -273,7 +275,7 @@ func set_up_vrf(VRF *infradb.Vrf)(string,bool) {
 	fmt.Printf("LGM Executed : ip link set vxlan-%s master br-%s up mtu %s\n",VRF.Name,VRF.Name,Ip_Mtu)
    }	
 	details:=fmt.Sprintf("{\"routing_table\":\"%s\"}",routing_table)
-	VRF.Metadata.RoutingTable[0] = &VRF.Spec.Vni
+	*VRF.Metadata.RoutingTable[0] = VRF.Spec.Vni
 	return details,true	
 }
 

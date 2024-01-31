@@ -322,6 +322,7 @@ func NH_parse(V *infradb.Vrf ,Nh Route_cmd_info)  Nexthop_struct {
 		if !reflect.ValueOf(Nh.Dev).IsZero() {
 			vrf, _ := vn.LinkByName(Nh.Dev)
                         nh.NH.LinkIndex = vrf.Attrs().Index
+			Name_index[nh.NH.LinkIndex] = vrf.Attrs().Name
 		 }
 		if  len(Nh.Flags) !=0{
 			nh.NH.Flags = get_flags(Nh.Flags[0])
@@ -393,13 +394,13 @@ func (route Route_struct) annotate() Route_struct{
 	if route.Vrf.Spec.Vni != 0 {
 		route.Metadata["vrf_id"] = route.Vrf.Spec.Vni
 	} else {
-		route.Metadata["vrf_id"] = ""
+		route.Metadata["vrf_id"] = 0
 	}
 	if len(route.Nexthops) != 0{
 		NH := route.Nexthops[0]
-		if route.Vrf.Spec.Vni != 0{ // GRD
+		if route.Vrf.Spec.Vni == 0{ // GRD
 			if NH.Nh_type == PHY{
-				route.Metadata["direction"] = TX
+				route.Metadata["direction"] = RX_TX
 			} else if NH.Nh_type == ACC{
 				route.Metadata["direction"] = RX
 			} else { 
@@ -407,7 +408,7 @@ func (route Route_struct) annotate() Route_struct{
 			}
 		} else {
 			if NH.Nh_type == VXLAN{
-				route.Metadata["direction"] = TX
+				route.Metadata["direction"] = RX_TX
 			} else if (NH.Nh_type == SVI || NH.Nh_type == ACC){
 				route.Metadata["direction"] = RX_TX
 			} else {
@@ -458,6 +459,9 @@ var  Route_slice []Route_struct
 func Parse_Route(V *infradb.Vrf, Rm []Route_cmd_info,T int) Route_list{
 	var route Route_list
 	for _,Ro := range Rm {
+		if(reflect.ValueOf(Ro.Type).IsZero() && (!reflect.ValueOf(Ro.Dev).IsZero() || !reflect.ValueOf(Ro.Gateway).IsZero())){
+			Ro.Type = "local"
+		}
 		var rs Route_struct
 		rs.Vrf =V
 		if !reflect.ValueOf(Ro.Nhid).IsZero()||!reflect.ValueOf(Ro.Gateway).IsZero() || !reflect.ValueOf(Ro.Dev).IsZero(){
@@ -478,7 +482,7 @@ func Parse_Route(V *infradb.Vrf, Rm []Route_cmd_info,T int) Route_list{
 				Mask,_=strconv.Atoi(split4[1])
 				split = split4[0]
 			} else {
-				Mask=0
+				Mask=32
 			}
 			 var nIP *net.IPNet
                                 if Ro.Dst == "default" {
@@ -799,8 +803,8 @@ type  Neigh_list struct {
 }
 
 func  neighbor_annotate(neighbor Neigh_Struct)Neigh_Struct{
-        if strings.HasPrefix(neighbor.Dev, neighbor.Vrf_name) &&  neighbor.Protocol != "zebra"{
-                pattern := fmt.Sprintf(`%s-\d+$`,neighbor.Vrf_name)
+        if strings.HasPrefix(neighbor.Dev, path.Base(neighbor.Vrf_name)) &&  neighbor.Protocol != "zebra"{
+                pattern := fmt.Sprintf(`%s-\d+$`,path.Base(neighbor.Vrf_name))
                 mustcompile := regexp.MustCompile(pattern)
                 s := mustcompile.FindStringSubmatch(neighbor.Dev)
                 vlan_id := strings.Split(s[0],"-")[1]
@@ -816,10 +820,9 @@ func  neighbor_annotate(neighbor Neigh_Struct)Neigh_Struct{
                         neighbor.Type = None;
                 }
                 logger.exception(f"Failed to lookup egress vport for SVI neighbor {self}")*/
-        } else if neighbor.Vrf_name == "GRD" && neighbor.Protocol != "zebra"{
+        } else if path.Base(neighbor.Vrf_name) == "GRD" && neighbor.Protocol != "zebra"{
                 for d, _ := range phy_ports{
                         if neighbor.Dev == d{
-				//fmt.Printf("%+v\n",neighbor)
                                 neighbor.Type = PHY
                                 neighbor.Metadata["vport_id"] = string(phy_ports[d]) //neighbor.Dev]
                         }
@@ -1213,7 +1216,6 @@ func  get_neighbor_routes() []Route_cmd_info{ // []map[string]string{
             //on physical and SVI interfaces.
 	    var neighbor_routes []Route_cmd_info //[]map[string]string
             for _,N := range LatestNeighbors{
-
                 //if N.Type == PHY || N.Type == SVI {
                 if ((Name_index[N.Neigh0.LinkIndex] == "enp0s1f0d1" || Name_index[N.Neigh0.LinkIndex] == "enp0s1f0d3") && N.Neigh0.State == vn.NUD_REACHABLE ) {
 			vrf,_:=infradb.GetVrf(N.Vrf_name)
@@ -1317,9 +1319,8 @@ func read_route_from_ip(V *infradb.Vrf) {
 		var Rl Route_list
 		var rm []Route_cmd_info //map[string]string
 		//TODO
-		//for _,Rt := range V.Metadata.RoutingTable {
-			Rt1 := int(*V.Metadata.RoutingTable[0])
-			//Rt1 := int(*Rt)
+		for _,Rt := range V.Metadata.RoutingTable {
+			Rt1 := int(*Rt)
 			Raw,err:=run([]string{"ip","-j","-d","route", "show","table",strconv.Itoa(Rt1)})
 			if err != nil {
 				log.Printf("Err Command route\n")
@@ -1329,7 +1330,7 @@ func read_route_from_ip(V *infradb.Vrf) {
 			for _,R := range Rl.RS {
 		               add_route(R)
 			}
-		//}
+		}
 		nl :=get_neighbor_routes()   //Add extra routes for Resolved neighbors on connected subnets
 		for i:=0;i<len(nl);i++{
 			rm = append(rm,nl[i])
@@ -1445,7 +1446,7 @@ func lookup_route(dst net.IP, V *infradb.Vrf)Route_struct{
 	var CP string
 	var err error
 	if V.Spec.Vni!=0{
-		CP,err = run([]string{"ip", "-j", "route", "get", dst.String(), "vrf" ,V.Name, "fibmatch"})
+		CP,err = run([]string{"ip", "-j", "route", "get", dst.String(), "vrf" ,path.Base(V.Name), "fibmatch"})
 	} else{
 		CP,err = run([]string{"ip", "-j", "route", "get", dst.String(), "fibmatch"})
 	}
@@ -1453,7 +1454,7 @@ func lookup_route(dst net.IP, V *infradb.Vrf)Route_struct{
 		log.Fatal("Command error\n")
 		return Route_struct{} 
 	}
-	R := cmd_process_Rt(V, CP,254)
+	R := cmd_process_Rt(V, CP, int(*V.Metadata.RoutingTable[0]))
 	log.Printf("%+v\n",R)
 	if len(R.RS)!=0 {
 		R1:= R.RS[0]
@@ -1481,7 +1482,14 @@ func lookup_route(dst net.IP, V *infradb.Vrf)Route_struct{
 
 func (nexthop Nexthop_struct)annotate() Nexthop_struct{
 	    nexthop.Metadata=make(map[interface{}]interface{})
-	if (!reflect.ValueOf(nexthop.NH.Gw).IsZero()) && nexthop.NH.LinkIndex != 0 && strings.HasPrefix(Name_index[nexthop.NH.LinkIndex], nexthop.Vrf.Name+"-") && !nexthop.Local {
+	    var phy_flag bool
+	    phy_flag = false
+	    for k, _ := range phy_ports{
+		    if Name_index[nexthop.NH.LinkIndex] == k{
+			    phy_flag = true
+		    }
+	    }
+	if (!reflect.ValueOf(nexthop.NH.Gw).IsZero()) && nexthop.NH.LinkIndex != 0 && strings.HasPrefix(Name_index[nexthop.NH.LinkIndex], path.Base(nexthop.Vrf.Name)+"-") && !nexthop.Local {
 		nexthop.Nh_type = SVI
 		link, _ := vn.LinkByName(Name_index[nexthop.NH.LinkIndex])
 		nexthop.Metadata["smac"] = link.Attrs().HardwareAddr.String()
@@ -1496,9 +1504,7 @@ func (nexthop Nexthop_struct)annotate() Nexthop_struct{
 			nexthop.Resolved = false
 			log.Printf("Failed to gather data for nexthop on physical port\n")
 		}
-    } else if (!reflect.ValueOf(nexthop.NH.Gw).IsZero()) && !nexthop.Local{
-		for _, k := range phy_ports{
-			if nexthop.NH.LinkIndex == k{
+    } else if (!reflect.ValueOf(nexthop.NH.Gw).IsZero()) && phy_flag && !nexthop.Local{
 				nexthop.Nh_type = PHY
 				link1, _ := vn.LinkByName(Name_index[nexthop.NH.LinkIndex])
 				if link1 == nil{
@@ -1506,7 +1512,6 @@ func (nexthop Nexthop_struct)annotate() Nexthop_struct{
 				}
 				nexthop.Metadata["smac"] =  link1.Attrs().HardwareAddr.String()
 				nexthop.Metadata["egress_vport"] = phy_ports[nexthop.NH.Gw.String()]
-			}
 			if (!reflect.ValueOf(nexthop.Neighbor).IsZero()) {
 				if nexthop.Neighbor.Type == PHY{
 					nexthop.Metadata["dmac"] = nexthop.Neighbor.Neigh0.HardwareAddr.String()
@@ -1515,21 +1520,40 @@ func (nexthop Nexthop_struct)annotate() Nexthop_struct{
 				nexthop.Resolved = false	
 				log.Printf("Failed to gather data for nexthop on physical port")
 			}
-		}	
-	} else if (!reflect.ValueOf(nexthop.NH.Gw).IsZero()) && Name_index[nexthop.NH.LinkIndex] == fmt.Sprintf("br-%s",nexthop.Vrf.Name) && !nexthop.Local{
+	} else if (!reflect.ValueOf(nexthop.NH.Gw).IsZero()) && Name_index[nexthop.NH.LinkIndex] == fmt.Sprintf("br-%s",path.Base(nexthop.Vrf.Name)) && !nexthop.Local{
 		nexthop.Nh_type = VXLAN
-		//nexthop.Metadata["inner_smac"] = nexthop.vrf.Rmac   //Need infra DB support for the getting RMAC info in vrf
-		//TODO
-		/*if (reflect.ValueOf(nexthop.Vrf.Rmac).IsZero()){
+		G,_ := infradb.GetVrf(nexthop.Vrf.Name)
+		var detail map[string]interface{}
+		var Rmac net.HardwareAddr
+		for _,com := range G.Status.Components {
+			if com.Name == "frr" {
+				err := json.Unmarshal([]byte(com.Details), &detail)
+				if err != nil {
+					fmt.Println("Error:", err)
+				}
+				rmac,found := detail["rmac"].(string)
+				if !found {
+					fmt.Println("Key 'rmac' not found")
+					break
+				}
+				Rmac, err = net.ParseMAC(rmac)
+				if err != nil {
+					fmt.Println("Error parsing MAC address:", err)
+				}
+			}
+		}
+		nexthop.Metadata["inner_smac"] = Rmac.String()
+		if (reflect.ValueOf(Rmac).IsZero()){
 			nexthop.Resolved = false
-		}*/
-		//nexthop.Metadata["Local_vtep_ip"] = nexthop.vrf.Vtep
+		}
+		vtepip := G.Spec.VtepIP.IP
+		nexthop.Metadata["local_vtep_ip"] = vtepip.String()
                 nexthop.Metadata["remote_vtep_ip"] = nexthop.NH.Gw.String()
                 nexthop.Metadata["vni"] = nexthop.Vrf.Spec.Vni
                 if (!reflect.ValueOf(nexthop.Neighbor).IsZero()){
 				//if nexthop.neighbor.Type == SVI{
 				nexthop.Metadata["inner_dmac"] = nexthop.Neighbor.Neigh0.HardwareAddr.String()
-				G,_ := infradb.GetVrf("GRD")
+				G,_ := infradb.GetVrf("//network.opiproject.org/vrfs/GRD")
 				R := lookup_route(nexthop.NH.Gw, G)
 				if !reflect.ValueOf(R).IsZero() {
 				    // For now pick the first physical nexthop (no ECMP yet)
@@ -1550,7 +1574,7 @@ func (nexthop Nexthop_struct)annotate() Nexthop_struct{
 		}
 	} else {
 		nexthop.Nh_type = ACC
-		link1, err := vn.LinkByName("rep-"+nexthop.Vrf.Name)
+		link1, err := vn.LinkByName("rep-"+path.Base(nexthop.Vrf.Name))
 		if err != nil {	
 			log.Printf("Error in getting rep information\n")
 			//return ""
@@ -1560,7 +1584,7 @@ func (nexthop Nexthop_struct)annotate() Nexthop_struct{
 		}
 				
 		nexthop.Metadata["dmac"] = link1.Attrs().HardwareAddr.String()
-		nexthop.Metadata["egress_vport"] = 0xa //ipu_db.vport_id_from_mac_address(mac)
+		nexthop.Metadata["egress_vport"] = 0xb //ipu_db.vport_id_from_mac_address(mac)
 		if (reflect.ValueOf(nexthop.Vrf.Spec.Vni).IsZero()){
 			nexthop.Metadata["vlan_id"] = uint32(4089)
 		} else {
@@ -1593,7 +1617,7 @@ func (L2N L2Nexthop_struct)annotate() (L2Nexthop_struct){
                 //# directly from the nexthop table to a physical port (and avoid another recirculation
                 //# for route lookup in the GRD table.)
 		//GRD = InfraDB.get_VRF(vni=None)  TODO : need infraDB for fetching 
-		VRF, _ := infradb.GetVrf("GRD")
+		VRF, _ := infradb.GetVrf("//network.opiproject.org/vrfs/GRD")
 		R := lookup_route(L2N.Dst, VRF)
 		if !reflect.ValueOf(R).IsZero(){
 			//  # For now pick the first physical nexthop (no ECMP yet)
