@@ -57,7 +57,9 @@ type VrfStatus struct {
 	Components    []common.Component
 }
 type VrfSpec struct {
-	Vni        uint32
+	// TODO: Need to change the uint32 to *uint32
+	Vni uint32
+	// TODO: need to change the net.IPNet to *net.IPNet
 	LoopbackIP net.IPNet
 	VtepIP     net.IPNet
 	//LocalAs      uint32
@@ -82,6 +84,52 @@ type Vrf struct {
 
 // build time check that struct implements interface
 var _ EvpnObject[*pb.Vrf] = (*Vrf)(nil)
+
+// NewVrfWithArgs creates a vrf object by passing arguments
+func NewVrfWithArgs(name string, vni *uint32, loopbackIP, vtepIP *net.IPNet) (*Vrf, error) {
+
+	var components []common.Component
+	vrf := &Vrf{}
+
+	if name == "" {
+		err := fmt.Errorf("NewVrfWithArgs(): Vrf name cannot be empty")
+		return nil, err
+	}
+
+	vrf.Name = name
+
+	if vni != nil {
+		vrf.Spec.Vni = *vni
+	}
+
+	if loopbackIP != nil {
+		vrf.Spec.LoopbackIP = *loopbackIP
+	}
+
+	if vtepIP != nil {
+		vrf.Spec.VtepIP = *vtepIP
+	}
+
+	subscribers := event_bus.EBus.GetSubscribers("vrf")
+	if subscribers == nil {
+		fmt.Println("NewVrfWithArgs(): No subscribers for Vrf objects")
+	}
+
+	for _, sub := range subscribers {
+		component := common.Component{Name: sub.Name, CompStatus: common.COMP_STATUS_PENDING, Details: ""}
+		components = append(components, component)
+	}
+
+	vrf.Status = VrfStatus{
+		VrfOperStatus: VRF_OPER_STATUS(VRF_OPER_STATUS_DOWN),
+		Components:    components,
+	}
+
+	vrf.ResourceVersion = generateVersion()
+
+	return vrf, nil
+
+}
 
 // NewVrf creates new VRF object from protobuf message
 func NewVrf(in *pb.Vrf) *Vrf {

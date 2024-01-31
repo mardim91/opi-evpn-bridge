@@ -81,6 +81,9 @@ var rootCmd = &cobra.Command{
 		config.DBAddress = viper.GetString("db_addr")
 		config.FRRAddress = viper.GetString("frr_addr")
 
+		// Starting Task Manager process
+		task_manager.TaskMan.StartTaskManager()
+
 		err := infradb.NewInfraDB(config.DBAddress, config.Database)
 		if err != nil {
 			fmt.Printf("\n error in creating db %s", err)
@@ -151,14 +154,18 @@ var rootCmd = &cobra.Command{
 		} else {
 			fmt.Printf("GetVRF VRF Name: %+v\n", br4)
 		}*/
+
+		// TODO: We need to initialize the modules that exist in the configuration
+		// and not all of them as in the case where we have only slowpath then there is no netlink or
+		// ipu module.
 		lgm.Init()
 		lvm.Init()
 		frr.Init()
 		netlink.Init()
 		ipu.Init()
 
-		err = infradb.CreateGrdVrf()
-		if err != nil {
+		// Create GRD VRF configuration during startup
+		if err := createGrdVrf(); err != nil {
 			fmt.Printf("Error in creating GRD VRF %+v\n", err)
 		}
 
@@ -177,9 +184,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&config.DBAddress, "db_addr", "127.0.0.1:6379", "db address in ip_address:port format")
 	rootCmd.PersistentFlags().StringVar(&config.FRRAddress, "frr_addr", "127.0.0.1", "Frr address in ip_address format, no port")
 	rootCmd.PersistentFlags().StringVar(&config.Database, "database", "redis", "Database connection string")
-
-	// Starting Task Manager process
-	task_manager.TaskMan.StartTaskManager()
 
 	if err := viper.GetViper().BindPFlags(rootCmd.PersistentFlags()); err != nil {
 		fmt.Printf("Error binding flags to Viper: %v\n", err)
@@ -337,4 +341,21 @@ func runGatewayServer(grpcPort int, httpPort int) {
 	if err != nil {
 		log.Panic("cannot start HTTP gateway server")
 	}
+}
+
+func createGrdVrf() error {
+
+	grdVrf, err := infradb.NewVrfWithArgs("//network.opiproject.org/vrfs/GRD", nil, nil, nil)
+	if err != nil {
+		fmt.Printf("CreateGrdVrf(): Error in initializing GRD VRF object %+v\n", err)
+		return err
+	}
+
+	err = infradb.CreateVrf(grdVrf)
+	if err != nil {
+		fmt.Printf("CreateGrdVrf(): Error in creating GRD VRF object %+v\n", err)
+		return err
+	}
+
+	return nil
 }
