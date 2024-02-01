@@ -124,6 +124,7 @@ func NewVrfWithArgs(name string, vni *uint32, loopbackIP, vtepIP *net.IPNet) (*V
 		VrfOperStatus: VRF_OPER_STATUS(VRF_OPER_STATUS_DOWN),
 		Components:    components,
 	}
+	vrf.Metadata = &VrfMetadata{}
 
 	vrf.ResourceVersion = generateVersion()
 
