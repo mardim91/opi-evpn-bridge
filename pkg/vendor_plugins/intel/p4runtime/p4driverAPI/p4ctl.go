@@ -138,9 +138,13 @@ func Del_entry(Entry TableEntry) error {
         }
         if isTernary {
                 entry := P4RtC.NewTableEntry(Entry.Tablename, mfs, nil, Options)
+		fmt.Println("Delete Table Name---",Entry.Tablename)
+                fmt.Println("Delete Rule----",entry)
                 return P4RtC.DeleteTableEntry(Ctx, entry)
         }else{
                 entry := P4RtC.NewTableEntry(Entry.Tablename, mfs, nil, nil)
+		fmt.Println("Delete Table Name---",Entry.Tablename)
+                fmt.Println("Delete Rule----",entry)
                 return P4RtC.DeleteTableEntry(Ctx, entry)
         }
 }

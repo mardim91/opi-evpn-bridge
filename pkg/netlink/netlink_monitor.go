@@ -1299,6 +1299,11 @@ func pre_filter_mac(F FdbEntry_struct) bool{
 
 func cmd_process_Rt(V *infradb.Vrf,R string,T int) Route_list{
 	var Route_data []Route_cmd_info
+	if len(R)<=3 {
+		fmt.Println("NL: Error in the cmd:",R)
+		var route Route_list
+		return route
+	}
 	CPs := strings.Split(R[2:len(R)-3], "},{")
                 for i := 0; i<len(CPs); i++{
                         var ri Route_cmd_info

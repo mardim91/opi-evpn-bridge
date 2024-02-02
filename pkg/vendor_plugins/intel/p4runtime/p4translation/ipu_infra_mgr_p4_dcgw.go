@@ -1326,14 +1326,37 @@ func (v VxlanDecoder) translate_deleted_vrf(VRF *infradb.Vrf) []interface{}{
 	/*if _is_l3vpn_enabled(VRF) != 0{
                 return entries
 	}*/
-	
+	G,_ := infradb.GetVrf(VRF.Name)
+        var detail map[string]interface{}
+        var Rmac net.HardwareAddr
+        for _,com := range G.Status.Components {
+                        if com.Name == "frr" {
+                                err := json.Unmarshal([]byte(com.Details), &detail)
+                                if err != nil {
+                                        fmt.Println("Error:", err)
+                                }
+                                rmac,found := detail["rmac"].(string)
+                                if !found {
+                                        fmt.Println("Key 'rmac' not found")
+                                        break
+                                }
+                                Rmac, err = net.ParseMAC(rmac)
+                                if err != nil {
+                                        fmt.Println("Error parsing MAC address:", err)
+                                }
+                        }
+                }
+        if (reflect.ValueOf(Rmac).IsZero()){
+                fmt.Println("Rmac not found for Vtep :", VRF.Spec.VtepIP.IP)
+                return entries
+        }
 	entries = append(entries, p4client.TableEntry{
                         Tablename: PHY_IN_VXLAN,
                         TableField: p4client.TableField{
                                 FieldValue: map[string][2]interface{}{
 					"dst_ip":{VRF.Spec.VtepIP.IP,"exact"},
 					"vni":{uint32(VRF.Spec.Vni),"exact"},
-				//	"da": {Rmac,"exact"},
+					"da": {Rmac,"exact"},
 				},
 				Priority: int32(0),
                         },
@@ -1444,8 +1467,9 @@ func (v VxlanDecoder) translate_deleted_nexthop(nexthop netlink_polling.Nexthop_
         var key []interface{}
         key = append(key,nexthop.Key.VRF_name, nexthop.Key.Dev,nexthop.Key.Dst, nexthop.Key.Dev, nexthop.Key.Local)
         var mod_ptr = ptr_pool.get_id(EntryType.L3_NH, key)
-	var nh_id = _big_endian_16(nexthop.Id)
-
+	//var nh_id = _big_endian_16(nexthop.Id)
+	var nh_id interface{}
+        nh_id = uint16(nexthop.Id)
 	entries = append(entries, p4client.TableEntry{
                         Tablename: PUSH_VXLAN_HDR,
                         TableField: p4client.TableField{

@@ -120,9 +120,10 @@ func handlevrf(objectData *event_bus.ObjectData){
 					}
 				fmt.Printf("%+v\n",comp) 	
 					infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
-			} else {
+			} else { 
+				fmt.Println("TEAR Down VRF FRR")	
 				status :=tear_down_vrf(VRF)
-                                                comp.Name= "frr"
+                                comp.Name= "frr"
 				 if (status == true) {
                                                 comp.CompStatus= common.COMP_STATUS_SUCCESS
                                                 comp.Timer = 0
@@ -134,9 +135,9 @@ func handlevrf(objectData *event_bus.ObjectData){
                                                         comp.Timer=comp.Timer*2
                                                 }
                                                 comp.CompStatus= common.COMP_STATUS_ERROR
-                                        }
-                        	        fmt.Printf("%+v\n",comp)
-                                        infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
+                                       }
+                        	fmt.Printf("%+v\n",comp)
+                                infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
 			}
 }			
 
@@ -367,8 +368,9 @@ func tear_down_vrf(VRF *infradb.Vrf)(bool) {//interface{}){
 				fmt.Printf("FRR: Error in conf Delete VRF/VNI command %s\n",CP)
 					return false
 			}
+			fmt.Printf("FRR: Executed vtysh -c conf t -c %s -c %s -c exit\n",del_cmd1,del_cmd2)	
  	} 
-  return true
+	return true
 }
 
 func set_up_svi(SVI *infradb.Svi){//interface{}){

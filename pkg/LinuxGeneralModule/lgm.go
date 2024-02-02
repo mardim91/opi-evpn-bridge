@@ -424,7 +424,7 @@ func tear_down_vrf(VRF *infradb.Vrf)bool {
 			fmt.Printf("LGM: Error in exectuing command ip route flush table %s\n",routing_table,CP)
 			return false
 		}
-		fmt.Printf("LGM Executed : ip link flush table %s\n",routing_table)
+		fmt.Printf("LGM Executed : ip route flush table %s\n",routing_table)
 		CP,err =run([]string{"ip","link","delete",VRF.Name},false)
 		if err !=0 {
 			fmt.Printf("LGM: Error in exectuing command ip link delete %s: %s\n",VRF.Name,CP)

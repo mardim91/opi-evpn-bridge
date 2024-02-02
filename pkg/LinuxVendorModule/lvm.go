@@ -104,13 +104,13 @@ func handlevrf(objectData *event_bus.ObjectData){
 			comp.CompStatus= common.COMP_STATUS_SUCCESS
 		} else {
 			if comp.Timer == 0 {
-				comp.Timer=2
+				comp.Timer=2* time.Second
 			} else {
 				comp.Timer = comp.Timer*2
 			}
 			comp.CompStatus = common.COMP_STATUS_ERROR
-			infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
 		}
+		infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
 	}
 }
 
@@ -173,6 +173,7 @@ func tear_down_vrf(VRF *infradb.Vrf)bool {
 		fmt.Printf("LVM: Error in command ip link delete rep-%s: %s\n",VRF.Name,CP)
 		return false
 	}
+	fmt.Printf(" LVM: Executed ip link delete rep-%s\n",VRF.Name)	
 	return true
 }
 

@@ -194,17 +194,12 @@ func DeleteVrf(Name string) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
-	var components []common.Component
 
 	subscribers := event_bus.EBus.GetSubscribers("vrf")
 	if subscribers == nil {
 		fmt.Println("DeleteVrf(): No subscribers for Vrf objects")
 	}
 
-	for _, sub := range subscribers {
-		component := common.Component{Name: sub.Name, CompStatus: common.COMP_STATUS_PENDING, Details: ""}
-		components = append(components, component)
-	}
 
 	vrf := Vrf{}
 	found, err := infradb.client.Get(Name, &vrf)
@@ -212,10 +207,11 @@ func DeleteVrf(Name string) error {
 		return ErrKeyNotFound
 	}
 
-	// New resource generation is needed to distinguish from old objects
+	for i, _ := range subscribers {
+		vrf.Status.Components[i].CompStatus=common.COMP_STATUS_PENDING
+	}
 	vrf.ResourceVersion = generateVersion()
 	vrf.Status.VrfOperStatus = VRF_OPER_STATUS_TO_BE_DELETED
-	vrf.Status.Components = components
 
 	err = infradb.client.Set(vrf.Name, vrf)
 	if err != nil {
