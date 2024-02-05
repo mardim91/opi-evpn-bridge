@@ -7,6 +7,7 @@ package bridge
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"sort"
@@ -21,8 +22,8 @@ import (
 	//pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	//"github.com/opiproject/opi-evpn-bridge/pkg/utils"
-	"github.com/opiproject/opi-evpn-bridge/pkg/utils/mocks"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
+	"github.com/opiproject/opi-evpn-bridge/pkg/utils/mocks"
 )
 
 func sortLogicalBridges(bridges []*pb.LogicalBridge) {
@@ -38,12 +39,11 @@ func (s *Server) createLogicalBridge(lb *pb.LogicalBridge) (*pb.LogicalBridge, e
 	}
 
 	// translation of pb to domain object
-	domainLB := infradb.NewBridge(lb)
+	domainLB := infradb.NewLogicalBridge(lb)
 	// Note: The status of the object will be generated in infraDB operation not here
 	if err := infradb.CreateLB(domainLB); err != nil {
 		return nil, err
 	}
-	s.ListHelper[lb.Name] = false
 	return domainLB.ToPb(), nil
 }
 
@@ -53,8 +53,6 @@ func (s *Server) deleteLogicalBridge(name string) error {
 	if err := infradb.DeleteLB(name); err != nil {
 		return err
 	}
-
-	delete(s.ListHelper, name)
 	return nil
 }
 
@@ -66,6 +64,19 @@ func (s *Server) getLogicalBridge(name string) (*pb.LogicalBridge, error) {
 	return domainLB.ToPb(), nil
 }
 
+func (s *Server) getAllLogicalBridges() ([]*pb.LogicalBridge, error) {
+	lbs := []*pb.LogicalBridge{}
+	domainLBs, err := infradb.GetAllLogicalBridges()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, domainLB := range domainLBs {
+		lbs = append(lbs, domainLB.ToPb())
+	}
+	return lbs, nil
+}
+
 func (s *Server) updateLogicalBridge(lb *pb.LogicalBridge) (*pb.LogicalBridge, error) {
 	// check parameters
 	if err := s.validateLogicalBridgeSpec(lb); err != nil {
@@ -73,7 +84,7 @@ func (s *Server) updateLogicalBridge(lb *pb.LogicalBridge) (*pb.LogicalBridge, e
 	}
 
 	// translation of pb to domain object
-	domainLB := infradb.NewBridge(lb)
+	domainLB := infradb.NewLogicalBridge(lb)
 	// Note: The status of the object will be generated in infraDB operation not here
 	if err := infradb.UpdateLB(domainLB); err != nil {
 		return nil, err
@@ -88,7 +99,18 @@ func resourceIDToFullName(resourceID string) string {
 	)
 }
 
+// TODO: Move all these functions to a common place and replace them by one function
+// for all the objects.
+func checkTobeDeletedStatus(lb *pb.LogicalBridge) error {
+	if lb.Status.OperStatus == pb.LBOperStatus_LB_OPER_STATUS_TO_BE_DELETED {
+		return fmt.Errorf("Logical Bridge %s in to be deleted status", lb.Name)
+	}
+
+	return nil
+}
+
 // TODO: move all of this to a common place
+// Dimitris: This should be moved to the configuration for lgm module section
 const (
 	tenantbridgeName = "br-tenant"
 )

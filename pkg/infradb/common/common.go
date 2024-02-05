@@ -1,8 +1,12 @@
 package common
 
 import (
+	"net"
 	"time"
+
+	pc "github.com/opiproject/opi-api/network/opinetcommon/v1alpha1/gen/go"
 )
+
 type COMP_STATUS int
 
 const (
@@ -22,3 +26,17 @@ type Component struct {
 	Timer   time.Duration
 }
 
+func ip4ToInt(ip net.IP) uint32 {
+	return uint32(ip[0])<<24 | uint32(ip[1])<<16 | uint32(ip[2])<<8 | uint32(ip[3])
+}
+
+func ConvertToIPPrefix(ipNet *net.IPNet) *pc.IPPrefix {
+	return &pc.IPPrefix{
+		Addr: &pc.IPAddress{
+			V4OrV6: &pc.IPAddress_V4Addr{
+				V4Addr: ip4ToInt(ipNet.IP.To4()),
+			},
+		},
+		Len: int32(len(ipNet.Mask) * 8),
+	}
+}

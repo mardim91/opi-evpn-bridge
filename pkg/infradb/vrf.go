@@ -12,7 +12,6 @@ import (
 	//"time"
 	//pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
-	pc "github.com/opiproject/opi-api/network/opinetcommon/v1alpha1/gen/go"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
 )
@@ -173,8 +172,8 @@ func NewVrf(in *pb.Vrf) *Vrf {
 
 // ToPb transforms VRF object to protobuf message
 func (in *Vrf) ToPb() *pb.Vrf {
-	loopbackIP := ConvertToIPPrefix(&in.Spec.LoopbackIP)
-	vtepip := ConvertToIPPrefix(&in.Spec.VtepIP)
+	loopbackIP := common.ConvertToIPPrefix(&in.Spec.LoopbackIP)
+	vtepip := common.ConvertToIPPrefix(&in.Spec.VtepIP)
 	vrf := &pb.Vrf{
 		Name: in.Name,
 		Spec: &pb.VrfSpec{
@@ -215,17 +214,4 @@ func (in *Vrf) ToPb() *pb.Vrf {
 // GetName returns object unique name
 func (in *Vrf) GetName() string {
 	return in.Name
-}
-func ip4ToInt(ip net.IP) uint32 {
-	return uint32(ip[0])<<24 | uint32(ip[1])<<16 | uint32(ip[2])<<8 | uint32(ip[3])
-}
-func ConvertToIPPrefix(ipNet *net.IPNet) *pc.IPPrefix {
-	return &pc.IPPrefix{
-		Addr: &pc.IPAddress{
-			V4OrV6: &pc.IPAddress_V4Addr{
-				V4Addr: ip4ToInt(ipNet.IP.To4()),
-			},
-		},
-		Len: int32(len(ipNet.Mask) * 8),
-	}
 }

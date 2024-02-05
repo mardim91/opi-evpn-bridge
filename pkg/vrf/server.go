@@ -27,20 +27,3 @@ func NewServer() *Server {
 		tracer:     otel.Tracer(""),
 	}
 }
-
-/*func NewServerWithArgs(nLink utils.Netlink, frr utils.Frr, store gokv.Store) *Server {
-	if frr == nil {
-		log.Panic("nil for Frr is not allowed")
-	}
-	if nLink == nil {
-		log.Panic("nil for Netlink is not allowed")
-	}
-	if store == nil {
-		log.Panic("nil for Store is not allowed")
-	}
-	return &Server{
-		ListHelper: make(map[string]bool),
-		Pagination: make(map[string]int),
-		tracer:     otel.Tracer(""),
-	}
-}*/
