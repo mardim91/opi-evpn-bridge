@@ -402,12 +402,17 @@ func tear_down_vrf(VRF *infradb.Vrf)bool {
 	Ifname := strings.Split(VRF.Name,"/")
 	ifwlen := len(Ifname)
 	VRF.Name  = Ifname[ifwlen-1]
+	CP,err := run([]string{"ifconfig","-a",VRF.Name},false)
+	if err !=0 {
+		fmt.Printf("CP LGM %s\n",CP)
+		return true
+	}
 	if VRF.Name == "GRD"{
 		return true
 	}
     // Delete the Linux networking artefacts in reverse order
 	if (!reflect.ValueOf(VRF.Spec.Vni).IsZero()){
-		CP,err :=run([]string{"ip","link","delete","vxlan-"+VRF.Name}, false)
+		CP,err =run([]string{"ip","link","delete","vxlan-"+VRF.Name}, false)
 		if err !=0 {
 			fmt.Printf("LGM: Error in exectuing command %s %s\n","ip link deleted vxlan ",CP)
 			return false

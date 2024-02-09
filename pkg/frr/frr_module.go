@@ -121,7 +121,6 @@ func handlevrf(objectData *event_bus.ObjectData){
 				fmt.Printf("%+v\n",comp) 	
 					infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
 			} else { 
-				fmt.Println("TEAR Down VRF FRR")	
 				status :=tear_down_vrf(VRF)
                                 comp.Name= "frr"
 				 if (status == true) {
@@ -347,7 +346,7 @@ details := fmt.Sprintf("{ \"rd\":\"%s\",\"rmac\":\"%s\",\"importRts\":[\"%s\"],\
 }
 
 func check_frr_result(CP string,show bool)bool {
-	return ( (show && reflect.ValueOf(CP).IsZero()) || strings.Contains(CP,"warning") || strings.Contains(CP,"unknown") || strings.Contains(CP,"Unknown") || strings.Contains(CP,"Warning") || strings.Contains(CP,"Ambiguous"))
+	return ( (show && reflect.ValueOf(CP).IsZero()) || strings.Contains(CP,"warning") || strings.Contains(CP,"unknown") || strings.Contains(CP,"Unknown") || strings.Contains(CP,"Warning") || strings.Contains(CP,"Ambiguous") || strings.Contains(CP,"specified does not exist"))
 }
 
 func tear_down_vrf(VRF *infradb.Vrf)(bool) {//interface{}){
@@ -358,12 +357,17 @@ func tear_down_vrf(VRF *infradb.Vrf)(bool) {//interface{}){
 	if VRF.Name == "GRD"{
 		return true
 	}
+	CP,err := run([]string{"vtysh","-c","show vrf "+VRF.Name+" vni"},false)
+        if check_frr_result(CP,true) {
+		fmt.Printf("CP FRR %s\n",CP)	
+                return true
+        }
 	// Clean up FRR last
 	if  (!reflect.ValueOf(VRF.Spec.Vni).IsZero()){
 		fmt.Printf("FRR %s\n","Deleted event")
 			del_cmd1 := fmt.Sprintf("no router bgp 65000 vrf %s",VRF.Name)
 			del_cmd2 := fmt.Sprintf("no vrf %s", VRF.Name)
-			CP ,err := run([]string{"vtysh","-c","conf","t","-c",del_cmd1,"-c",del_cmd2,"-c","exit"},false)
+			CP ,err = run([]string{"vtysh","-c","conf","t","-c",del_cmd1,"-c",del_cmd2,"-c","exit"},false)
 			if (err == -1 || check_frr_result(CP,false)){
 				fmt.Printf("FRR: Error in conf Delete VRF/VNI command %s\n",CP)
 					return false

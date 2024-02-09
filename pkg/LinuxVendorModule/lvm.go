@@ -164,11 +164,16 @@ func set_up_vrf(VRF *infradb.Vrf)bool{
 func tear_down_vrf(VRF *infradb.Vrf)bool {
 	Ifname := strings.Split(VRF.Name,"/")
 	ifwlen := len(Ifname)
-	VRF.Name  = Ifname[ifwlen-1]	
+	VRF.Name  = Ifname[ifwlen-1]
+	CP,err := run([]string{"ifconfig","-a","rep-"+VRF.Name},false)
+        if err !=0 {
+		fmt.Printf("CP LVM %s\n",CP)
+                return true
+        }
 	if VRF.Name == "GRD"{
 		return true
 	}
-	CP,err :=run([]string{"ip","link","delete","rep-"+VRF.Name},false)
+	CP,err =run([]string{"ip","link","delete","rep-"+VRF.Name},false)
 	if(err !=0){
 		fmt.Printf("LVM: Error in command ip link delete rep-%s: %s\n",VRF.Name,CP)
 		return false

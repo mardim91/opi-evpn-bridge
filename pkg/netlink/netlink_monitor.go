@@ -210,6 +210,7 @@ type Nexthop_struct struct {
 	Metadata map[interface{}]interface{}
 }
 
+
 func NetMaskToInt(mask int) (netmaskint [4]int64) {
 	var binarystring string
 	
@@ -1375,43 +1376,54 @@ func notify_add_del(R interface{},event string){
   EventBus.Publish(event, R)
 }
 
-
-func notify_updated(newR interface{}, old interface{},event string){
-	fmt.Printf("Notify event: %s\n",event)
-    EventBus.Publish(event, newR)
-}
-
 var notify_events = []string{"_added","_updated","_deleted"}
 
 func notify_changes(new_db map[interface{}]interface{}, old_db map[interface{}]interface{},event []string ) {
 	var DB1,DB2 = make(map[interface{}]interface{}),make(map[interface{}]interface{})
-	if len(new_db) < len(old_db){
-            DB1 = new_db
-            DB2 = old_db
-        }
-        if len(new_db) >= len(old_db){
-            DB2 = old_db
-            DB1 = new_db
-        }
-	for k1,v1 := range DB1{
-            for k2,v2 := range DB2 {
-                 if k1 == k2 {
-			 if !reflect.DeepEqual(v1, v2) { //&& v1.Nl_type == "neighbor"{
-                            notify_updated(v1,v2,event[1])
-			 }
-                         delete(new_db,k1)
-                         delete(old_db,k2)
-                         break
-                  }
-            }
-        }
-
-	for _,R:= range new_db{
-            notify_add_del(R,event[0])
-        }
-        for _,R:= range old_db{
-            notify_add_del(R,event[2])
-        }
+		DB2 = old_db
+		DB1 = new_db
+		/* Checking the Updated entries in the netlink db by comparing the individual keys and their corresponding values in old and new db copies 
+		   entries with same keys with different values and send the notification to vendor specific module */
+		for k1,v1 := range DB1{
+			for k2,v2 := range DB2 {
+				if k1 == k2 {
+					if   !reflect.DeepEqual(v1, v2) {  
+						// To Avoid in-correct update notification due to race condition in which metadata is nil in new entry and crashing in dcgw module
+						if strings.Contains(event[1],"route") || strings.Contains(event[1],"nexthop"){
+							var Rv Route_struct
+							var Nv Nexthop_struct
+							if strings.Contains(event[1],"route"){
+								Rv= v1.(Route_struct)
+								if Rv.Vrf.Status.VrfOperStatus ==infradb.VRF_OPER_STATUS_TO_BE_DELETED {
+									notify_add_del(Rv,event[2])
+									delete(new_db,k1)
+									delete(old_db,k2)
+									break
+								} 
+							} else {
+								Nv= v1.(Nexthop_struct)
+								if Nv.Vrf.Status.VrfOperStatus ==infradb.VRF_OPER_STATUS_TO_BE_DELETED {
+									notify_add_del(Nv,event[2])
+									delete(new_db,k1)
+									delete(old_db,k2)
+									break
+								} 
+							}	
+						}	
+						notify_add_del(v1,event[1])
+					}
+					delete(new_db,k1)
+					delete(old_db,k2)
+					break
+				}
+			}
+	   }
+	for _,R:= range new_db{    //Added entries notification cases
+		notify_add_del(R,event[0])
+	}
+	for _,R:= range old_db{  // Deleted entires notification cases
+		notify_add_del(R,event[2])
+	}
 }
 
 func read_FDB() []FdbEntry_struct{
@@ -1587,7 +1599,7 @@ func (nexthop Nexthop_struct)annotate() Nexthop_struct{
 		if link1 == nil{
 			return nexthop
 		}
-				
+
 		nexthop.Metadata["dmac"] = link1.Attrs().HardwareAddr.String()
 		nexthop.Metadata["egress_vport"] = 0xb //ipu_db.vport_id_from_mac_address(mac)
 		if (reflect.ValueOf(nexthop.Vrf.Spec.Vni).IsZero()){
