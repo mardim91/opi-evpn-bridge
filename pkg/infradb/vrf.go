@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"net"
 
-	//"time"
+	// "time"
 	//pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
@@ -61,7 +61,7 @@ type VrfSpec struct {
 	// TODO: need to change the net.IPNet to *net.IPNet
 	LoopbackIP net.IPNet
 	VtepIP     net.IPNet
-	//LocalAs      uint32
+	// LocalAs      uint32
 	//RoutingTable uint32
 	//MacAddress   net.HardwareAddr
 }
@@ -86,7 +86,6 @@ var _ EvpnObject[*pb.Vrf] = (*Vrf)(nil)
 
 // NewVrfWithArgs creates a vrf object by passing arguments
 func NewVrfWithArgs(name string, vni *uint32, loopbackIP, vtepIP *net.IPNet) (*Vrf, error) {
-
 	var components []common.Component
 	vrf := &Vrf{}
 
@@ -128,12 +127,10 @@ func NewVrfWithArgs(name string, vni *uint32, loopbackIP, vtepIP *net.IPNet) (*V
 	vrf.ResourceVersion = generateVersion()
 
 	return vrf, nil
-
 }
 
 // NewVrf creates new VRF object from protobuf message
 func NewVrf(in *pb.Vrf) *Vrf {
-
 	var components []common.Component
 
 	loopip := make(net.IP, 4)

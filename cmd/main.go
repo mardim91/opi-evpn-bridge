@@ -20,7 +20,7 @@ import (
 	"github.com/spf13/viper"
 
 	pc "github.com/opiproject/opi-api/inventory/v1/gen/go"
-	//pe "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
+	// pe "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pe "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	"github.com/opiproject/opi-evpn-bridge/pkg/bridge"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
@@ -35,9 +35,9 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
 
-	//"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
+	// "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	//"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	// "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	lgm "github.com/opiproject/opi-evpn-bridge/pkg/LinuxGeneralModule"
 	lvm "github.com/opiproject/opi-evpn-bridge/pkg/LinuxVendorModule"
 	frr "github.com/opiproject/opi-evpn-bridge/pkg/frr"
@@ -174,7 +174,6 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVarP(&config.CfgFile, "config", "c", "/etc/evpn.yaml", "config file (default is /etc/infra/evpn.yaml)")
@@ -192,7 +191,6 @@ func init() {
 }
 
 func initConfig() {
-
 	if config.CfgFile != "" {
 		viper.SetConfigFile(config.CfgFile)
 	} else {
@@ -205,7 +203,6 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
-
 }
 
 func validateConfigs() error {
@@ -250,7 +247,6 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-
 }
 
 func runGrpcServer(grpcPort int, tlsFiles string) {
@@ -344,7 +340,6 @@ func runGatewayServer(grpcPort int, httpPort int) {
 }
 
 func createGrdVrf() error {
-
 	grdVrf, err := infradb.NewVrfWithArgs("//network.opiproject.org/vrfs/GRD", nil, nil, nil)
 	if err != nil {
 		fmt.Printf("CreateGrdVrf(): Error in initializing GRD VRF object %+v\n", err)

@@ -69,7 +69,6 @@ func newTaskStatus(name, objectType, resourceVersion, notificationId string, dro
 }
 
 func (t *TaskManager) StartTaskManager() {
-
 	go t.processTasks()
 	fmt.Println("Task Manager has started")
 }
@@ -80,11 +79,9 @@ func (t *TaskManager) CreateTask(name, objectType, resourceVersion string, subs 
 	// if the queue is full but only the go routine to block
 	go t.taskQueue.Enqueue(task)
 	fmt.Printf("CreateTask(): New Task has been created: %+v\n", task)
-
 }
 
 func (t *TaskManager) StatusUpdated(name, objectType, resourceVersion, notificationId string, dropTask bool, component *common.Component) {
-
 	taskStatus := newTaskStatus(name, objectType, resourceVersion, notificationId, dropTask, component)
 
 	// Do we need to make this call happen in a goroutine in order to not make the
@@ -93,11 +90,9 @@ func (t *TaskManager) StatusUpdated(name, objectType, resourceVersion, notificat
 	// (nobody reads what is written on the channel and the StatusUpdated gets stuck) ?
 	t.taskStatusChan <- taskStatus
 	fmt.Printf("StatusUpdated(): New Task Status has been created and sent to channel: %+v\n", taskStatus)
-
 }
 
 func (t *TaskManager) processTasks() {
-
 	var taskStatus *TaskStatus
 
 	for {
@@ -121,9 +116,9 @@ func (t *TaskManager) processTasks() {
 
 		loopThree:
 			for {
-				// We have this for loop in order to assert that the taskStatus that recieved from the channel is related to the current task.
+				// We have this for loop in order to assert that the taskStatus that received from the channel is related to the current task.
 				// We do that by checking the notificationId
-				// If not we just ignore the taskStatus that we have recieved and loop again.
+				// If not we just ignore the taskStatus that we have received and loop again.
 				taskStatus = nil
 				select {
 				case taskStatus = <-t.taskStatusChan:
@@ -138,7 +133,7 @@ func (t *TaskManager) processTasks() {
 				// We need a timeout in case that the subscriber doesn't update the status at all for whatever reason.
 				// If that occurs then we just take a note which subscriber need to revisit and we requeue the task without any timer
 				case <-time.After(30 * time.Second):
-					fmt.Printf("processTasks(): No task status has been received in the channel from subscriber %+v. The task %+v will be requeued immediately Task Status %+v\n", sub, task,taskStatus)
+					fmt.Printf("processTasks(): No task status has been received in the channel from subscriber %+v. The task %+v will be requeued immediately Task Status %+v\n", sub, task, taskStatus)
 					task.sub_index = task.sub_index + i
 					go t.taskQueue.Enqueue(task)
 					break loopThree
@@ -146,7 +141,7 @@ func (t *TaskManager) processTasks() {
 			}
 
 			// This check is needed in order to move to the next task if the status channel has timed out or we need to drop the task in case that
-			// the task of the object is refering to an old allready updated object or the object is no longer in the database (has been deleted).
+			// the task of the object is referring to an old already updated object or the object is no longer in the database (has been deleted).
 			if taskStatus == nil || taskStatus.dropTask {
 				fmt.Println("processTasks(): Move to the next Task in the queue")
 				break loopTwo
@@ -154,10 +149,10 @@ func (t *TaskManager) processTasks() {
 
 			switch taskStatus.component.CompStatus {
 			case common.COMP_STATUS_SUCCESS:
-				fmt.Printf("processTasks(): Subscriber %+v has processed the task %+v succesfully\n", sub, task)
+				fmt.Printf("processTasks(): Subscriber %+v has processed the task %+v successfully\n", sub, task)
 				continue loopTwo
 			default:
-				fmt.Printf("processTasks(): Subscriber %+v has not processed the task %+v succesfully\n", sub, task)
+				fmt.Printf("processTasks(): Subscriber %+v has not processed the task %+v successfully\n", sub, task)
 				task.sub_index = task.sub_index + i
 				task.retryTimer = taskStatus.component.Timer
 				fmt.Printf("processTasks(): The Task will be requeued after %+v\n", task.retryTimer)
@@ -167,6 +162,5 @@ func (t *TaskManager) processTasks() {
 				break loopTwo
 			}
 		}
-
 	}
 }

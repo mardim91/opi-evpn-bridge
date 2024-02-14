@@ -3,11 +3,14 @@ package storage
 import (
 	"fmt"
 	"log"
+
 	"github.com/philippgille/gokv"
-	"github.com/philippgille/gokv/redis"
 	"github.com/philippgille/gokv/gomap"
+	"github.com/philippgille/gokv/redis"
 )
+
 var st *Storage
+
 // Storage is an implementation of KeyValueStore using the gokv library.
 type Storage struct {
 	store gokv.Store
@@ -39,9 +42,10 @@ func NewStore(backend, address string) (*Storage, error) {
 	st = &Storage{store: store}
 	return st, nil
 }
+
 // GetClient returns the underlying database client.
 func GetStore() gokv.Store {
-	if(st.store == nil) {
+	if st.store == nil {
 		log.Fatal(" Store not present ")
 	}
 	return st.store
@@ -58,7 +62,7 @@ func (s *Storage) Set(key string, value interface{}) error {
 }
 
 // Get retrieves the value associated with the given key.
-func (s *Storage) Get(key string , value interface{}) (bool, error) {
+func (s *Storage) Get(key string, value interface{}) (bool, error) {
 	found, err := s.store.Get(key, value)
 	if err != nil {
 		return found, err
@@ -75,4 +79,3 @@ func (s *Storage) Delete(key string) error {
 func (s *Storage) Close() error {
 	return s.store.Close()
 }
-

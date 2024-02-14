@@ -24,13 +24,12 @@ type InfraDB struct {
 }
 
 var (
-	ErrKeyNotFound       = errors.New("Key not found")
-	ErrComponentNotFound = errors.New("Component not found")
+	ErrKeyNotFound       = errors.New("key not found")
+	ErrComponentNotFound = errors.New("component not found")
 	// Add more error constants as needed
 )
 
 func NewInfraDB(address string, dbtype string) error {
-
 	store, err := storage.NewStore(dbtype, address)
 	if err != nil {
 		log.Fatal(err)
@@ -41,13 +40,11 @@ func NewInfraDB(address string, dbtype string) error {
 		client: store.GetClient(),
 	}
 	return nil
-
 }
 func Close() error {
 	return infradb.client.Close()
 }
 func CreateLB(lb *LogicalBridge) error {
-
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -101,7 +98,7 @@ func DeleteLB(Name string) error {
 		return ErrKeyNotFound
 	}
 
-	for i, _ := range subscribers {
+	for i := range subscribers {
 		lb.Status.Components[i].CompStatus = common.COMP_STATUS_PENDING
 	}
 	lb.ResourceVersion = generateVersion()
@@ -117,7 +114,6 @@ func DeleteLB(Name string) error {
 	return nil
 }
 func GetLB(Name string) (*LogicalBridge, error) {
-
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -166,11 +162,9 @@ func GetAllLogicalBridges() ([]*LogicalBridge, error) {
 	}
 
 	return lbs, nil
-
 }
 
 func UpdateLB(lb *LogicalBridge) error {
-
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -192,7 +186,6 @@ func UpdateLB(lb *LogicalBridge) error {
 
 // UpdateLBStatus updates the status of Logical Bridge object based on the component report
 func UpdateLBStatus(Name string, resourceVersion string, notificationId string, lbMeta *LogicalBridgeMetadata, component common.Component) error {
-
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -225,7 +218,6 @@ func UpdateLBStatus(Name string, resourceVersion string, notificationId string, 
 	for i, comp := range lbComponents {
 		compCounter := i + 1
 		if comp.Name == component.Name {
-
 			lb.Status.Components[i] = component
 
 			if compCounter == len(lbComponents) && lb.Status.Components[i].CompStatus == common.COMP_STATUS_SUCCESS {
@@ -234,7 +226,6 @@ func UpdateLBStatus(Name string, resourceVersion string, notificationId string, 
 
 			break
 		}
-
 	}
 
 	// Parse the Metadata that has been sent from the Component
@@ -279,7 +270,6 @@ func UpdateLBStatus(Name string, resourceVersion string, notificationId string, 
 			}
 			fmt.Printf("UpdateLBStatus(): Logical Bridge %s has been updated: %+v\n", Name, lb)
 		}
-
 	} else {
 
 		err = infradb.client.Set(lb.Name, lb)
@@ -293,11 +283,9 @@ func UpdateLBStatus(Name string, resourceVersion string, notificationId string, 
 	task_manager.TaskMan.StatusUpdated(lb.Name, "logical-bridge", lb.ResourceVersion, notificationId, false, &component)
 
 	return nil
-
 }
 
 func CreateBP(port *Port) error {
-
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -310,7 +298,6 @@ func CreateBP(port *Port) error {
 	return err
 }
 func DeleteBP(Name string) error {
-
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -322,7 +309,6 @@ func DeleteBP(Name string) error {
 }
 
 func GetBP(Name string) (Port, error) {
-
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -334,7 +320,6 @@ func GetBP(Name string) (Port, error) {
 	return Port, err
 }
 func UpdateBP(port *Port) error {
-
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -348,7 +333,6 @@ func UpdateBP(port *Port) error {
 }
 
 func CreateVrf(vrf *Vrf) error {
-
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -389,7 +373,6 @@ func CreateVrf(vrf *Vrf) error {
 }
 
 func DeleteVrf(Name string) error {
-
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -404,7 +387,7 @@ func DeleteVrf(Name string) error {
 		return ErrKeyNotFound
 	}
 
-	for i, _ := range subscribers {
+	for i := range subscribers {
 		vrf.Status.Components[i].CompStatus = common.COMP_STATUS_PENDING
 	}
 	vrf.ResourceVersion = generateVersion()
@@ -420,7 +403,6 @@ func DeleteVrf(Name string) error {
 	return nil
 }
 func GetVrf(Name string) (*Vrf, error) {
-
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -469,11 +451,9 @@ func GetAllVrfs() ([]*Vrf, error) {
 	}
 
 	return vrfs, nil
-
 }
 
 func UpdateVrf(vrf *Vrf) error {
-
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -495,7 +475,6 @@ func UpdateVrf(vrf *Vrf) error {
 
 // UpdateVrfStatus updates the status of VRF object based on the component report
 func UpdateVrfStatus(Name string, resourceVersion string, notificationId string, vrfMeta *VrfMetadata, component common.Component) error {
-
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -528,7 +507,6 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationId string,
 	for i, comp := range vrfComponents {
 		compCounter := i + 1
 		if comp.Name == component.Name {
-
 			vrf.Status.Components[i] = component
 
 			if compCounter == len(vrfComponents) && vrf.Status.Components[i].CompStatus == common.COMP_STATUS_SUCCESS {
@@ -537,7 +515,6 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationId string,
 
 			break
 		}
-
 	}
 
 	// Parse the Metadata that has been sent from the Component
@@ -585,7 +562,6 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationId string,
 			fmt.Printf("UpdateVrfStatus(): VRF %s has been updated: %+v\n", Name, vrf)
 		}
 	} else {
-
 		err = infradb.client.Set(vrf.Name, vrf)
 		if err != nil {
 			log.Fatal(err)
@@ -597,11 +573,9 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationId string,
 	task_manager.TaskMan.StatusUpdated(vrf.Name, "vrf", vrf.ResourceVersion, notificationId, false, &component)
 
 	return nil
-
 }
 
 func CreateSvi(svi *Svi) error {
-
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -615,7 +589,6 @@ func CreateSvi(svi *Svi) error {
 	return err
 }
 func DeleteSvi(Name string) error {
-
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -626,7 +599,6 @@ func DeleteSvi(Name string) error {
 	return err
 }
 func GetSvi(Name string) (Svi, error) {
-
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -638,7 +610,6 @@ func GetSvi(Name string) (Svi, error) {
 	return svi, err
 }
 func UpdateSvi(svi *Svi) error {
-
 	globalLock.Lock()
 	defer globalLock.Unlock()
 

@@ -22,7 +22,7 @@ func ApplyMaskToStoredPbObject[T proto.Message](updateMask *fieldmaskpb.FieldMas
 // has the right format
 func ValidateMacAddress(b []byte) error {
 	mac_pattern := "([0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2})"
-	_, err := regexp.MatchString(mac_pattern, string(b[:]))
+	_, err := regexp.MatchString(mac_pattern, string(b))
 	if err != nil {
 		return err
 	}

@@ -8,7 +8,7 @@ import (
 	"net"
 	"time"
 
-	//pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
+	// pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 )
 
@@ -32,7 +32,7 @@ type Port struct {
 	LogicalBridgeRefKeys []string
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
-	ResourceVersion		string
+	ResourceVersion      string
 }
 
 // build time check that struct implements interface

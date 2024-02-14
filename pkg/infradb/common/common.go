@@ -21,7 +21,7 @@ const (
 type Component struct {
 	Name       string
 	CompStatus COMP_STATUS
-	//Free format json string
+	// Free format json string
 	Details string
 	Timer   time.Duration
 }

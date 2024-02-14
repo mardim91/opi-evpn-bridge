@@ -9,7 +9,7 @@ import (
 	"net"
 	"time"
 
-	//pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
+	// pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 )
 
@@ -24,7 +24,7 @@ type Svi struct {
 	RemoteAs            uint32
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
-	ResourceVersion		string
+	ResourceVersion     string
 }
 
 // build time check that struct implements interface
