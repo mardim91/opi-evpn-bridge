@@ -190,9 +190,9 @@ func subscribe_infradb(config *Config) {
  
 func  set_up_tenant_bridge() {
 //	run([]string{"ip","-br","l"},false)
-	run([]string{"ip","link","add",/*strconv.Itoa(br_tenant)*/"br_tenant","type","bridge","vlan_default_pvid","0","vlan_filtering","1","vlan_protocol", "802.1Q"},false)
+	run([]string{"ip","link","add",/*strconv.Itoa(br_tenant)*/"br-tenant","type","bridge","vlan_default_pvid","0","vlan_filtering","1","vlan_protocol", "802.1Q"},false)
 //	fmt.Println("Venky ",CP,err)
-        run([]string{"ip","link","set","br_tenant",/*"strconv.Itoa(br_tenant)",*/"up"},false)
+        run([]string{"ip","link","set","br-tenant",/*"strconv.Itoa(br_tenant)",*/"up"},false)
 	//fmt.Println("Venky1 ",CP,err)
 }   
 

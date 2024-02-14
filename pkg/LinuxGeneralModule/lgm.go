@@ -64,11 +64,65 @@ func (h *ModulelgmHandler) HandleEvent(eventType string, objectData *event_bus.O
         case "svi":
 		fmt.Printf("LGM recevied %s %s\n",eventType,objectData.Name)	
                 handlesvi(objectData.Name)
+        case "logical-bridge":
+                fmt.Printf("LGM recevied %s %s\n",eventType,objectData.Name)
+                handleLB(objectData)
         default:
                 fmt.Println("LGM: error: Unknown event type %s", eventType)
 }
 }
 
+func handleLB(objectData *event_bus.ObjectData){
+        var comp common.Component
+        LB, err := infradb.GetLB(objectData.Name)
+        if err != nil {
+                fmt.Printf("LGM: GetLB error: %s %s\n", err,objectData.Name)
+                return
+        } else {
+                fmt.Printf("LGM : GetLB Name: %s\n", LB.Name)
+        }
+        if (len(LB.Status.Components) != 0 ){
+                for i:=0;i<len(LB.Status.Components);i++ {
+                        if (LB.Status.Components[i].Name == "lgm") {
+                                comp = LB.Status.Components[i]
+                        }
+                }
+        }
+        if (LB.Status.LBOperStatus !=infradb.LB_OPER_STATUS_TO_BE_DELETED){
+                status := set_up_bridge(LB)
+                comp.Name= "lgm"
+                if (status == true) {
+                        comp.Details= ""
+                        comp.CompStatus= common.COMP_STATUS_SUCCESS
+                        comp.Timer = 0
+                } else {
+                        if comp.Timer ==0 {
+                                comp.Timer=2 * time.Second
+                        } else {
+                                comp.Timer=comp.Timer*2
+                        }
+                        comp.CompStatus= common.COMP_STATUS_ERROR
+                }
+                fmt.Printf("LGM: %+v \n",comp)
+                infradb.UpdateLBStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
+        } else {
+                status := tear_down_bridge(LB)
+                comp.Name= "lgm"
+                if (status == true){
+                        comp.CompStatus = common.COMP_STATUS_SUCCESS
+                        comp.Timer=0
+                } else {
+                        comp.CompStatus= common.COMP_STATUS_ERROR
+                        if comp.Timer ==0 {
+                                comp.Timer=2 * time.Second
+                        } else {
+                                comp.Timer=comp.Timer*2
+                        }
+                }
+                fmt.Printf("LGM: %+v\n",comp)
+                infradb.UpdateLBStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
+        }
+}
 
 func handlesvi(eventName string){
         fmt.Printf("dummy %s\n", eventName)
@@ -144,7 +198,8 @@ func readConfig(filename string) (*Config, error) {
 
 
 var default_vtep string
-var ip_mtu int 
+var ip_mtu int
+var br_tenant string
 func Init() {
         config, err := readConfig("config.yaml")
         if err != nil {
@@ -158,6 +213,7 @@ func Init() {
                 	}
         	}
 	}
+	br_tenant = "br-tenant"
 	default_vtep = config.Linux_frr.Default_vtep
 	ip_mtu = config.Linux_frr.Ip_mtu
 
@@ -172,6 +228,42 @@ func routing_table_busy(table string) bool{
     return true //reflect.ValueOf(CP).IsZero() && len(CP)!= 0
 }
 
+func set_up_bridge(LB *infradb.LogicalBridge)(bool) {
+        link := fmt.Sprintf("vxlan-%+v",LB.Spec.VlanId)
+        if !reflect.ValueOf(LB.Spec.Vni).IsZero(){
+                Vni := fmt.Sprintf("%+v",*LB.Spec.Vni)
+                VtepIP := fmt.Sprintf("%+v",LB.Spec.VtepIP.IP)
+                Vlanid := fmt.Sprintf("%+v",LB.Spec.VlanId)
+                ip_mtu := fmt.Sprintf("%+v",ip_mtu)
+                fmt.Printf("%v %v %v %v %v\n", Vni,VtepIP,Vlanid,ip_mtu)
+                CP,err := run([]string{"ip", "link", "add", link, "type", "vxlan", "id", Vni, "local", VtepIP, "dstport", "4789", "nolearning", "proxy"}, false)
+                if (err != 0) {
+                        fmt.Printf("LGM:Error in exectuing command %s %s\n","link add ",link)
+                        fmt.Printf("%s\n",CP)
+                        return false
+                }
+                 CP,err = run([]string{"ip", "link", "set", link, "master", br_tenant, "up", "mtu", ip_mtu}, false)
+                 if (err != 0) {
+                         fmt.Printf("LGM:Error in exectuing command %s %s\n","link set ",link)
+                         fmt.Printf("%s\n",CP)
+                         return false
+                 }
+                 CP,err = run([]string{"bridge", "vlan", "add", "dev", link, "vid", Vlanid, "pvid", "untagged"}, false)
+                 if (err != 0) {
+                         fmt.Printf("LGM:Error in exectuing command %s %s\n","bridge vlan add dev",link)
+                         fmt.Printf("%s\n",CP)
+                         return false
+                 }
+                 CP,err = run([]string{"bridge", "link", "set", "dev", link, "neigh_suppress", "on"}, false)
+                 if (err != 0) {
+                         fmt.Printf("LGM:Error in exectuing command %s %s\n","bridge link set dev link neigh_suppress on",link)
+                         fmt.Printf("%s\n",CP)
+                         return false
+                 }
+                 return true
+         }
+         return false
+}
 
 func set_up_vrf(VRF *infradb.Vrf)(string,bool) {
 	vtip := fmt.Sprintf("%+v",VRF.Spec.VtepIP.IP)
@@ -438,4 +530,18 @@ func tear_down_vrf(VRF *infradb.Vrf)bool {
 		fmt.Printf("LGM Executed : ip link delete  %s\n",VRF.Name)
 	}
 	return true
+}
+
+func tear_down_bridge(LB *infradb.LogicalBridge)(bool) {
+        link := fmt.Sprintf("vxlan-%+v",LB.Spec.VlanId)
+        if !reflect.ValueOf(LB.Spec.Vni).IsZero(){
+                CP,err := run([]string{"ip", "link", "del", link}, false)
+                if (err != 0) {
+                        fmt.Printf("LGM:Error in exectuing command %s %s\n","ip link del ",link)
+                        fmt.Printf("%s\n",CP)
+                        return false
+                }
+        return true
+}
+return false
 }
