@@ -24,8 +24,12 @@ type InfraDB struct {
 }
 
 var (
-	ErrKeyNotFound       = errors.New("key not found")
-	ErrComponentNotFound = errors.New("component not found")
+	ErrKeyNotFound           = errors.New("key not found")
+	ErrComponentNotFound     = errors.New("component not found")
+	ErrVrfNotFound           = errors.New("the referenced VRF has not been found")
+	ErrLogicalBridgeNotFound = errors.New("the referenced Logical Bridge has not been found")
+	ErrVrfNotEmpty           = errors.New("the VRF is not empty")
+	ErrLogicalBridgeNotEmpty = errors.New("the LogicalBridge is not empty")
 	// Add more error constants as needed
 )
 
@@ -45,6 +49,7 @@ func Close() error {
 	return infradb.client.Close()
 }
 func CreateLB(lb *LogicalBridge) error {
+	// TODO: Add checks to see if the VNI is allready in use by another L2VPN
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -96,6 +101,11 @@ func DeleteLB(Name string) error {
 	found, err := infradb.client.Get(Name, &lb)
 	if found != true {
 		return ErrKeyNotFound
+	}
+
+	if lb.Svi != "" {
+		log.Fatalf("DeleteLB(): Can not delete Logical Bridge %+v. Associated with SVI interfaces", lb.Name)
+		return ErrLogicalBridgeNotEmpty
 	}
 
 	for i := range subscribers {
@@ -170,7 +180,7 @@ func UpdateLB(lb *LogicalBridge) error {
 
 	subscribers := event_bus.EBus.GetSubscribers("logical-bridge")
 	if subscribers == nil {
-		fmt.Println("CreateLB(): No subscribers for Logical Bridge objects")
+		fmt.Println("UpdateLB(): No subscribers for Logical Bridge objects")
 	}
 
 	err := infradb.client.Set(lb.Name, lb)
@@ -333,6 +343,7 @@ func UpdateBP(port *Port) error {
 }
 
 func CreateVrf(vrf *Vrf) error {
+	//TODO: Add checks to see if the vni is allready in use by another L3VPN
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -385,6 +396,11 @@ func DeleteVrf(Name string) error {
 	found, err := infradb.client.Get(Name, &vrf)
 	if found != true {
 		return ErrKeyNotFound
+	}
+
+	if len(vrf.Svis) != 0 {
+		log.Fatalf("DeleteVrf(): Can not delete VRF %+v. Associated with SVI interfaces", vrf.Name)
+		return ErrVrfNotEmpty
 	}
 
 	for i := range subscribers {
@@ -579,45 +595,341 @@ func CreateSvi(svi *Svi) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
-	svi.ResourceVersion = generateVersion()
-
-	err := infradb.client.Set(svi.Name, svi)
-	if err != nil {
-		log.Fatal(err)
+	subscribers := event_bus.EBus.GetSubscribers("svi")
+	if subscribers == nil {
+		fmt.Println("CreateSvi(): No subscribers for SVI objects")
 	}
 
-	return err
+	fmt.Printf("CreateSvi(): Create SVI: %+v\n", svi)
+
+	// Checking if the VRF exists
+	vrf := Vrf{}
+	found, err := infradb.client.Get(svi.Spec.Vrf, &vrf)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+	if !found {
+		log.Fatalf("CreateSvi(): The VRF with name %+v has not been found\n", svi.Spec.Vrf)
+		return ErrVrfNotFound
+	}
+
+	// Checking if the Logical Bridge exists
+	lb := LogicalBridge{}
+	found, err = infradb.client.Get(svi.Spec.LogicalBridge, &lb)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+	if !found {
+		log.Fatalf("CreateSvi(): The Logical Bridge with name %+v has not been found\n", svi.Spec.LogicalBridge)
+		return ErrVrfNotFound
+	}
+
+	// Store svi reference to the VRF object
+	if err := vrf.AddSvi(svi.Name); err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	err = infradb.client.Set(vrf.Name, vrf)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	// Store svi reference to the Logical Bridge object
+	if err := lb.AddSvi(svi.Name); err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	err = infradb.client.Set(lb.Name, lb)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	// Store SVI object to Database
+	err = infradb.client.Set(svi.Name, svi)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	// Add the New Created SVI to the "svis" map
+	svis := make(map[string]bool)
+	_, err = infradb.client.Get("svis", &svis)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+	// The reason that we use a map and not a list is
+	// because in the delete case we can delete the SVI from the
+	// map by just using the name. No need to iterate the whole list until
+	// we find the SVI and then delete it.
+	svis[svi.Name] = false
+	err = infradb.client.Set("svis", &svis)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	task_manager.TaskMan.CreateTask(svi.Name, "svi", svi.ResourceVersion, subscribers)
+
+	return nil
 }
 func DeleteSvi(Name string) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
-	err := infradb.client.Delete(Name)
-	if err != nil {
-		log.Fatal(err)
+	subscribers := event_bus.EBus.GetSubscribers("svi")
+	if subscribers == nil {
+		fmt.Println("DeleteSvi(): No subscribers for SVI objects")
 	}
-	return err
+
+	svi := Svi{}
+	found, err := infradb.client.Get(Name, &svi)
+	if found != true {
+		return ErrKeyNotFound
+	}
+
+	for i, _ := range subscribers {
+		svi.Status.Components[i].CompStatus = common.COMP_STATUS_PENDING
+	}
+	svi.ResourceVersion = generateVersion()
+	svi.Status.SviOperStatus = SVI_OPER_STATUS_TO_BE_DELETED
+
+	err = infradb.client.Set(svi.Name, svi)
+	if err != nil {
+		return err
+	}
+
+	task_manager.TaskMan.CreateTask(svi.Name, "svi", svi.ResourceVersion, subscribers)
+
+	return nil
 }
-func GetSvi(Name string) (Svi, error) {
+
+func GetSvi(Name string) (*Svi, error) {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
 	svi := Svi{}
 	found, err := infradb.client.Get(Name, &svi)
-	if found != true {
-		return svi, errors.New("KeyNotFound")
+
+	if !found {
+		return &svi, ErrKeyNotFound
 	}
-	return svi, err
+	return &svi, err
 }
+
+// GetAllSvis returns a map of Svis from the DB
+func GetAllSvis() ([]*Svi, error) {
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	svis := []*Svi{}
+	svisMap := make(map[string]bool)
+	found, err := infradb.client.Get("svis", &svisMap)
+
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+
+	if !found {
+		fmt.Println("GetAllSvis(): No Svis have been found")
+		return nil, ErrKeyNotFound
+	}
+
+	for key := range svisMap {
+		svi := &Svi{}
+		found, err := infradb.client.Get(key, svi)
+
+		if err != nil {
+			fmt.Printf("GetAllSvis(): Failed to get the SVI %s from store: %v", key, err)
+			return nil, err
+		}
+
+		if !found {
+			fmt.Printf("GetAllSvis(): SVI %s not found", key)
+			return nil, ErrKeyNotFound
+		}
+		svis = append(svis, svi)
+	}
+
+	return svis, nil
+
+}
+
 func UpdateSvi(svi *Svi) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
-	svi.ResourceVersion = generateVersion()
+	subscribers := event_bus.EBus.GetSubscribers("svi")
+	if subscribers == nil {
+		fmt.Println("UpdateSvi(): No subscribers for SVI objects")
+	}
 
 	err := infradb.client.Set(svi.Name, svi)
 	if err != nil {
 		log.Fatal(err)
+		return err
 	}
+
+	task_manager.TaskMan.CreateTask(svi.Name, "svi", svi.ResourceVersion, subscribers)
+
 	return nil
+}
+
+// UpdateSviStatus updates the status of SVI object based on the component report
+func UpdateSviStatus(Name string, resourceVersion string, notificationId string, sviMeta *SviMetadata, component common.Component) error {
+
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	var lastCompSuccsess bool
+
+	// When we get an error from an operation to the Database then we just return it. The
+	// Task manager will just expire the task and retry.
+	svi := Svi{}
+	found, err := infradb.client.Get(Name, &svi)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	if !found {
+		// No Svi object has been found in the database so we will instruct TaskManager to drop the Task that is related with this status update.
+		task_manager.TaskMan.StatusUpdated(Name, "svi", svi.ResourceVersion, notificationId, true, &component)
+		fmt.Printf("UpdateSviStatus(): No SVI object has been found in DB with Name %s\n", Name)
+		return nil
+	}
+
+	if svi.ResourceVersion != resourceVersion {
+		// Svi object in the database with different resourceVersion so we will instruct TaskManager to drop the Task that is related with this status update.
+		task_manager.TaskMan.StatusUpdated(svi.Name, "svi", svi.ResourceVersion, notificationId, true, &component)
+		fmt.Printf("UpdateSviStatus(): Invalid resourceVersion %s for SVI %+v\n", resourceVersion, svi)
+		return nil
+	}
+
+	sviComponents := svi.Status.Components
+	for i, comp := range sviComponents {
+		compCounter := i + 1
+		if comp.Name == component.Name {
+
+			svi.Status.Components[i] = component
+
+			if compCounter == len(sviComponents) && svi.Status.Components[i].CompStatus == common.COMP_STATUS_SUCCESS {
+				lastCompSuccsess = true
+			}
+
+			break
+		}
+
+	}
+
+	// Parse the Metadata that has been sent from the Component
+	if sviMeta != nil {
+		svi.Metadata = sviMeta
+	}
+
+	// Is it ok to delete an object before we update the last component status to success ?
+	// Take care of deleting the references to the LB and VRF objects after the SVI has been succesfully deleted
+	if lastCompSuccsess {
+		if svi.Status.SviOperStatus == SVI_OPER_STATUS_TO_BE_DELETED {
+
+			// Delete the references from VRF and Logical Bridge objects
+
+			// Get the dependent VRF object
+			vrf := Vrf{}
+			_, err := infradb.client.Get(svi.Spec.Vrf, &vrf)
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+
+			// Get the dependent Logical Bridge object
+			lb := LogicalBridge{}
+			_, err = infradb.client.Get(svi.Spec.LogicalBridge, &lb)
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+
+			// Delete the referenced SVI from the VRF and store the VRF to the DB
+			if err := vrf.DeleteSvi(svi.Name); err != nil {
+				log.Fatal(err)
+				return err
+			}
+
+			err = infradb.client.Set(vrf.Name, vrf)
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+
+			// Delete the referenced SVI from the Logical Bridge and store the Logical Bridge to the DB
+			if err := lb.DeleteSvi(svi.Name); err != nil {
+				log.Fatal(err)
+				return err
+			}
+
+			err = infradb.client.Set(lb.Name, lb)
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+
+			// Delete the SVI object from the DB
+			err = infradb.client.Delete(svi.Name)
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+
+			// Delete the SVI from the svis map
+			svis := make(map[string]bool)
+			found, err = infradb.client.Get("svis", &svis)
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+			if !found {
+				fmt.Println("UpdateSviStatus(): No Svis have been found")
+				return ErrKeyNotFound
+			}
+
+			delete(svis, svi.Name)
+			err = infradb.client.Set("svis", &svis)
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+
+			fmt.Printf("UpdateSviStatus(): Svi %s has been deleted\n", Name)
+		} else {
+			svi.Status.SviOperStatus = SVI_OPER_STATUS_UP
+			err = infradb.client.Set(svi.Name, svi)
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+			fmt.Printf("UpdateSviStatus(): SVI %s has been updated: %+v\n", Name, svi)
+		}
+
+	} else {
+
+		err = infradb.client.Set(svi.Name, svi)
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
+		fmt.Printf("UpdateSviStatus(): SVI %s has been updated: %+v\n", Name, svi)
+	}
+
+	task_manager.TaskMan.StatusUpdated(svi.Name, "svi", svi.ResourceVersion, notificationId, false, &component)
+
+	return nil
+
 }

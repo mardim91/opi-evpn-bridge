@@ -6,6 +6,7 @@
 package svi
 
 import (
+	"errors"
 	"fmt"
 
 	"go.einride.tech/aip/fieldbehavior"
@@ -53,12 +54,26 @@ func (s *Server) validateSviSpec(svi *pb.Svi) error {
 	// Dimitris: Should I validate also the gw_ip_prefix ?
 
 	// Dimitris: Do we need to change the type of RemoteAs to something else than uint32 ?
-	// because now the default value is "0" which is not good. I think "optional uint32" is better
-	if svi.Spec.RemoteAs > 65535 {
-		msg := fmt.Sprintf("RemoteAs must be in range 1-65535")
-		return status.Errorf(codes.InvalidArgument, msg)
+	// because now the default value is "0" which is not good. I think "optional uint32" in protobuf is better
+	if svi.Spec.EnableBgp {
+		if err := validateASN(svi.Spec.RemoteAs); err != nil {
+			msg := fmt.Sprintf("Invalid RemoteAs: %v", err)
+			return status.Errorf(codes.InvalidArgument, msg)
+		}
+	} else {
+		if svi.Spec.RemoteAs != 0 {
+			msg := fmt.Sprintf("Invalid RemoteAs: RemoteAs must not be defined when EnableBgp is False")
+			return status.Errorf(codes.InvalidArgument, msg)
+		}
 	}
 
+	return nil
+}
+
+func validateASN(asn uint32) error {
+	if asn < 1 || asn > 65535 {
+		return errors.New("ASN must be in range of 1-65535")
+	}
 	return nil
 }
 

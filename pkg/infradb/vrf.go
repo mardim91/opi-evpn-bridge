@@ -78,6 +78,7 @@ type Vrf struct {
 	Spec            VrfSpec
 	Status          VrfStatus
 	Metadata        *VrfMetadata
+	Svis            map[string]bool
 	ResourceVersion string
 }
 
@@ -124,6 +125,8 @@ func NewVrfWithArgs(name string, vni *uint32, loopbackIP, vtepIP *net.IPNet) (*V
 	}
 	vrf.Metadata = &VrfMetadata{}
 
+	vrf.Svis = make(map[string]bool)
+
 	vrf.ResourceVersion = generateVersion()
 
 	return vrf, nil
@@ -163,6 +166,7 @@ func NewVrf(in *pb.Vrf) *Vrf {
 			Components: components,
 		},
 		Metadata:        &VrfMetadata{},
+		Svis:            make(map[string]bool),
 		ResourceVersion: generateVersion(),
 	}
 }
@@ -206,6 +210,26 @@ func (in *Vrf) ToPb() *pb.Vrf {
 	}
 	// TODO: add LocalAs, LoopbackIP, VtepIP
 	return vrf
+}
+
+func (in *Vrf) AddSvi(sviName string) error {
+
+	_, ok := in.Svis[sviName]
+	if ok {
+		return fmt.Errorf("AddSvi(): The VRF %+v is allready associated with this SVI interface: %+v\n", in.Name, sviName)
+	}
+
+	in.Svis[sviName] = false
+	return nil
+}
+
+func (in *Vrf) DeleteSvi(sviName string) error {
+	_, ok := in.Svis[sviName]
+	if !ok {
+		return fmt.Errorf("DeleteSvi(): The VRF %+v has no SVI interface: %+v\n", in.Name, sviName)
+	}
+	delete(in.Svis, sviName)
+	return nil
 }
 
 // GetName returns object unique name

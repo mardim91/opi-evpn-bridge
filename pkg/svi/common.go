@@ -7,6 +7,7 @@ package svi
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"sort"
@@ -22,6 +23,7 @@ import (
 	//pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pc "github.com/opiproject/opi-api/network/opinetcommon/v1alpha1/gen/go"
+
 	//"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils/mocks"
@@ -45,7 +47,6 @@ func (s *Server) createSvi(svi *pb.Svi) (*pb.Svi, error) {
 	if err := infradb.CreateSvi(domainSvi); err != nil {
 		return nil, err
 	}
-	s.ListHelper[svi.Name] = false
 	return domainSvi.ToPb(), nil
 }
 
@@ -55,8 +56,6 @@ func (s *Server) deleteSvi(name string) error {
 	if err := infradb.DeleteSvi(name); err != nil {
 		return err
 	}
-
-	delete(s.ListHelper, name)
 	return nil
 }
 
@@ -66,6 +65,19 @@ func (s *Server) getSvi(name string) (*pb.Svi, error) {
 		return nil, err
 	}
 	return domainSvi.ToPb(), nil
+}
+
+func (s *Server) getAllSvis() ([]*pb.Svi, error) {
+	svis := []*pb.Svi{}
+	domainSvis, err := infradb.GetAllSvis()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, domainSvi := range domainSvis {
+		svis = append(svis, domainSvi.ToPb())
+	}
+	return svis, nil
 }
 
 func (s *Server) updateSvi(svi *pb.Svi) (*pb.Svi, error) {
@@ -88,6 +100,14 @@ func resourceIDToFullName(resourceID string) string {
 		"//network.opiproject.org/",
 		"svis", resourceID,
 	)
+}
+
+func checkTobeDeletedStatus(svi *pb.Svi) error {
+	if svi.Status.OperStatus == pb.SVIOperStatus_SVI_OPER_STATUS_TO_BE_DELETED {
+		return fmt.Errorf("VRF %s in to be deleted status", svi.Name)
+	}
+
+	return nil
 }
 
 // TODO: move all of this to a common place

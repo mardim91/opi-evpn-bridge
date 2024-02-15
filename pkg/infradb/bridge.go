@@ -47,6 +47,7 @@ type LogicalBridge struct {
 	Spec     *LogicalBridgeSpec
 	Status   *LogicalBridgeStatus
 	Metadata *LogicalBridgeMetadata
+	Svi      string
 	// Dimitris: We wil deal with the below fields when we implement the BP code
 	// BridgePorts     map[string]struct{}
 	//MacTable        map[string]Port
@@ -106,7 +107,7 @@ func (in *LogicalBridge) ToPb() *pb.LogicalBridge {
 	}
 	if in.Status.LBOperStatus == LB_OPER_STATUS_DOWN {
 		lb.Status.OperStatus = pb.LBOperStatus_LB_OPER_STATUS_DOWN
-	} else if in.Status.LBOperStatus == VRF_OPER_STATUS_UP {
+	} else if in.Status.LBOperStatus == LB_OPER_STATUS_UP {
 		lb.Status.OperStatus = pb.LBOperStatus_LB_OPER_STATUS_UP
 	} else if in.Status.LBOperStatus == LB_OPER_STATUS_UNSPECIFIED {
 		lb.Status.OperStatus = pb.LBOperStatus_LB_OPER_STATUS_UNSPECIFIED
@@ -137,6 +138,24 @@ func (in *LogicalBridge) ToPb() *pb.LogicalBridge {
 	}
 
 	return lb
+}
+
+func (in *LogicalBridge) AddSvi(sviName string) error {
+	if in.Svi != "" {
+		return fmt.Errorf("AddSvi(): The Logical Bridge is allready associated with an SVI interface: %+v\n", in.Svi)
+	}
+
+	in.Svi = sviName
+	return nil
+}
+
+func (in *LogicalBridge) DeleteSvi(sviName string) error {
+	if in.Svi != sviName {
+		return fmt.Errorf("DeleteSvi(): The Logical Bridge is not associated with the SVI interface: %+v\n", sviName)
+	}
+
+	in.Svi = ""
+	return nil
 }
 
 // GetName returns object unique name
