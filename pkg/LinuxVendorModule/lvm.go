@@ -77,6 +77,18 @@ func handlevrf(objectData *event_bus.ObjectData) {
 		fmt.Printf("LVM : GetVrf error: %s\n", err)
 		return
 	}
+	if (objectData.ResourceVersion != VRF.ResourceVersion){
+		fmt.Printf("LVM: Mismatch in resoruce version %+v\n and VRF resource version %+v\n", objectData.ResourceVersion, VRF.ResourceVersion)
+		comp.Name= "lvm"
+		comp.CompStatus= common.COMP_STATUS_ERROR
+		if comp.Timer ==0 {  // wait timer is 2 powerof natural numbers ex : 1,2,3...
+			comp.Timer=2 * time.Second
+		} else {
+			comp.Timer=comp.Timer*2
+		}
+		infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
+		return
+	}
 	if len(VRF.Status.Components) != 0 {
 		for i := 0; i < len(VRF.Status.Components); i++ {
 			if VRF.Status.Components[i].Name == "lvm" {

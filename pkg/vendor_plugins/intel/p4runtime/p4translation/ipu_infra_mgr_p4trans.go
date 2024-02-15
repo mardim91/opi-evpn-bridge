@@ -492,6 +492,19 @@ func (h *ModuleipuHandler) HandleEvent(eventType string, objectData *event_bus.O
 		} else {
 			fmt.Printf("IPU : GetVRF Name: %s\n", VRF.Name)
 		}
+		if (objectData.ResourceVersion != VRF.ResourceVersion){
+			fmt.Printf("IPU: Mismatch in resoruce version %+v\n and VRF resource version %+v\n", objectData.ResourceVersion, VRF.ResourceVersion)
+			comp.Name= "ipu"
+			comp.CompStatus= common.COMP_STATUS_ERROR
+			if comp.Timer ==0 {  // wait timer is 2 powerof natural numbers ex : 1,2,3...
+				comp.Timer=2 * time.Second
+			} else {
+				comp.Timer=comp.Timer*2
+			}
+			infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
+			return
+		}
+
 		if len(VRF.Status.Components) != 0 {
 			for i := 0; i < len(VRF.Status.Components); i++ {
 				if VRF.Status.Components[i].Name == "ipu" {
