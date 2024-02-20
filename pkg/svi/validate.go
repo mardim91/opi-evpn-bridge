@@ -39,12 +39,16 @@ func (s *Server) validateCreateSviRequest(in *pb.CreateSviRequest) error {
 func (s *Server) validateSviSpec(svi *pb.Svi) error {
 	// Validate that a LogicalBridge resource name conforms to the restrictions outlined in AIP-122.
 	if err := resourcename.Validate(svi.Spec.LogicalBridge); err != nil {
-		return err
+		msg := fmt.Sprintf("Logical Bridge %v has invalid name, error: %v", svi.Spec.LogicalBridge, err)
+		return status.Errorf(codes.InvalidArgument, msg)
 	}
+
 	// Validate that a Vrf resource name conforms to the restrictions outlined in AIP-122.
 	if err := resourcename.Validate(svi.Spec.Vrf); err != nil {
-		return err
+		msg := fmt.Sprintf("VRF %v has invalid name, error: %v", svi.Spec.Vrf, err)
+		return status.Errorf(codes.InvalidArgument, msg)
 	}
+
 	// Validate that the MacAddress has the right format
 	if err := utils.ValidateMacAddress(svi.Spec.MacAddress); err != nil {
 		msg := fmt.Sprintf("Invalid format of MAC Address: %v", err)

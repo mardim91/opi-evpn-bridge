@@ -43,14 +43,13 @@ type LogicalBridgeSpec struct {
 type LogicalBridgeMetadata struct{}
 
 type LogicalBridge struct {
-	Name     string
-	Spec     *LogicalBridgeSpec
-	Status   *LogicalBridgeStatus
-	Metadata *LogicalBridgeMetadata
-	Svi      string
-	// Dimitris: We wil deal with the below fields when we implement the BP code
-	// BridgePorts     map[string]struct{}
-	//MacTable        map[string]Port
+	Name            string
+	Spec            *LogicalBridgeSpec
+	Status          *LogicalBridgeStatus
+	Metadata        *LogicalBridgeMetadata
+	Svi             string
+	BridgePorts     map[string]bool
+	MacTable        map[string]string
 	ResourceVersion string
 }
 
@@ -155,6 +154,41 @@ func (in *LogicalBridge) DeleteSvi(sviName string) error {
 	}
 
 	in.Svi = ""
+	return nil
+}
+
+func (in *LogicalBridge) AddBridgePort(bpName, bpMac string) error {
+
+	_, found := in.BridgePorts[bpName]
+	if found {
+		return fmt.Errorf("AddBridgePort(): The Logical Bridge %+v is allready associated with the Bridge Port: %+v\n", in.Name, bpName)
+	}
+
+	_, found = in.MacTable[bpMac]
+	if found {
+		return fmt.Errorf("AddBridgePort(): The Logical Bridge %+v is allready associated with the Bridge Port MAC: %+v\n", in.Name, bpMac)
+	}
+	in.BridgePorts[bpName] = false
+	in.MacTable[bpMac] = bpName
+
+	return nil
+}
+
+func (in *LogicalBridge) DeleteBridgePort(bpName, bpMac string) error {
+
+	_, found := in.BridgePorts[bpName]
+	if !found {
+		return fmt.Errorf("DeleteBridgePort(): The Logical Bridge %+v is not associated with the Bridge Port: %+v\n", in.Name, bpName)
+	}
+
+	_, found = in.MacTable[bpMac]
+	if !found {
+		return fmt.Errorf("DeleteBridgePort(): The Logical Bridge %+v is not associated with the Bridge Port MAC: %+v\n", in.Name, bpMac)
+	}
+
+	delete(in.BridgePorts, bpName)
+	delete(in.MacTable, bpMac)
+
 	return nil
 }
 

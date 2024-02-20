@@ -108,6 +108,11 @@ func DeleteLB(Name string) error {
 		return ErrLogicalBridgeNotEmpty
 	}
 
+	if len(lb.BridgePorts) != 0 || len(lb.MacTable) != 0 {
+		log.Fatalf("DeleteLB(): Can not delete Logical Bridge %+v. Associated with Bridge Ports", lb.Name)
+		return ErrVrfNotEmpty
+	}
+
 	for i := range subscribers {
 		lb.Status.Components[i].CompStatus = common.COMP_STATUS_PENDING
 	}
@@ -137,7 +142,7 @@ func GetLB(Name string) (*LogicalBridge, error) {
 }
 
 // GetAllLogicalBridges returns a map of Logical Bridges from the DB
-func GetAllLogicalBridges() ([]*LogicalBridge, error) {
+func GetAllLBs() ([]*LogicalBridge, error) {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -295,51 +300,332 @@ func UpdateLBStatus(Name string, resourceVersion string, notificationId string, 
 	return nil
 }
 
-func CreateBP(port *Port) error {
+func CreateBP(bp *BridgePort) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
-	port.ResourceVersion = generateVersion()
+	subscribers := event_bus.EBus.GetSubscribers("bridge-port")
+	if subscribers == nil {
+		fmt.Println("CreateBP(): No subscribers for Bridge Port objects")
+	}
 
-	err := infradb.client.Set(port.Name, port)
+	// Dimitris: Do I need to add here a check for MAC uniquness in of BP ?
+	// The way to do this is to create a MAP of MACs and store it in the DB
+	// and then check if MAC exist in this MAP everytime a new BP gets created.
+
+	fmt.Printf("CreateBP(): Create Bridge Port: %+v\n", bp)
+
+	// If Transparent Trunk then all the Logical Bridges are included by default
+	if bp.TransparentTrunk {
+		lbs := make(map[string]bool)
+		found, err := infradb.client.Get("lbs", &lbs)
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
+		if !found {
+			fmt.Println("CreateBP(): No Logical Bridges have been found")
+			return ErrKeyNotFound
+		}
+
+		for lbName, _ := range lbs {
+			bp.Spec.LogicalBridges = append(bp.Spec.LogicalBridges, lbName)
+		}
+	}
+
+	// Get Logical Bridge infraDB objects
+	// Fill up the Vlans list of the infraDB Bridge Port object
+	// Add Bridge Port reference and save the Logical Bridge object back to DB
+	for _, lbName := range bp.Spec.LogicalBridges {
+		lb := LogicalBridge{}
+		found, err := infradb.client.Get(lbName, &lb)
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
+		if !found {
+			log.Fatalf("CreateBP(): The Logical Bridge with name %+v has not been found\n", lbName)
+			return ErrLogicalBridgeNotFound
+		}
+		bp.Vlans = append(bp.Vlans, &lb.Spec.VlanId)
+
+		// Store Bridge Port reference to the Logical Bridge object
+		lb.AddBridgePort(bp.Name, bp.Spec.MacAddress.String())
+
+		// Save Logical Bridge object back to DB
+		err = infradb.client.Set(lb.Name, lb)
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
+	}
+
+	// Store Bridge Port object to Database
+	err := infradb.client.Set(bp.Name, bp)
 	if err != nil {
 		log.Fatal(err)
+		return err
 	}
-	return err
+
+	// Add the New Created Bridge Port to the "bps" map
+	bps := make(map[string]bool)
+	_, err = infradb.client.Get("bps", &bps)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+	// The reason that we use a map and not a list is
+	// because in the delete case we can delete the Bridge Port from the
+	// map by just using the name. No need to iterate the whole list until
+	// we find the Bridge port and then delete it.
+	bps[bp.Name] = false
+	err = infradb.client.Set("bps", &bps)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	task_manager.TaskMan.CreateTask(bp.Name, "bridge-port", bp.ResourceVersion, subscribers)
+
+	return nil
 }
+
 func DeleteBP(Name string) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
-	err := infradb.client.Delete(Name)
-	if err != nil {
-		log.Fatal(err)
+	subscribers := event_bus.EBus.GetSubscribers("bridge-port")
+	if subscribers == nil {
+		fmt.Println("DeleteBP(): No subscribers for Bridge Port objects")
 	}
-	return err
-}
 
-func GetBP(Name string) (Port, error) {
-	globalLock.Lock()
-	defer globalLock.Unlock()
-
-	Port := Port{}
-	found, err := infradb.client.Get(Name, &Port)
+	bp := BridgePort{}
+	found, err := infradb.client.Get(Name, &bp)
 	if found != true {
-		return Port, errors.New("KeyNotFound")
+		return ErrKeyNotFound
 	}
-	return Port, err
+
+	for i, _ := range subscribers {
+		bp.Status.Components[i].CompStatus = common.COMP_STATUS_PENDING
+	}
+	bp.ResourceVersion = generateVersion()
+	bp.Status.BPOperStatus = BP_OPER_STATUS_TO_BE_DELETED
+
+	err = infradb.client.Set(bp.Name, bp)
+	if err != nil {
+		return err
+	}
+
+	task_manager.TaskMan.CreateTask(bp.Name, "bridge-port", bp.ResourceVersion, subscribers)
+
+	return nil
 }
-func UpdateBP(port *Port) error {
+
+func GetBP(Name string) (*BridgePort, error) {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
-	port.ResourceVersion = generateVersion()
+	bp := BridgePort{}
+	found, err := infradb.client.Get(Name, &bp)
 
-	err := infradb.client.Set(port.Name, port)
+	if !found {
+		return &bp, ErrKeyNotFound
+	}
+	return &bp, err
+}
+
+// GetAllBPs returns a map of Bridge Ports from the DB
+func GetAllBPs() ([]*BridgePort, error) {
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	bps := []*BridgePort{}
+	bpsMap := make(map[string]bool)
+	found, err := infradb.client.Get("bps", &bpsMap)
+
 	if err != nil {
 		log.Fatal(err)
+		return nil, err
 	}
+
+	if !found {
+		fmt.Println("GetAllBPs(): No Bridge Ports have been found")
+		return nil, ErrKeyNotFound
+	}
+
+	for key := range bpsMap {
+		bp := &BridgePort{}
+		found, err := infradb.client.Get(key, bp)
+
+		if err != nil {
+			fmt.Printf("GetAllBPs(): Failed to get the Bridge Port %s from store: %v", key, err)
+			return nil, err
+		}
+
+		if !found {
+			fmt.Printf("GetAllBPs(): Bridge Port %s not found", key)
+			return nil, ErrKeyNotFound
+		}
+		bps = append(bps, bp)
+	}
+
+	return bps, nil
+
+}
+
+func UpdateBP(bp *BridgePort) error {
+	// Note: The update functions for all the objects need to be revisited
+	// The implementaation currently is not correct but due to low priority
+	// will be refactored in the future.
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	subscribers := event_bus.EBus.GetSubscribers("bridge-port")
+	if subscribers == nil {
+		fmt.Println("UpdateBP(): No subscribers for Bridge Port objects")
+	}
+
+	err := infradb.client.Set(bp.Name, bp)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	task_manager.TaskMan.CreateTask(bp.Name, "bridge-port", bp.ResourceVersion, subscribers)
+
 	return nil
+}
+
+// UpdateBPStatus updates the status of Bridge Port object based on the component report
+func UpdateBPStatus(Name string, resourceVersion string, notificationId string, bpMeta *BridgePortMetadata, component common.Component) error {
+
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	var lastCompSuccsess bool
+
+	// When we get an error from an operation to the Database then we just return it. The
+	// Task manager will just expire the task and retry.
+	bp := BridgePort{}
+	found, err := infradb.client.Get(Name, &bp)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	if !found {
+		// No Bridge Port object has been found in the database so we will instruct TaskManager to drop the Task that is related with this status update.
+		task_manager.TaskMan.StatusUpdated(Name, "bridge-port", bp.ResourceVersion, notificationId, true, &component)
+		fmt.Printf("UpdateBPStatus(): No Bridge Port object has been found in DB with Name %s\n", Name)
+		return nil
+	}
+
+	if bp.ResourceVersion != resourceVersion {
+		// Bridge Port object in the database with different resourceVersion so we will instruct TaskManager to drop the Task that is related with this status update.
+		task_manager.TaskMan.StatusUpdated(bp.Name, "bridge-port", bp.ResourceVersion, notificationId, true, &component)
+		fmt.Printf("UpdateBPStatus(): Invalid resourceVersion %s for Bridge Port %+v\n", resourceVersion, bp)
+		return nil
+	}
+
+	bpComponents := bp.Status.Components
+	for i, comp := range bpComponents {
+		compCounter := i + 1
+		if comp.Name == component.Name {
+
+			bp.Status.Components[i] = component
+
+			if compCounter == len(bpComponents) && bp.Status.Components[i].CompStatus == common.COMP_STATUS_SUCCESS {
+				lastCompSuccsess = true
+			}
+
+			break
+		}
+
+	}
+
+	// Parse the Metadata that has been sent from the Component
+	if bpMeta != nil {
+		if bpMeta.VPort != "" {
+			bp.Metadata.VPort = bpMeta.VPort
+		}
+	}
+
+	// Is it ok to delete an object before we update the last component status to success ?
+	// Take care of deleting the references to the LB  objects after the BP has been succesfully deleted
+	if lastCompSuccsess {
+		if bp.Status.BPOperStatus == SVI_OPER_STATUS_TO_BE_DELETED {
+
+			// Delete the references from Logical Bridge objects
+			for _, lbName := range bp.Spec.LogicalBridges {
+				lb := LogicalBridge{}
+				_, err := infradb.client.Get(lbName, &lb)
+				if err != nil {
+					log.Fatal(err)
+					return err
+				}
+
+				// Store Bridge Port reference to the Logical Bridge object
+				lb.DeleteBridgePort(bp.Name, bp.Spec.MacAddress.String())
+
+				// Save Logical Bridge object back to DB
+				err = infradb.client.Set(lb.Name, lb)
+				if err != nil {
+					log.Fatal(err)
+					return err
+				}
+			}
+
+			// Delete the Bridge Port object from the DB
+			err = infradb.client.Delete(bp.Name)
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+
+			// Delete the Bridge Port from the bps map
+			bps := make(map[string]bool)
+			found, err = infradb.client.Get("bps", &bps)
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+			if !found {
+				fmt.Println("UpdateBPStatus(): No Bridge Ports have been found")
+				return ErrKeyNotFound
+			}
+
+			delete(bps, bp.Name)
+			err = infradb.client.Set("bps", &bps)
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+
+			fmt.Printf("UpdateBPStatus(): Bridge Port %s has been deleted\n", Name)
+		} else {
+			bp.Status.BPOperStatus = BP_OPER_STATUS_UP
+			err = infradb.client.Set(bp.Name, bp)
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+			fmt.Printf("UpdateBPStatus(): Bridge Port %s has been updated: %+v\n", Name, bp)
+		}
+
+	} else {
+
+		err = infradb.client.Set(bp.Name, bp)
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
+		fmt.Printf("UpdateBPStatus(): Bridge Port %s has been updated: %+v\n", Name, bp)
+	}
+
+	task_manager.TaskMan.StatusUpdated(bp.Name, "bridge-port", bp.ResourceVersion, notificationId, false, &component)
+
+	return nil
+
 }
 
 func CreateVrf(vrf *Vrf) error {

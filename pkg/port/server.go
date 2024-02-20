@@ -17,14 +17,12 @@ import (
 type Server struct {
 	pb.UnimplementedBridgePortServiceServer
 	Pagination map[string]int
-	ListHelper map[string]bool
 	tracer     trace.Tracer
 }
 
 // NewServer creates initialized instance of EVPN server
 func NewServer() *Server {
 	return &Server{
-		ListHelper: make(map[string]bool),
 		Pagination: make(map[string]int),
 		tracer:     otel.Tracer(""),
 	}

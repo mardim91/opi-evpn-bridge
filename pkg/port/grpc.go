@@ -14,6 +14,7 @@ import (
 
 	"github.com/dgraph-io/badger"
 	"github.com/google/uuid"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 
 	//pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
@@ -119,6 +120,12 @@ func (s *Server) UpdateBridgePort(ctx context.Context, in *pb.UpdateBridgePortRe
 		return response, nil
 	}
 
+	// Check if the object for update is currently in TO_BE_DELETED status
+	if err := checkTobeDeletedStatus(bpObj); err != nil {
+		log.Printf("UpdateBridgePort(): Bridge Port with id %v, Error: %v", in.BridgePort.Name, err)
+		return nil, err
+	}
+
 	// We do that because we need to see if the object before and after the application of the mask is equal.
 	// If it is the we just return the old object.
 	updatedbpObj := utils.ProtoClone(bpObj)
@@ -177,23 +184,15 @@ func (s *Server) ListBridgePorts(_ context.Context, in *pb.ListBridgePortsReques
 	}
 	// fetch object from the database
 	Blobarray := []*pb.BridgePort{}
-	// Dimitris: ListHelper is a  go map that helps on retrieving the objects
-	// from DB by name. The reason that we need it is because the DB doesn't support any
-	// List() function to retrieve all the BP objects in one operation by using a prefix as key and not
-	// the full name. The prefix can be: "//network.opiproject.org/ports"
-	// In a replay scenario the List must be filled again as it will be out of sync with the DB status.
-	for key := range s.ListHelper {
-		bpObj, err := s.getBridgePort(key)
-		if err != nil {
-			if err != badger.ErrKeyNotFound {
-				fmt.Printf("Failed to interact with store: %v", err)
-				return nil, err
-			}
-			err := status.Errorf(codes.NotFound, "unable to find key %s", key)
-			fmt.Printf("ListBridgePorts(): BridgePort with id %v: Not Found %v", key, err)
+	Blobarray, err = s.getAllBridgePorts()
+	if err != nil {
+		if err != infradb.ErrKeyNotFound {
+			fmt.Printf("Failed to interact with store: %v", err)
 			return nil, err
 		}
-		Blobarray = append(Blobarray, bpObj)
+		err := status.Errorf(codes.NotFound, "Error: %v", err)
+		fmt.Printf("ListBridgePorts(): %v", err)
+		return nil, err
 	}
 	// sort is needed, since MAP is unsorted in golang, and we might get different results
 	sortBridgePorts(Blobarray)

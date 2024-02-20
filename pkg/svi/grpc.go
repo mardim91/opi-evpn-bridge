@@ -123,7 +123,7 @@ func (s *Server) UpdateSvi(ctx context.Context, in *pb.UpdateSviRequest) (*pb.Sv
 
 	// Check if the object for update is currently in TO_BE_DELETED status
 	if err := checkTobeDeletedStatus(sviObj); err != nil {
-		log.Printf("UpdateVrf(): Vrf with id %v, Error: %v", in.Svi.Name, err)
+		log.Printf("UpdateSvi(): SVI with id %v, Error: %v", in.Svi.Name, err)
 		return nil, err
 	}
 
@@ -192,7 +192,7 @@ func (s *Server) ListSvis(_ context.Context, in *pb.ListSvisRequest) (*pb.ListSv
 			return nil, err
 		}
 		err := status.Errorf(codes.NotFound, "Error: %v", err)
-		fmt.Printf("ListVrfs(): %v", err)
+		fmt.Printf("ListSvis(): %v", err)
 		return nil, err
 	}
 	// sort is needed, since MAP is unsorted in golang, and we might get different results

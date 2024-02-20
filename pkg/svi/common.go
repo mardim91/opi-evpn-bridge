@@ -104,7 +104,7 @@ func resourceIDToFullName(resourceID string) string {
 
 func checkTobeDeletedStatus(svi *pb.Svi) error {
 	if svi.Status.OperStatus == pb.SVIOperStatus_SVI_OPER_STATUS_TO_BE_DELETED {
-		return fmt.Errorf("VRF %s in to be deleted status", svi.Name)
+		return fmt.Errorf("SVI %s in to be deleted status", svi.Name)
 	}
 
 	return nil

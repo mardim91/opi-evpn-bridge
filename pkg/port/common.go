@@ -7,6 +7,7 @@ package port
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"sort"
@@ -22,6 +23,7 @@ import (
 	//pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pc "github.com/opiproject/opi-api/network/opinetcommon/v1alpha1/gen/go"
+
 	//"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils/mocks"
@@ -45,7 +47,6 @@ func (s *Server) createBridgePort(bp *pb.BridgePort) (*pb.BridgePort, error) {
 	if err := infradb.CreateBP(domainBP); err != nil {
 		return nil, err
 	}
-	s.ListHelper[bp.Name] = false
 	return domainBP.ToPb(), nil
 }
 
@@ -55,8 +56,6 @@ func (s *Server) deleteBridgePort(name string) error {
 	if err := infradb.DeleteBP(name); err != nil {
 		return err
 	}
-
-	delete(s.ListHelper, name)
 	return nil
 }
 
@@ -66,6 +65,19 @@ func (s *Server) getBridgePort(name string) (*pb.BridgePort, error) {
 		return nil, err
 	}
 	return domainBP.ToPb(), nil
+}
+
+func (s *Server) getAllBridgePorts() ([]*pb.BridgePort, error) {
+	bps := []*pb.BridgePort{}
+	domainBPs, err := infradb.GetAllBPs()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, domainBP := range domainBPs {
+		bps = append(bps, domainBP.ToPb())
+	}
+	return bps, nil
 }
 
 func (s *Server) updateBridgePort(bp *pb.BridgePort) (*pb.BridgePort, error) {
@@ -88,6 +100,14 @@ func resourceIDToFullName(resourceID string) string {
 		"//network.opiproject.org/",
 		"ports", resourceID,
 	)
+}
+
+func checkTobeDeletedStatus(bp *pb.BridgePort) error {
+	if bp.Status.OperStatus == pb.BPOperStatus_BP_OPER_STATUS_TO_BE_DELETED {
+		return fmt.Errorf("Bridge Port %s in to be deleted status", bp.Name)
+	}
+
+	return nil
 }
 
 // TODO: move all of this to a common place

@@ -66,7 +66,7 @@ func (s *Server) getLogicalBridge(name string) (*pb.LogicalBridge, error) {
 
 func (s *Server) getAllLogicalBridges() ([]*pb.LogicalBridge, error) {
 	lbs := []*pb.LogicalBridge{}
-	domainLBs, err := infradb.GetAllLogicalBridges()
+	domainLBs, err := infradb.GetAllLBs()
 	if err != nil {
 		return nil, err
 	}
