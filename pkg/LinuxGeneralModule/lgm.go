@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	//"io/ioutil"
 	"log"
 	"math/rand"
 	"net"
@@ -15,14 +15,15 @@ import (
 	"time"
 
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
+	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
-	"gopkg.in/yaml.v2"
+	//"gopkg.in/yaml.v2"
 )
 
 type ModulelgmHandler struct{}
 
-type SubscriberConfig struct {
+/*type SubscriberConfig struct {
 	Name     string   `yaml:"name"`
 	Priority int      `yaml:"priority"`
 	Events   []string `yaml:"events"`
@@ -39,7 +40,7 @@ type Linux_frrConfig struct {
 type Config struct {
 	Subscribers []SubscriberConfig `yaml:"subscribers"`
 	Linux_frr   Linux_frrConfig    `yaml:"linux_frr"`
-}
+}*/
 
 func run(cmd []string, flag bool) (string, int) {
 	var out []byte
@@ -192,7 +193,7 @@ func handlevrf(objectData *event_bus.ObjectData) {
 	}
 }
 
-func readConfig(filename string) (*Config, error) {
+/*func readConfig(filename string) (*Config, error) {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -204,19 +205,19 @@ func readConfig(filename string) (*Config, error) {
 	}
 
 	return &config, nil
-}
+}*/
 
 var default_vtep string
 var ip_mtu int
 var br_tenant string
 
 func Init() {
-	config, err := readConfig("config.yaml")
+	/*config, err := readConfig("config.yaml")
 	if err != nil {
 		log.Fatal(err)
-	}
+	}*/
 	eb := event_bus.EBus
-	for _, subscriberConfig := range config.Subscribers {
+	for _, subscriberConfig := range config.GlobalConfig.Subscribers {
 		if subscriberConfig.Name == "lgm" {
 			for _, eventType := range subscriberConfig.Events {
 				eb.StartSubscriber(subscriberConfig.Name, eventType, subscriberConfig.Priority, &ModulelgmHandler{})
@@ -224,8 +225,8 @@ func Init() {
 		}
 	}
 	br_tenant = "br-tenant"
-	default_vtep = config.Linux_frr.Default_vtep
-	ip_mtu = config.Linux_frr.Ip_mtu
+	default_vtep = config.GlobalConfig.Linux_frr.Default_vtep
+	ip_mtu = config.GlobalConfig.Linux_frr.Ip_mtu
 }
 
 func routing_table_busy(table string) bool {

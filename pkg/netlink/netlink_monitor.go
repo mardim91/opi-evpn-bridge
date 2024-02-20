@@ -26,11 +26,12 @@ import (
 	// ipu_db "xpu/ipu_db"
 	vn "github.com/vishvananda/netlink"
 
+	//"io/ioutil"
+	"path"
+	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	eb "github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/event_bus"
-	"gopkg.in/yaml.v3"
-	"io/ioutil"
-	"path"
+	//"gopkg.in/yaml.v3"
 )
 
 var db_lock int
@@ -575,7 +576,7 @@ type L2Nexthop_struct struct {
 	Dst     net.IP
 	Key     L2Nexthop_key
 	// lb
-	//bp
+	// bp
 	Id       int
 	Fdb_refs []FdbEntry_struct
 	Resolved bool
@@ -591,7 +592,7 @@ type FdbEntry_struct struct {
 	Key     FDB_key
 	State   string
 	// lb
-	//bp
+	// bp
 	Nexthop  L2Nexthop_struct
 	Type     int
 	Metadata map[interface{}]interface{}
@@ -628,7 +629,7 @@ func (L2NH L2Nexthop_struct) Parse_L2NH(Vlan_id int, Dev string, dst string /*, 
 	L2NH.Dst = net.IP(dst)
 	L2NH.Key = L2Nexthop_key{L2NH.Dev, L2NH.Vlan_id, string(L2NH.Dst)}
 	// L2NH.lb: ipu_db.LogicalBridge = LB
-	//L2NH.bp: ipu_db.BridgePort = BP
+	// L2NH.bp: ipu_db.BridgePort = BP
 	if L2NH.Dev == fmt.Sprintf("svi-", L2NH.Vlan_id) {
 		L2NH.Type = SVI
 	} else if L2NH.Dev == fmt.Sprintf("vxlan-", L2NH.Vlan_id) {
@@ -661,7 +662,7 @@ func L2NH_assign_id(key L2Nexthop_key) int {
 func add_fdb_entry(M FdbEntry_struct) {
 	M = add_l2_nexthop(M)
 	// TODO
-	//logger.debug(f"Adding {M.format()}.")
+	// logger.debug(f"Adding {M.format()}.")
 	LatestFDB[M.Key] = M
 }
 
@@ -793,9 +794,9 @@ func neighbor_annotate(neighbor Neigh_Struct) Neigh_Struct {
 		s := mustcompile.FindStringSubmatch(neighbor.Dev)
 		vlan_id := strings.Split(s[0], "-")[1]
 		// TODO
-		//LB = InfraDB.get_LB(vlan_id)
+		// LB = InfraDB.get_LB(vlan_id)
 		//BP: ipu_db.BridgePort = LB.lookup_mac(self.lladdr)
-		//if BP{
+		// if BP{
 		neighbor.Type = SVI
 		neighbor.Metadata["vport_id"] = "0xa" // BP.vport_id
 		neighbor.Metadata["vlan_id"] = vlan_id
@@ -1183,8 +1184,8 @@ func Parse_neigh(NM []Neigh_IP_Struct, v string) Neigh_list {
 
 func get_neighbor_routes() []Route_cmd_info { // []map[string]string{
 	// Return a list of /32 or /128 routes & Nexthops to be inserted into
-	//the routing tables for Resolved neighbors on connected subnets
-	//on physical and SVI interfaces.
+	// the routing tables for Resolved neighbors on connected subnets
+	// on physical and SVI interfaces.
 	var neighbor_routes []Route_cmd_info // []map[string]string
 	for _, N := range LatestNeighbors {
 		// if N.Type == PHY || N.Type == SVI {
@@ -1257,7 +1258,7 @@ type Route_cmd_info struct {
 
 func pre_filter_mac(F FdbEntry_struct) bool {
 	// TODO M.nexthop.dst
-	//if F.Vlan_id != 0 || !(reflect.ValueOf(F.Nexthop.Dst).IsZero()){
+	// if F.Vlan_id != 0 || !(reflect.ValueOf(F.Nexthop.Dst).IsZero()){
 	if F.Vlan_id != 0 { // || !(reflect.ValueOf(F.Nexthop.Dst).IsZero()){
 		log.Printf("%d vlan \n", len(F.Nexthop.Dst.String()))
 		return true
@@ -1320,11 +1321,11 @@ func read_routes(V *infradb.Vrf) {
 	//			return
 	//		}
 	// log.Printf("Ifname %s\n",str)
-	//var routes Route_list
+	// var routes Route_list
 	//	routes.R,routes.Err = netlink.RouteList(nil, netlink.FAMILY_MPLS)
 	//	routes.R,routes.Err = netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
 	//		LinkIndex: link.Attrs().Index,
-	//Table :  int(V.Routing_tables[0]),
+	// Table :  int(V.Routing_tables[0]),
 	//	}, netlink.RT_FILTER_IIF )
 	//	if routes.Err != nil {
 	//		log.Println(routes.Err)
@@ -1577,7 +1578,7 @@ func (L2N L2Nexthop_struct) annotate() L2Nexthop_struct {
 	// Annotate certain L2 Nexthops with additional information from LB and GRD
 	// TODO
 	// LB := L2N.lb
-	//if !(reflect.ValueOf(LB).IsZero()) {
+	// if !(reflect.ValueOf(LB).IsZero()) {
 	//  if L2N.Type == SVI {
 	// MAC address learned on SVI interface of bridge
 	//    if reflect.ValueOf(LB.Svi).IsZero() {
@@ -1627,7 +1628,7 @@ func (fdb FdbEntry_struct) annotate() FdbEntry_struct {
 		return fdb
 	}
 	// TODO
-	//if not self.lb: return
+	// if not self.lb: return
 
 	fdb.Metadata = make(map[interface{}]interface{})
 	L2N := fdb.Nexthop
@@ -1648,7 +1649,7 @@ func (fdb FdbEntry_struct) annotate() FdbEntry_struct {
 			fdb.Metadata["direction"] = "NONE"
 		}
 		// TODO
-		//logger.debug(f"Annotated {self}: extra={self.Metadata}")
+		// logger.debug(f"Annotated {self}: extra={self.Metadata}")
 	}
 	return fdb
 }
@@ -1889,33 +1890,35 @@ func Init() {
 	defer logFile.Close()
 	log.SetOutput(logFile)
 	log.SetFlags(log.Lshortfile | log.LstdFlags)
-	var config Config_t
-	yfile, err := ioutil.ReadFile("config.yaml")
+	//var config Config_t
+	/*yfile, err := ioutil.ReadFile("config.yaml")
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		// os.Exit(0)
 	}
 	err2 := yaml.Unmarshal(yfile, &config)
 	if err2 != nil {
 		log.Fatal(err2)
-	}
+	}*/
 	// wg.Add(1)
-	poll_interval = config.Netlink.Poll_interval
+	poll_interval = config.GlobalConfig.Netlink.Poll_interval
 	log.Println(poll_interval)
-	br_tenant = config.Linux_frr.Br_tenant
-	log.Println(br_tenant)
-	nl_enabled := config.Netlink.Enable
+	//TODO:fix this
+
+	//br_tenant = config.Linux_frr.Br_tenant
+	//log.Println(br_tenant)
+	nl_enabled := config.GlobalConfig.Netlink.Enabled
 	if nl_enabled != true {
 		log.Println("netlink_monitor disabled")
 		return
 	}
-	for i := 0; i < len(config.Netlink.Phy_ports); i++ {
-		phy_ports[config.Netlink.Phy_ports[i].Name] = config.Netlink.Phy_ports[i].Vsi
+	for i := 0; i < len(config.GlobalConfig.Netlink.Phy_ports); i++ {
+		phy_ports[config.GlobalConfig.Netlink.Phy_ports[i].Name] = config.GlobalConfig.Netlink.Phy_ports[i].Vsi
 	}
 	getlink()
-	go monitor_netlink(config.P4.Enable) // monitor Thread started
+	go monitor_netlink(config.GlobalConfig.P4.Enabled) // monitor Thread started
 	// log.Println("Started netlink_monitor thread with {poll_interval} s poll interval.")
 	//	time.Sleep(1 * time.Second)
 	//	stop_monitoring = true
-	//wg.Wait()
+	// wg.Wait()
 }

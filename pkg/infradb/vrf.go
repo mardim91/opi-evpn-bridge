@@ -10,7 +10,7 @@ import (
 	"net"
 
 	// "time"
-	//pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
+	// pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
@@ -62,8 +62,8 @@ type VrfSpec struct {
 	LoopbackIP net.IPNet
 	VtepIP     net.IPNet
 	// LocalAs      uint32
-	//RoutingTable uint32
-	//MacAddress   net.HardwareAddr
+	// RoutingTable uint32
+	// MacAddress   net.HardwareAddr
 }
 
 type VrfMetadata struct {
@@ -197,6 +197,18 @@ func (in *Vrf) ToPb() *pb.Vrf {
 	for _, comp := range in.Status.Components {
 		component := &pb.Component{Name: comp.Name, Details: comp.Details}
 
+		switch comp.CompStatus {
+		case common.COMP_STATUS_PENDING:
+			component.Status = pb.CompStatus_COMP_STATUS_PENDING
+		case common.COMP_STATUS_SUCCESS:
+			component.Status = pb.CompStatus_COMP_STATUS_SUCCESS
+		case common.COMP_STATUS_ERROR:
+			component.Status = pb.CompStatus_COMP_STATUS_ERROR
+
+		default:
+			component.Status = pb.CompStatus_COMP_STATUS_UNSPECIFIED
+		}
+		/*
 		if comp.CompStatus == common.COMP_STATUS_PENDING {
 			component.Status = pb.CompStatus_COMP_STATUS_PENDING
 		} else if comp.CompStatus == common.COMP_STATUS_SUCCESS {
@@ -205,7 +217,7 @@ func (in *Vrf) ToPb() *pb.Vrf {
 			component.Status = pb.CompStatus_COMP_STATUS_ERROR
 		} else {
 			component.Status = pb.CompStatus_COMP_STATUS_UNSPECIFIED
-		}
+		}*/
 		vrf.Status.Components = append(vrf.Status.Components, component)
 	}
 	// TODO: add LocalAs, LoopbackIP, VtepIP

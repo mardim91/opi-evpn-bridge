@@ -3,13 +3,14 @@ package LinuxVendorModule
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
+	//"log"
 	"os/exec"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
+	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
 	"gopkg.in/yaml.v2"
@@ -198,21 +199,21 @@ func tear_down_vrf(VRF *infradb.Vrf) bool {
 var ip_mtu int
 
 func Init() {
-	config, err := readConfig("config.yaml")
+	/*config, err := readConfig("config.yaml")
 	if err != nil {
 		log.Fatal(err)
-	}
+	}*/
 	eb := event_bus.EBus
-	for _, subscriberConfig := range config.Subscribers {
+	for _, subscriberConfig := range config.GlobalConfig.Subscribers {
 		if subscriberConfig.Name == "lvm" {
 			for _, eventType := range subscriberConfig.Events {
 				eb.StartSubscriber(subscriberConfig.Name, eventType, subscriberConfig.Priority, &ModulelvmHandler{})
 			}
 		}
 	}
-	port_mux = config.Linux_frr.Port_mux
-	vrf_mux = config.Linux_frr.Vrf_mux
-	ip_mtu = config.Linux_frr.Ip_mtu
+	port_mux = config.GlobalConfig.Linux_frr.Port_mux
+	vrf_mux = config.GlobalConfig.Linux_frr.Vrf_mux
+	ip_mtu = config.GlobalConfig.Linux_frr.Ip_mtu
 }
 
 func readConfig(filename string) (*Config, error) {

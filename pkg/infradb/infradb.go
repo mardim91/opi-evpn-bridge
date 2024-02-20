@@ -286,7 +286,6 @@ func UpdateLBStatus(Name string, resourceVersion string, notificationId string, 
 			fmt.Printf("UpdateLBStatus(): Logical Bridge %s has been updated: %+v\n", Name, lb)
 		}
 	} else {
-
 		err = infradb.client.Set(lb.Name, lb)
 		if err != nil {
 			log.Fatal(err)

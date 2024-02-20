@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
+	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
 	"gopkg.in/yaml.v3"
@@ -79,10 +80,10 @@ func (h *ModulefrrHandler) HandleEvent(eventType string, objectData *event_bus.O
 func handlesvi(objectData *event_bus.ObjectData) {
 	SVI, _ := infradb.GetSvi(objectData.Name)
 	//          if (SVI.componant.operstatus!="TO_BE_DELETE"){
-	set_up_svi(&SVI)
+	set_up_svi(SVI)
 	//          } else {
 	//    case "SVI_deleted":
-	tear_down_svi(&SVI)
+	tear_down_svi(SVI)
 	//          }
 }
 
@@ -184,7 +185,7 @@ func readConfig(filename string) (*Config, error) {
 var logger, default_vtep, port_mux, vrf_mux string
 var br_tenant int
 
-func subscribe_infradb(config *Config) {
+func subscribe_infradb(config *config.Config) {
 	eb := event_bus.EBus
 	for _, subscriberConfig := range config.Subscribers {
 		if subscriberConfig.Name == "frr" {
@@ -205,22 +206,22 @@ func set_up_tenant_bridge() {
 
 // func main(){
 func Init() {
-	config, err := readConfig("config.yaml")
+	/*config, err := readConfig("config.yaml")
 	if err != nil {
 		log.Fatal(err)
 		// os.Exit(0)
-	}
-	frr_enabled := config.Linux_frr.Enable
+	}*/
+	frr_enabled := config.GlobalConfig.Linux_frr.Enabled
 	if frr_enabled != true {
 		log.Println("FRR Module disabled")
 		return
 	}
-	default_vtep = config.Linux_frr.Default_vtep
-	br_tenant = config.Linux_frr.Br_tenant
-	port_mux = config.Linux_frr.Port_mux
-	vrf_mux = config.Linux_frr.Vrf_mux
+	default_vtep = config.GlobalConfig.Linux_frr.Default_vtep
+	//br_tenant = config.GlobalConfig.Linux_frr.Br_tenant
+	port_mux = config.GlobalConfig.Linux_frr.Port_mux
+	vrf_mux = config.GlobalConfig.Linux_frr.Vrf_mux
 	// Subscribe to InfraDB notifications
-	subscribe_infradb(config)
+	subscribe_infradb(&config.GlobalConfig)
 	// Set up the static configuration parts
 	set_up_tenant_bridge()
 	// Make sure IPv4 forwarding is enabled.

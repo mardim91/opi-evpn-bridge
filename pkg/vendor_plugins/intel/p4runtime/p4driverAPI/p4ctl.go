@@ -119,9 +119,9 @@ func Buildmfs(tablefield TableField) (map[string]client.MatchInterface, bool, er
 
 func Get_entry(table string) ([]*p4_v1.TableEntry, error) {
 	// mfs, isTernary, err := Buildmfs(Entry.TableField)
-	//if err != nil {
+	// if err != nil {
 	//	log.Fatalf("Error in Building mfs: %v and isTernary: %v", err,isTernary)
-	//return p4_v1.TableEntry,err
+	// return p4_v1.TableEntry,err
 	//}
 	//	entry, err1 := P4RtC.ReadTableEntry(Ctx, Entry.Tablename, mfs)
 	entry, err1 := P4RtC.ReadTableEntryWildcard(Ctx, table)

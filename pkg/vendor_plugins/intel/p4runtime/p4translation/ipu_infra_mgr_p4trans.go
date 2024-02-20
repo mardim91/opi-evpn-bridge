@@ -3,7 +3,7 @@ package p4translation
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	//"io/ioutil"
 	"log"
 	"os/exec"
 	"path"
@@ -13,10 +13,11 @@ import (
 	"time"
 
 	nm "github.com/opiproject/opi-evpn-bridge/pkg/netlink"
+	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	eb "github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/event_bus"
 	p4client "github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/intel/p4runtime/p4driverAPI"
 	"google.golang.org/grpc"
-	"gopkg.in/yaml.v2"
+	//"gopkg.in/yaml.v2"
 
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
@@ -28,9 +29,9 @@ var Vxlan VxlanDecoder
 var Pod PodDecoder
 
 // var decoders []interface{}
-//var decoders = []interface{}{L3, Vxlan, Pod}
+// var decoders = []interface{}{L3, Vxlan, Pod}
 
-type SubscriberConfig struct {
+/*type SubscriberConfig struct {
 	Name     string   `yaml:"name"`
 	Priority int      `yaml:"priority"`
 	Events   []string `yaml:"events"`
@@ -39,7 +40,7 @@ type SubscriberConfig struct {
 type Config struct {
 	Subscribers []SubscriberConfig `yaml:"subscribers"`
 }
-
+*/
 type ModuleipuHandler struct{}
 
 func isValidMAC(mac string) bool {
@@ -158,7 +159,7 @@ func handleRouteUpdated(route interface{}) {
 	var entries []interface{}
 	routeData, _ := route.(nm.Route_struct)
 	// for _, decoder := range decoders {
-	//entries = append(entries, L3.translate_deleted_route(routeData))
+	// entries = append(entries, L3.translate_deleted_route(routeData))
 	entries = L3.translate_deleted_route(routeData)
 	//}
 	for _, entry := range entries {
@@ -183,7 +184,7 @@ func handleRouteDeleted(route interface{}) {
 	var entries []interface{}
 	routeData, _ := route.(nm.Route_struct)
 	// for _, decoder := range decoders {
-	//entries = append(entries, L3.translate_deleted_route(routeData))
+	// entries = append(entries, L3.translate_deleted_route(routeData))
 	entries = L3.translate_deleted_route(routeData)
 	//}
 	for _, entry := range entries {
@@ -199,8 +200,8 @@ func handleNexthopAdded(nexthop interface{}) {
 	var entries []interface{}
 	nexthopData, _ := nexthop.(nm.Nexthop_struct)
 	// for _, decoder := range decoders {
-	//entries = append(entries, L3.translate_added_nexthop(nexthopData))
-	//entries = append(entries, Vxlan.translate_added_nexthop(nexthopData))
+	// entries = append(entries, L3.translate_added_nexthop(nexthopData))
+	// entries = append(entries, Vxlan.translate_added_nexthop(nexthopData))
 	entries = L3.translate_added_nexthop(nexthopData)
 	//}
 
@@ -224,8 +225,8 @@ func handleNexthopUpdated(nexthop interface{}) {
 	var entries []interface{}
 	nexthopData, _ := nexthop.(nm.Nexthop_struct)
 	// for _, decoder := range decoders {
-	//entries = append(entries, L3.translate_deleted_nexthop(nexthopData))
-	//entries = append(entries, Vxlan.translate_deleted_nexthop(nexthopData))
+	// entries = append(entries, L3.translate_deleted_nexthop(nexthopData))
+	// entries = append(entries, Vxlan.translate_deleted_nexthop(nexthopData))
 	//}
 	entries = L3.translate_deleted_nexthop(nexthopData)
 	for _, entry := range entries {
@@ -244,8 +245,8 @@ func handleNexthopUpdated(nexthop interface{}) {
 		}
 	}
 	// for _, decoder := range decoders {
-	//entries = append(entries, L3.translate_added_nexthop(nexthopData))
-	//entries = append(entries, Vxlan.translate_added_nexthop(nexthopData))
+	// entries = append(entries, L3.translate_added_nexthop(nexthopData))
+	// entries = append(entries, Vxlan.translate_added_nexthop(nexthopData))
 	//}
 	entries = L3.translate_added_nexthop(nexthopData)
 	for _, entry := range entries {
@@ -269,8 +270,8 @@ func handleNexthopDeleted(nexthop interface{}) {
 	var entries []interface{}
 	nexthopData, _ := nexthop.(nm.Nexthop_struct)
 	// nexthopData, ok := nexthop.(nm.Nexthop)
-	//for _, decoder := range decoders {
-	//entries = append(entries, L3.translate_deleted_nexthop(nexthopData))
+	// for _, decoder := range decoders {
+	// entries = append(entries, L3.translate_deleted_nexthop(nexthopData))
 	//entries = append(entries, Vxlan.translate_deleted_nexthop(nexthopData))
 	//}
 	entries = L3.translate_deleted_nexthop(nexthopData)
@@ -294,8 +295,8 @@ func handleFbdEntryAdded(fbdEntry interface{}) {
 	var entries []interface{}
 	fbdEntryData, _ := fbdEntry.(nm.FdbEntry_struct)
 	// for _, decoder := range decoders {
-	//entries = append(entries, Vxlan.translate_added_fdb(fbdEntryData))
-	//entries = append(entries, Pod.translate_added_fdb(fbdEntryData))
+	// entries = append(entries, Vxlan.translate_added_fdb(fbdEntryData))
+	// entries = append(entries, Pod.translate_added_fdb(fbdEntryData))
 	//}
 	entries = Vxlan.translate_added_fdb(fbdEntryData)
 	for _, entry := range entries {
@@ -320,7 +321,7 @@ func handleFbdEntryUpdated(fdbEntry interface{}) {
 	fbdEntryData, _ := fdbEntry.(nm.FdbEntry_struct)
 	// for _, decoder := range decoders {
 	// entries = append(entries, Vxlan.translate_deleted_fdb(fbdEntryData))
-	//entries = append(entries, Pod.translate_deleted_fdb(fbdEntryData))
+	// entries = append(entries, Pod.translate_deleted_fdb(fbdEntryData))
 	// }
 	entries = Vxlan.translate_deleted_fdb(fbdEntryData)
 	for _, entry := range entries {
@@ -340,8 +341,8 @@ func handleFbdEntryUpdated(fdbEntry interface{}) {
 	}
 
 	// for _, decoder := range decoders {
-	//entries = append(entries, Vxlan.translate_added_fdb(fbdEntryData))
-	//entries = append(entries, Pod.translate_added_fdb(fbdEntryData))
+	// entries = append(entries, Vxlan.translate_added_fdb(fbdEntryData))
+	// entries = append(entries, Pod.translate_added_fdb(fbdEntryData))
 	//}
 	entries = Vxlan.translate_added_fdb(fbdEntryData)
 	for _, entry := range entries {
@@ -364,8 +365,8 @@ func handleFbdEntryDeleted(fdbEntry interface{}) {
 	var entries []interface{}
 	fbdEntryData, _ := fdbEntry.(nm.FdbEntry_struct)
 	// for _, decoder := range decoders {
-	//entries = append(entries, Vxlan.translate_deleted_fdb(fbdEntryData))
-	//entries = append(entries, Pod.translate_deleted_fdb(fbdEntryData))
+	// entries = append(entries, Vxlan.translate_deleted_fdb(fbdEntryData))
+	// entries = append(entries, Pod.translate_deleted_fdb(fbdEntryData))
 	//}
 	entries = Vxlan.translate_deleted_fdb(fbdEntryData)
 	for _, entry := range entries {
@@ -390,8 +391,8 @@ func handleL2NexthopAdded(l2NextHop interface{}) {
 	l2NextHopData, _ := l2NextHop.(nm.L2Nexthop_struct)
 
 	// for _, decoder := range decoders {
-	//entries = append(entries, Vxlan.translate_added_l2_nexthop(l2NextHopData))
-	//entries = append(entries, Pod.translate_added_l2_nexthop(l2NextHopData))
+	// entries = append(entries, Vxlan.translate_added_l2_nexthop(l2NextHopData))
+	// entries = append(entries, Pod.translate_added_l2_nexthop(l2NextHopData))
 	//}
 	entries = Vxlan.translate_added_l2_nexthop(l2NextHopData)
 	for _, entry := range entries {
@@ -415,7 +416,7 @@ func handleL2NexthopUpdated(l2NextHop interface{}) {
 	l2NextHopData, _ := l2NextHop.(nm.L2Nexthop_struct)
 	//        for _, decoder := range decoders {
 	// entries = append(entries, Vxlan.translate_deleted_l2_nexthop(l2NextHopData))
-	//entries = append(entries, Pod.translate_deleted_l2_nexthop(l2NextHopData))
+	// entries = append(entries, Pod.translate_deleted_l2_nexthop(l2NextHopData))
 	//      }
 	entries = Vxlan.translate_deleted_l2_nexthop(l2NextHopData)
 	for _, entry := range entries {
@@ -435,7 +436,7 @@ func handleL2NexthopUpdated(l2NextHop interface{}) {
 	}
 	//        for _, decoder := range decoders {
 	// entries = append(entries, Vxlan.translate_added_l2_nexthop(l2NextHopData))
-	//entries = append(entries, Pod.translate_added_l2_nexthop(l2NextHopData))
+	// entries = append(entries, Pod.translate_added_l2_nexthop(l2NextHopData))
 	//      }
 	entries = Vxlan.translate_deleted_l2_nexthop(l2NextHopData)
 	for _, entry := range entries {
@@ -460,7 +461,7 @@ func handleL2NexthopDeleted(l2NextHop interface{}) {
 	l2NextHopData, _ := l2NextHop.(nm.L2Nexthop_struct)
 	// for _, decoder := range decoders {
 	// entries = append(entries, Vxlan.translate_deleted_l2_nexthop(l2NextHopData))
-	//entries = append(entries, Pod.translate_deleted_l2_nexthop(l2NextHopData))
+	// entries = append(entries, Pod.translate_deleted_l2_nexthop(l2NextHopData))
 	//}
 	entries = Vxlan.translate_deleted_l2_nexthop(l2NextHopData)
 	for _, entry := range entries {
@@ -607,12 +608,12 @@ func Init() {
 
 	// InfraDB Listener
 
-	config, err := readConfig("config.yaml")
+	/*config, err := readConfig("config.yaml")
 	if err != nil {
-		log.Fatal(err)
-	}
+		log.Println(err)
+	}*/
 	eb := event_bus.EBus
-	for _, subscriberConfig := range config.Subscribers {
+	for _, subscriberConfig := range config.GlobalConfig.Subscribers {
 		if subscriberConfig.Name == "ipu" {
 			for _, eventType := range subscriberConfig.Events {
 				eb.StartSubscriber(subscriberConfig.Name, eventType, subscriberConfig.Priority, &ModuleipuHandler{})
@@ -625,7 +626,7 @@ func Init() {
 		log.Fatalf("Cannot connect to server: %v", err)
 	}
 	// read config and load the pipeline using p4runtime
-	configFile, err := ioutil.ReadFile("config.yaml")
+	/*configFile, err := ioutil.ReadFile("config.yaml")
 	if err != nil {
 		fmt.Println("Error reading config file:", err)
 		return
@@ -645,22 +646,31 @@ func Init() {
 	binFile, ok := p4config["bin_file"].(string)
 	if !ok {
 		log.Fatal("Error accessing bin_file")
-	}
+	}*/
 
-	err1 := p4client.NewP4RuntimeClient(binFile, infoFile, Conn)
+	err1 := p4client.NewP4RuntimeClient(config.GlobalConfig.P4.Config.Bin_file, config.GlobalConfig.P4.Config.P4info_file, Conn)
 	if err1 != nil {
 		log.Fatalf("Failed to create P4Runtime client: %v", err1)
 	}
 	// add static rules into the pipeline of representators read from config
 	representors := make(map[string][2]string)
-	for k, v := range p4["representors"].(map[interface{}]interface{}) {
+	/*for k, v := range p4["representors"].(map[interface{}]interface{}) {
 		vsi, mac, err := ids_of(v.(string))
 		if err != nil {
 			fmt.Println("Error:", err)
 			return
 		}
 		representors[k.(string)] = [2]string{vsi, mac}
+	}*/
+	for k, v := range config.GlobalConfig.P4.Representors {
+		vsi, mac, err := ids_of(v.(string))
+		if err != nil {
+			fmt.Println("Error:", err)
+			return
+		}
+		representors[k] = [2]string{vsi, mac}
 	}
+	fmt.Println(" REPRESENTORS %+v",representors)
 	L3 = L3.L3DecoderInit(representors)
 	Pod = Pod.PodDecoderInit(representors)
 	// decoders = []interface{}{L3, Vxlan, Pod}
@@ -702,7 +712,7 @@ func Exit() {
 	}
 }
 
-func readConfig(filename string) (*Config, error) {
+/*func readConfig(filename string) (*Config, error) {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -714,4 +724,4 @@ func readConfig(filename string) (*Config, error) {
 	}
 
 	return &config, nil
-}
+}*/

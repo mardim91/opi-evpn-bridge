@@ -506,7 +506,7 @@ func _add_tcam_entry(vrf_id uint32, direction int) (p4client.TableEntry, uint32)
 				FieldValue: map[string][2]interface{}{
 					"user_meta.cmeta.tcam_prefix": {uint32(tcam), "ternary"},
 					// "tcam_prefix_mask": {"0xFFFFFFFF","exact"},
-					//"dst_ip_p_length"??????????????????????????????????
+					// "dst_ip_p_length"??????????????????????????????????
 				},
 				Priority: int32(tidx),
 			},
@@ -540,7 +540,7 @@ func _delete_tcam_entry(vrf_id uint32, direction int) ([]interface{}, uint32) {
 					FieldValue: map[string][2]interface{}{
 						"user_meta.cmeta.tcam_prefix": {uint32(tcam), "ternary"},
 						// "tcam_prefix_mask": {"0xFFFFFFFF","exact"},
-						//"dst_ip_p_length"??????????????????????????????????
+						// "dst_ip_p_length"??????????????????????????????????
 					},
 					Priority: int32(1),
 				},
@@ -666,7 +666,7 @@ func (l L3Decoder) _l3_host_route(route netlink_polling.Route_struct, Delete str
 	var vrf_id = l.get_vrf_id(route)
 	var directions = _directions_of(route)
 	// var host = _ip_addr(route.dst) //?? TODO
-	//var host = route.Route0.Dst.IP.String() //?? TODO
+	// var host = route.Route0.Dst.IP.String() //?? TODO
 	var host = route.Route0.Dst
 	var entries []interface{}
 	if Delete == "TRUE" {
@@ -709,7 +709,7 @@ func (l L3Decoder) _l3_route(route netlink_polling.Route_struct, Delete string) 
 	var vrf_id = l.get_vrf_id(route)
 	var directions = _directions_of(route)
 	// addr = _ip_addr(route.dst)//TODO
-	//prefix = _ip_prefixlen(route.dst)//TODO
+	// prefix = _ip_prefixlen(route.dst)//TODO
 	var addr = route.Route0.Dst.IP.String()
 	var entries []interface{}
 
@@ -938,8 +938,8 @@ func (l L3Decoder) translate_deleted_nexthop(nexthop netlink_polling.Nexthop_str
 
 	if nexthop.Nh_type == netlink_polling.PHY {
 		// var smac, _ = net.ParseMAC(nexthop.Metadata["smac"].(string))
-		//var dmac, _ = net.ParseMAC(nexthop.Metadata["dmac"].(string))
-		//var port_id = nexthop.Metadata["egress_vport"]
+		// var dmac, _ = net.ParseMAC(nexthop.Metadata["dmac"].(string))
+		// var port_id = nexthop.Metadata["egress_vport"]
 
 		entries = append(entries, p4client.TableEntry{
 			Tablename: MAC_MOD,
@@ -962,8 +962,8 @@ func (l L3Decoder) translate_deleted_nexthop(nexthop netlink_polling.Nexthop_str
 			})
 	} else if nexthop.Nh_type == netlink_polling.ACC {
 		// var dmac, _ = net.ParseMAC(nexthop.Metadata["dmac"].(string))
-		//var vlan_id = nexthop.Metadata["vlan_id"]
-		//var vport = _to_egress_vsi(nexthop.Metadata["egress_vport"].(int))
+		// var vlan_id = nexthop.Metadata["vlan_id"]
+		// var vport = _to_egress_vsi(nexthop.Metadata["egress_vport"].(int))
 
 		entries = append(entries, p4client.TableEntry{
 			Tablename: PUSH_DMAC_VLAN,
@@ -986,8 +986,8 @@ func (l L3Decoder) translate_deleted_nexthop(nexthop netlink_polling.Nexthop_str
 			})
 	} else if nexthop.Nh_type == netlink_polling.SVI {
 		// var smac, _ = net.ParseMAC(nexthop.Metadata["smac"].(string))
-		//var dmac, _ = net.ParseMAC(nexthop.Metadata["dmac"].(string))
-		//var vlan_id = nexthop.Metadata["vlan_id"]
+		// var dmac, _ = net.ParseMAC(nexthop.Metadata["dmac"].(string))
+		// var vlan_id = nexthop.Metadata["vlan_id"]
 		//var vport = _to_egress_vsi(nexthop.Metadata["egress_vport"].(int))
 		var Type = nexthop.Metadata["port_type"]
 
