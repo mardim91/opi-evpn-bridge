@@ -1,10 +1,10 @@
 package common
 
 import (
-	"net"
-	"time"
-	"reflect"
 	pc "github.com/opiproject/opi-api/network/opinetcommon/v1alpha1/gen/go"
+	"net"
+	"reflect"
+	"time"
 )
 
 type COMP_STATUS int
@@ -27,7 +27,7 @@ type Component struct {
 }
 
 func ip4ToInt(ip net.IP) uint32 {
-	if !reflect.ValueOf(ip).IsZero(){
+	if !reflect.ValueOf(ip).IsZero() {
 		return uint32(ip[0])<<24 | uint32(ip[1])<<16 | uint32(ip[2])<<8 | uint32(ip[3])
 	}
 	return 0

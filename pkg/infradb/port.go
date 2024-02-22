@@ -118,7 +118,6 @@ func NewBridgePort(in *pb.BridgePort) *BridgePort {
 
 // ToPb transforms Bridge Port object to protobuf message
 func (in *BridgePort) ToPb() *pb.BridgePort {
-
 	bp := &pb.BridgePort{
 		Name: in.Name,
 		Spec: &pb.BridgePortSpec{

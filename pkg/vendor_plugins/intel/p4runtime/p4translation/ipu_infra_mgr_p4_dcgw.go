@@ -988,7 +988,7 @@ func (l L3Decoder) translate_deleted_nexthop(nexthop netlink_polling.Nexthop_str
 		// var smac, _ = net.ParseMAC(nexthop.Metadata["smac"].(string))
 		// var dmac, _ = net.ParseMAC(nexthop.Metadata["dmac"].(string))
 		// var vlan_id = nexthop.Metadata["vlan_id"]
-		//var vport = _to_egress_vsi(nexthop.Metadata["egress_vport"].(int))
+		// var vport = _to_egress_vsi(nexthop.Metadata["egress_vport"].(int))
 		var Type = nexthop.Metadata["port_type"]
 
 		if Type == ipu_db.TRUNK {

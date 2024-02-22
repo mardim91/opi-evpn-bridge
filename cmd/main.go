@@ -23,13 +23,13 @@ import (
 	// pe "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pe "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	"github.com/opiproject/opi-evpn-bridge/pkg/bridge"
+	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/task_manager"
 	"github.com/opiproject/opi-evpn-bridge/pkg/port"
 	"github.com/opiproject/opi-evpn-bridge/pkg/svi"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 	"github.com/opiproject/opi-evpn-bridge/pkg/vrf"
-	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	"github.com/opiproject/opi-smbios-bridge/pkg/inventory"
 
 	"google.golang.org/grpc"
@@ -72,11 +72,9 @@ var rootCmd = &cobra.Command{
 		config.DBAddress = viper.GetString("db_addr")
 		config.FRRAddress = viper.GetString("frr_addr")*/
 
-
 		fmt.Printf("enabled: %d\n", viper.GetBool("p4.enabled"))
 
-
-		  //  fmt.Println("%+v",config)
+		//  fmt.Println("%+v",config)
 		/*var econfig evpnConfig
 		err := yaml.Unmarshal([]byte(config.evpn), &econfig)
 		if err != nil {
@@ -95,7 +93,6 @@ var rootCmd = &cobra.Command{
 		config.SetConfig(cfg)
 		log.Println("config %+v",config.GlobalConfig)
 		fmt.Printf("enabled from init config: %d\n", config.GlobalConfig.P4.Enable)*/
-
 
 		// Starting Task Manager process
 		task_manager.TaskMan.StartTaskManager()
@@ -189,7 +186,7 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-func init() {
+func initialize() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVarP(&config.GlobalConfig.CfgFile, "config", "c", "config.yaml", "config file path")
@@ -219,7 +216,7 @@ func initConfig() {
 	/*if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
-*/
+	*/
 	config.LoadConfig()
 	/*if err := viper.Unmarshal(&config); err != nil {
 		fmt.Println(err)
@@ -227,8 +224,6 @@ func initConfig() {
 	    }
 	log.Println("config %+v",config)
 	fmt.Printf("enabled from init config: %d\n", config.P4.Enable)*/
-
-
 }
 
 func validateConfigs() error {
@@ -269,6 +264,7 @@ func validateConfigs() error {
 }
 
 func main() {
+	initialize()
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)

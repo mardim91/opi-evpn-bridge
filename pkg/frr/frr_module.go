@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	"github.com/opiproject/opi-evpn-bridge/pkg/config"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
 	"gopkg.in/yaml.v3"
@@ -96,16 +96,16 @@ func handlevrf(objectData *event_bus.ObjectData) {
 	} else {
 		fmt.Printf("FRR :GetVRF Name: %s\n", VRF.Name)
 	}
-	if (objectData.ResourceVersion != VRF.ResourceVersion){
+	if objectData.ResourceVersion != VRF.ResourceVersion {
 		fmt.Printf("FRR: Mismatch in resoruce version %+v\n and VRF resource version %+v\n", objectData.ResourceVersion, VRF.ResourceVersion)
-		comp.Name= "frr"
-		comp.CompStatus= common.COMP_STATUS_ERROR
-		if comp.Timer ==0 {  // wait timer is 2 powerof natural numbers ex : 1,2,3...
-			comp.Timer=2 * time.Second
+		comp.Name = "frr"
+		comp.CompStatus = common.COMP_STATUS_ERROR
+		if comp.Timer == 0 { // wait timer is 2 powerof natural numbers ex : 1,2,3...
+			comp.Timer = 2 * time.Second
 		} else {
-			comp.Timer=comp.Timer*2
+			comp.Timer = comp.Timer * 2
 		}
-		infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
+		infradb.UpdateVrfStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
 		return
 	}
 	if len(VRF.Status.Components) != 0 {
@@ -217,7 +217,7 @@ func Init() {
 		return
 	}
 	default_vtep = config.GlobalConfig.Linux_frr.Default_vtep
-	//br_tenant = config.GlobalConfig.Linux_frr.Br_tenant
+	// br_tenant = config.GlobalConfig.Linux_frr.Br_tenant
 	port_mux = config.GlobalConfig.Linux_frr.Port_mux
 	vrf_mux = config.GlobalConfig.Linux_frr.Vrf_mux
 	// Subscribe to InfraDB notifications

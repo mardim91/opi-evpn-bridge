@@ -141,7 +141,7 @@ func (in *LogicalBridge) ToPb() *pb.LogicalBridge {
 
 func (in *LogicalBridge) AddSvi(sviName string) error {
 	if in.Svi != "" {
-		return fmt.Errorf("AddSvi(): The Logical Bridge is allready associated with an SVI interface: %+v\n", in.Svi)
+		return fmt.Errorf("AddSvi(): The Logical Bridge is already associated with an SVI interface: %+v\n", in.Svi)
 	}
 
 	in.Svi = sviName
@@ -158,15 +158,14 @@ func (in *LogicalBridge) DeleteSvi(sviName string) error {
 }
 
 func (in *LogicalBridge) AddBridgePort(bpName, bpMac string) error {
-
 	_, found := in.BridgePorts[bpName]
 	if found {
-		return fmt.Errorf("AddBridgePort(): The Logical Bridge %+v is allready associated with the Bridge Port: %+v\n", in.Name, bpName)
+		return fmt.Errorf("AddBridgePort(): The Logical Bridge %+v is already associated with the Bridge Port: %+v\n", in.Name, bpName)
 	}
 
 	_, found = in.MacTable[bpMac]
 	if found {
-		return fmt.Errorf("AddBridgePort(): The Logical Bridge %+v is allready associated with the Bridge Port MAC: %+v\n", in.Name, bpMac)
+		return fmt.Errorf("AddBridgePort(): The Logical Bridge %+v is already associated with the Bridge Port MAC: %+v\n", in.Name, bpMac)
 	}
 	in.BridgePorts[bpName] = false
 	in.MacTable[bpMac] = bpName
@@ -175,7 +174,6 @@ func (in *LogicalBridge) AddBridgePort(bpName, bpMac string) error {
 }
 
 func (in *LogicalBridge) DeleteBridgePort(bpName, bpMac string) error {
-
 	_, found := in.BridgePorts[bpName]
 	if !found {
 		return fmt.Errorf("DeleteBridgePort(): The Logical Bridge %+v is not associated with the Bridge Port: %+v\n", in.Name, bpName)

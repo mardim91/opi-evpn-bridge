@@ -3,14 +3,15 @@ package LinuxVendorModule
 import (
 	"fmt"
 	"io/ioutil"
-	//"log"
+
+	// "log"
 	"os/exec"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	"github.com/opiproject/opi-evpn-bridge/pkg/config"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
 	"gopkg.in/yaml.v2"
@@ -78,16 +79,16 @@ func handlevrf(objectData *event_bus.ObjectData) {
 		fmt.Printf("LVM : GetVrf error: %s\n", err)
 		return
 	}
-	if (objectData.ResourceVersion != VRF.ResourceVersion){
+	if objectData.ResourceVersion != VRF.ResourceVersion {
 		fmt.Printf("LVM: Mismatch in resoruce version %+v\n and VRF resource version %+v\n", objectData.ResourceVersion, VRF.ResourceVersion)
-		comp.Name= "lvm"
-		comp.CompStatus= common.COMP_STATUS_ERROR
-		if comp.Timer ==0 {  // wait timer is 2 powerof natural numbers ex : 1,2,3...
-			comp.Timer=2 * time.Second
+		comp.Name = "lvm"
+		comp.CompStatus = common.COMP_STATUS_ERROR
+		if comp.Timer == 0 { // wait timer is 2 powerof natural numbers ex : 1,2,3...
+			comp.Timer = 2 * time.Second
 		} else {
-			comp.Timer=comp.Timer*2
+			comp.Timer = comp.Timer * 2
 		}
-		infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
+		infradb.UpdateVrfStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
 		return
 	}
 	if len(VRF.Status.Components) != 0 {

@@ -102,7 +102,6 @@ func NewSvi(in *pb.Svi) *Svi {
 
 // ToPb transforms Svi object to protobuf message
 func (in *Svi) ToPb() *pb.Svi {
-
 	var gatewayIPs []*opinetcommon.IPPrefix
 
 	for _, gwIP := range in.Spec.GatewayIPs {

@@ -26,12 +26,12 @@ import (
 	// ipu_db "xpu/ipu_db"
 	vn "github.com/vishvananda/netlink"
 
-	//"io/ioutil"
-	"path"
+	// "io/ioutil"
 	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	eb "github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/event_bus"
-	//"gopkg.in/yaml.v3"
+	"path"
+	// "gopkg.in/yaml.v3"
 )
 
 var db_lock int
@@ -1890,7 +1890,7 @@ func Init() {
 	defer logFile.Close()
 	log.SetOutput(logFile)
 	log.SetFlags(log.Lshortfile | log.LstdFlags)
-	//var config Config_t
+	// var config Config_t
 	/*yfile, err := ioutil.ReadFile("config.yaml")
 	if err != nil {
 		log.Println(err)
@@ -1905,7 +1905,7 @@ func Init() {
 	log.Println(poll_interval)
 	//TODO:fix this
 
-	//br_tenant = config.Linux_frr.Br_tenant
+	// br_tenant = config.Linux_frr.Br_tenant
 	//log.Println(br_tenant)
 	nl_enabled := config.GlobalConfig.Netlink.Enabled
 	if nl_enabled != true {

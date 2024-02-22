@@ -3,7 +3,8 @@ package p4translation
 import (
 	"encoding/json"
 	"fmt"
-	//"io/ioutil"
+
+	// "io/ioutil"
 	"log"
 	"os/exec"
 	"path"
@@ -12,12 +13,13 @@ import (
 	"strings"
 	"time"
 
-	nm "github.com/opiproject/opi-evpn-bridge/pkg/netlink"
 	"github.com/opiproject/opi-evpn-bridge/pkg/config"
+	nm "github.com/opiproject/opi-evpn-bridge/pkg/netlink"
 	eb "github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/event_bus"
 	p4client "github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/intel/p4runtime/p4driverAPI"
 	"google.golang.org/grpc"
-	//"gopkg.in/yaml.v2"
+
+	// "gopkg.in/yaml.v2"
 
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
@@ -31,15 +33,16 @@ var Pod PodDecoder
 // var decoders []interface{}
 // var decoders = []interface{}{L3, Vxlan, Pod}
 
-/*type SubscriberConfig struct {
-	Name     string   `yaml:"name"`
-	Priority int      `yaml:"priority"`
-	Events   []string `yaml:"events"`
-}
+/*
+	type SubscriberConfig struct {
+		Name     string   `yaml:"name"`
+		Priority int      `yaml:"priority"`
+		Events   []string `yaml:"events"`
+	}
 
-type Config struct {
-	Subscribers []SubscriberConfig `yaml:"subscribers"`
-}
+	type Config struct {
+		Subscribers []SubscriberConfig `yaml:"subscribers"`
+	}
 */
 type ModuleipuHandler struct{}
 
@@ -272,7 +275,7 @@ func handleNexthopDeleted(nexthop interface{}) {
 	// nexthopData, ok := nexthop.(nm.Nexthop)
 	// for _, decoder := range decoders {
 	// entries = append(entries, L3.translate_deleted_nexthop(nexthopData))
-	//entries = append(entries, Vxlan.translate_deleted_nexthop(nexthopData))
+	// entries = append(entries, Vxlan.translate_deleted_nexthop(nexthopData))
 	//}
 	entries = L3.translate_deleted_nexthop(nexthopData)
 	for _, entry := range entries {
@@ -493,16 +496,16 @@ func (h *ModuleipuHandler) HandleEvent(eventType string, objectData *event_bus.O
 		} else {
 			fmt.Printf("IPU : GetVRF Name: %s\n", VRF.Name)
 		}
-		if (objectData.ResourceVersion != VRF.ResourceVersion){
+		if objectData.ResourceVersion != VRF.ResourceVersion {
 			fmt.Printf("IPU: Mismatch in resoruce version %+v\n and VRF resource version %+v\n", objectData.ResourceVersion, VRF.ResourceVersion)
-			comp.Name= "ipu"
-			comp.CompStatus= common.COMP_STATUS_ERROR
-			if comp.Timer ==0 {  // wait timer is 2 powerof natural numbers ex : 1,2,3...
-				comp.Timer=2 * time.Second
+			comp.Name = "ipu"
+			comp.CompStatus = common.COMP_STATUS_ERROR
+			if comp.Timer == 0 { // wait timer is 2 powerof natural numbers ex : 1,2,3...
+				comp.Timer = 2 * time.Second
 			} else {
-				comp.Timer=comp.Timer*2
+				comp.Timer = comp.Timer * 2
 			}
-			infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
+			infradb.UpdateVrfStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
 			return
 		}
 
@@ -670,7 +673,7 @@ func Init() {
 		}
 		representors[k] = [2]string{vsi, mac}
 	}
-	fmt.Println(" REPRESENTORS %+v",representors)
+	fmt.Println(" REPRESENTORS %+v", representors)
 	L3 = L3.L3DecoderInit(representors)
 	Pod = Pod.PodDecoderInit(representors)
 	// decoders = []interface{}{L3, Vxlan, Pod}

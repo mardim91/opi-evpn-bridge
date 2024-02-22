@@ -209,15 +209,15 @@ func (in *Vrf) ToPb() *pb.Vrf {
 			component.Status = pb.CompStatus_COMP_STATUS_UNSPECIFIED
 		}
 		/*
-		if comp.CompStatus == common.COMP_STATUS_PENDING {
-			component.Status = pb.CompStatus_COMP_STATUS_PENDING
-		} else if comp.CompStatus == common.COMP_STATUS_SUCCESS {
-			component.Status = pb.CompStatus_COMP_STATUS_SUCCESS
-		} else if comp.CompStatus == common.COMP_STATUS_SUCCESS {
-			component.Status = pb.CompStatus_COMP_STATUS_ERROR
-		} else {
-			component.Status = pb.CompStatus_COMP_STATUS_UNSPECIFIED
-		}*/
+			if comp.CompStatus == common.COMP_STATUS_PENDING {
+				component.Status = pb.CompStatus_COMP_STATUS_PENDING
+			} else if comp.CompStatus == common.COMP_STATUS_SUCCESS {
+				component.Status = pb.CompStatus_COMP_STATUS_SUCCESS
+			} else if comp.CompStatus == common.COMP_STATUS_SUCCESS {
+				component.Status = pb.CompStatus_COMP_STATUS_ERROR
+			} else {
+				component.Status = pb.CompStatus_COMP_STATUS_UNSPECIFIED
+			}*/
 		vrf.Status.Components = append(vrf.Status.Components, component)
 	}
 	// TODO: add LocalAs, LoopbackIP, VtepIP
@@ -225,10 +225,9 @@ func (in *Vrf) ToPb() *pb.Vrf {
 }
 
 func (in *Vrf) AddSvi(sviName string) error {
-
 	_, ok := in.Svis[sviName]
 	if ok {
-		return fmt.Errorf("AddSvi(): The VRF %+v is allready associated with this SVI interface: %+v\n", in.Name, sviName)
+		return fmt.Errorf("AddSvi(): The VRF %+v is already associated with this SVI interface: %+v\n", in.Name, sviName)
 	}
 
 	in.Svis[sviName] = false

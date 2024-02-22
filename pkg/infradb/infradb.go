@@ -49,7 +49,7 @@ func Close() error {
 	return infradb.client.Close()
 }
 func CreateLB(lb *LogicalBridge) error {
-	// TODO: Add checks to see if the VNI is allready in use by another L2VPN
+	// TODO: Add checks to see if the VNI is already in use by another L2VPN
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -327,7 +327,7 @@ func CreateBP(bp *BridgePort) error {
 			return ErrKeyNotFound
 		}
 
-		for lbName, _ := range lbs {
+		for lbName := range lbs {
 			bp.Spec.LogicalBridges = append(bp.Spec.LogicalBridges, lbName)
 		}
 	}
@@ -404,7 +404,7 @@ func DeleteBP(Name string) error {
 		return ErrKeyNotFound
 	}
 
-	for i, _ := range subscribers {
+	for i := range subscribers {
 		bp.Status.Components[i].CompStatus = common.COMP_STATUS_PENDING
 	}
 	bp.ResourceVersion = generateVersion()
@@ -469,7 +469,6 @@ func GetAllBPs() ([]*BridgePort, error) {
 	}
 
 	return bps, nil
-
 }
 
 func UpdateBP(bp *BridgePort) error {
@@ -497,7 +496,6 @@ func UpdateBP(bp *BridgePort) error {
 
 // UpdateBPStatus updates the status of Bridge Port object based on the component report
 func UpdateBPStatus(Name string, resourceVersion string, notificationId string, bpMeta *BridgePortMetadata, component common.Component) error {
-
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -530,7 +528,6 @@ func UpdateBPStatus(Name string, resourceVersion string, notificationId string, 
 	for i, comp := range bpComponents {
 		compCounter := i + 1
 		if comp.Name == component.Name {
-
 			bp.Status.Components[i] = component
 
 			if compCounter == len(bpComponents) && bp.Status.Components[i].CompStatus == common.COMP_STATUS_SUCCESS {
@@ -539,7 +536,6 @@ func UpdateBPStatus(Name string, resourceVersion string, notificationId string, 
 
 			break
 		}
-
 	}
 
 	// Parse the Metadata that has been sent from the Component
@@ -550,10 +546,9 @@ func UpdateBPStatus(Name string, resourceVersion string, notificationId string, 
 	}
 
 	// Is it ok to delete an object before we update the last component status to success ?
-	// Take care of deleting the references to the LB  objects after the BP has been succesfully deleted
+	// Take care of deleting the references to the LB  objects after the BP has been successfully deleted
 	if lastCompSuccsess {
 		if bp.Status.BPOperStatus == SVI_OPER_STATUS_TO_BE_DELETED {
-
 			// Delete the references from Logical Bridge objects
 			for _, lbName := range bp.Spec.LogicalBridges {
 				lb := LogicalBridge{}
@@ -610,7 +605,6 @@ func UpdateBPStatus(Name string, resourceVersion string, notificationId string, 
 			}
 			fmt.Printf("UpdateBPStatus(): Bridge Port %s has been updated: %+v\n", Name, bp)
 		}
-
 	} else {
 
 		err = infradb.client.Set(bp.Name, bp)
@@ -624,11 +618,10 @@ func UpdateBPStatus(Name string, resourceVersion string, notificationId string, 
 	task_manager.TaskMan.StatusUpdated(bp.Name, "bridge-port", bp.ResourceVersion, notificationId, false, &component)
 
 	return nil
-
 }
 
 func CreateVrf(vrf *Vrf) error {
-	//TODO: Add checks to see if the vni is allready in use by another L3VPN
+	//TODO: Add checks to see if the vni is already in use by another L3VPN
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -979,7 +972,7 @@ func DeleteSvi(Name string) error {
 		return ErrKeyNotFound
 	}
 
-	for i, _ := range subscribers {
+	for i := range subscribers {
 		svi.Status.Components[i].CompStatus = common.COMP_STATUS_PENDING
 	}
 	svi.ResourceVersion = generateVersion()
@@ -1044,7 +1037,6 @@ func GetAllSvis() ([]*Svi, error) {
 	}
 
 	return svis, nil
-
 }
 
 func UpdateSvi(svi *Svi) error {
@@ -1069,7 +1061,6 @@ func UpdateSvi(svi *Svi) error {
 
 // UpdateSviStatus updates the status of SVI object based on the component report
 func UpdateSviStatus(Name string, resourceVersion string, notificationId string, sviMeta *SviMetadata, component common.Component) error {
-
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -1102,7 +1093,6 @@ func UpdateSviStatus(Name string, resourceVersion string, notificationId string,
 	for i, comp := range sviComponents {
 		compCounter := i + 1
 		if comp.Name == component.Name {
-
 			svi.Status.Components[i] = component
 
 			if compCounter == len(sviComponents) && svi.Status.Components[i].CompStatus == common.COMP_STATUS_SUCCESS {
@@ -1111,7 +1101,6 @@ func UpdateSviStatus(Name string, resourceVersion string, notificationId string,
 
 			break
 		}
-
 	}
 
 	// Parse the Metadata that has been sent from the Component
@@ -1120,10 +1109,9 @@ func UpdateSviStatus(Name string, resourceVersion string, notificationId string,
 	}
 
 	// Is it ok to delete an object before we update the last component status to success ?
-	// Take care of deleting the references to the LB and VRF objects after the SVI has been succesfully deleted
+	// Take care of deleting the references to the LB and VRF objects after the SVI has been successfully deleted
 	if lastCompSuccsess {
 		if svi.Status.SviOperStatus == SVI_OPER_STATUS_TO_BE_DELETED {
-
 			// Delete the references from VRF and Logical Bridge objects
 
 			// Get the dependent VRF object
@@ -1202,7 +1190,6 @@ func UpdateSviStatus(Name string, resourceVersion string, notificationId string,
 			}
 			fmt.Printf("UpdateSviStatus(): SVI %s has been updated: %+v\n", Name, svi)
 		}
-
 	} else {
 
 		err = infradb.client.Set(svi.Name, svi)
@@ -1216,5 +1203,4 @@ func UpdateSviStatus(Name string, resourceVersion string, notificationId string,
 	task_manager.TaskMan.StatusUpdated(svi.Name, "svi", svi.ResourceVersion, notificationId, false, &component)
 
 	return nil
-
 }
