@@ -87,6 +87,8 @@ func NewLogicalBridge(in *pb.LogicalBridge) *LogicalBridge {
 			Components:   components,
 		},
 		Metadata:        &LogicalBridgeMetadata{},
+		BridgePorts:	make(map[string]bool),
+		MacTable:	make(map[string]string),
 		ResourceVersion: generateVersion(),
 	}
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
 	"gopkg.in/yaml.v3"
+	"path"
 )
 
 type SubscriberConfig struct {
@@ -78,13 +79,67 @@ func (h *ModulefrrHandler) HandleEvent(eventType string, objectData *event_bus.O
 }
 
 func handlesvi(objectData *event_bus.ObjectData) {
-	SVI, _ := infradb.GetSvi(objectData.Name)
-	//          if (SVI.componant.operstatus!="TO_BE_DELETE"){
-	set_up_svi(SVI)
-	//          } else {
-	//    case "SVI_deleted":
-	tear_down_svi(SVI)
-	//          }
+	var comp common.Component
+	SVI, err := infradb.GetSvi(objectData.Name)
+	if err != nil {
+		fmt.Printf("GetSvi error: %s %s\n", err, objectData.Name)
+		return
+	} else {
+		fmt.Printf("FRR :GetSvi Name: %s\n", SVI.Name)
+	}
+	if (objectData.ResourceVersion != SVI.ResourceVersion){
+		fmt.Printf("FRR: Mismatch in resoruce version %+v\n and SVI resource version %+v\n", objectData.ResourceVersion, SVI.ResourceVersion)
+		comp.Name = "frr"
+		comp.CompStatus= common.COMP_STATUS_ERROR
+		if comp.Timer ==0 {
+			comp.Timer=2 * time.Second
+		} else {
+			comp.Timer=comp.Timer*2
+		}
+		infradb.UpdateSviStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
+		return
+	}
+	if len(SVI.Status.Components) != 0 {
+		for i := 0; i < len(SVI.Status.Components); i++ {
+			if SVI.Status.Components[i].Name == "frr" {
+				comp = SVI.Status.Components[i]
+			}
+		}
+	}
+	if SVI.Status.SviOperStatus != infradb.SVI_OPER_STATUS_TO_BE_DELETED {
+		detail, status := set_up_svi(SVI)
+		comp.Name = "frr"
+		if status == true {
+			comp.Details = detail
+			comp.CompStatus = common.COMP_STATUS_SUCCESS
+			comp.Timer = 0
+		} else {
+			if comp.Timer == 0 {
+				comp.Timer = 2 * time.Second
+			} else {
+				comp.Timer = comp.Timer * 2
+			}
+			comp.CompStatus = common.COMP_STATUS_ERROR
+		}
+		fmt.Printf("%+v\n", comp)
+		infradb.UpdateSviStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
+	} else {
+		status := tear_down_svi(SVI)
+		comp.Name = "frr"
+		if status == true {
+			comp.CompStatus = common.COMP_STATUS_SUCCESS
+			comp.Timer = 0
+		} else {
+			if comp.Timer == 0 {
+				comp.Timer = 2 * time.Second
+			} else {
+				comp.Timer = comp.Timer * 2
+			}
+			comp.CompStatus = common.COMP_STATUS_ERROR
+		}
+		fmt.Printf("%+v\n", comp)
+		infradb.UpdateSviStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
+	}
 }
 
 func handlevrf(objectData *event_bus.ObjectData) {
@@ -354,6 +409,45 @@ func check_frr_result(CP string, show bool) bool {
 	return ((show && reflect.ValueOf(CP).IsZero()) || strings.Contains(CP, "warning") || strings.Contains(CP, "unknown") || strings.Contains(CP, "Unknown") || strings.Contains(CP, "Warning") || strings.Contains(CP, "Ambiguous") || strings.Contains(CP, "specified does not exist"))
 }
 
+func set_up_svi(SVI *infradb.Svi) (string, bool) {
+	link_svi := fmt.Sprintf("%+v-%+v", path.Base(SVI.Spec.Vrf),strings.Split(path.Base(SVI.Spec.LogicalBridge),"vlan")[1])
+	if SVI.Spec.EnableBgp && !reflect.ValueOf(SVI.Spec.GatewayIPs).IsZero() {
+		gw_ip := fmt.Sprintf("%s", SVI.Spec.GatewayIPs[0].IP.To4())
+		RemoteAs := fmt.Sprintf("%d", *SVI.Spec.RemoteAs)
+		bgp_vrf_name := fmt.Sprintf("router bgp 65000 vrf %s", path.Base(SVI.Spec.Vrf))
+		neighlink := fmt.Sprintf("neighbor %s peer-group", link_svi)
+		neighlink_Re := fmt.Sprintf("neighbor %s remote-as %s",link_svi, RemoteAs)
+		neighlink_gw := fmt.Sprintf("neighbor %s update-source %s",link_svi, gw_ip)
+		neighlink_ov := fmt.Sprintf("neighbor %s as-override", link_svi)
+		neighlink_sr := fmt.Sprintf("neighbor %s soft-reconfiguration inbound", link_svi)
+		bgp_listen := fmt.Sprintf(" bgp listen range %s peer-group %s",SVI.Spec.GatewayIPs[0], link_svi)
+		CP, err := run([]string{"vtysh", "-c", "conf", "t", "-c", bgp_vrf_name, "-c", "bgp disable-ebgp-connected-route-check", "-c", neighlink, "-c", neighlink_Re, "-c", neighlink_gw, "-c", neighlink_ov, "-c", neighlink_sr, "-c", bgp_listen, "-c", "exit"}, false)
+		if err != 0 || check_frr_result(CP, false) {
+			fmt.Printf("FRR: Error in conf SVI %s %s command %s\n", SVI.Name, path.Base(SVI.Spec.Vrf), CP)
+			return "", false
+		}
+		return "", true
+	}
+	return "", false
+}
+
+func tear_down_svi(SVI *infradb.Svi) bool {
+	link_svi := fmt.Sprintf("%+v-%+v", path.Base(SVI.Spec.Vrf),strings.Split(path.Base(SVI.Spec.LogicalBridge),"vlan")[1])
+	if SVI.Spec.EnableBgp && !reflect.ValueOf(SVI.Spec.GatewayIPs).IsZero() {
+		bgp_vrf_name := fmt.Sprintf("router bgp 65000 vrf %s", path.Base(SVI.Spec.Vrf))
+		no_neigh := fmt.Sprintf("no neighbor %s peer-group", link_svi)
+		CP, err := run([]string{"vtysh", "-c", "conf", "t", "-c", bgp_vrf_name, "-c", no_neigh, "-c", "exit"}, false)
+		if err == -1 || check_frr_result(CP, false) {
+			fmt.Printf("FRR: Error in conf Delete VRF/VNI command %s\n", CP)
+			return false
+		}
+		fmt.Printf("FRR: Executed vtysh -c conf t -c router bgp 65000 vrf %s -c no  neighbor %s peer-group -c exit\n", path.Base(SVI.Spec.Vrf), link_svi)
+		return true
+	}
+	return false
+}
+
+
 func tear_down_vrf(VRF *infradb.Vrf) bool { // interface{}){
 	// This function must not be executed for the VRF representing the GRD
 	Ifname := strings.Split(VRF.Name, "/")
@@ -380,14 +474,4 @@ func tear_down_vrf(VRF *infradb.Vrf) bool { // interface{}){
 		fmt.Printf("FRR: Executed vtysh -c conf t -c %s -c %s -c exit\n", del_cmd1, del_cmd2)
 	}
 	return true
-}
-
-func set_up_svi(SVI *infradb.Svi) { // interface{}){
-	//	fmt.Printf("FRR:  ADDED event received %f %s\n",SVI.ResourceVer,SVI.Name)
-
-}
-
-func tear_down_svi(SVI *infradb.Svi) { // interface{}){
-	//	fmt.Printf("FRR: SVI deleted event received %f %s\n",SVI.ResourceVer,SVI.Name)
-
 }

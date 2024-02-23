@@ -42,7 +42,7 @@ func (s *Server) CreateSvi(ctx context.Context, in *pb.CreateSviRequest) (*pb.Sv
 	// idempotent API when called with same key, should return same object
 	sviObj, err := s.getSvi(in.Svi.Name)
 	if err != nil {
-		if err != badger.ErrKeyNotFound {
+		if err != infradb.ErrKeyNotFound {
 			fmt.Printf("CreateSvi(): Failed to interact with store: %v", err)
 			return nil, err
 		}

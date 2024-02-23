@@ -7,7 +7,7 @@ frraddress: 127.0.0.1
 subscribers:
  - name: "lvm"
    priority: 2
-   events: ["vrf", "svi"]
+   events: []
  - name: "lgm"
    priority: 1
    events: ["vrf", "svi", "logical-bridge"]
@@ -16,9 +16,9 @@ subscribers:
    events: ["vrf", "svi"]
  - name: "ipu"
    priority: 4
-   events: ["vrf", "svi"]
- - name: "lci"
    events: []
+ - name: "lci"
+   events: ["bridge-port"]
 grpc:
     server_addresses:
       - 0.0.0.0

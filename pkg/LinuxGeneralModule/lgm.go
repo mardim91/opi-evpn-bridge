@@ -14,12 +14,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
 	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
 	// "gopkg.in/yaml.v2"
+	"path"
 )
 
 type ModulelgmHandler struct{}
@@ -65,7 +65,7 @@ func (h *ModulelgmHandler) HandleEvent(eventType string, objectData *event_bus.O
 		handlevrf(objectData)
 	case "svi":
 		fmt.Printf("LGM recevied %s %s\n", eventType, objectData.Name)
-		handlesvi(objectData.Name)
+		handlesvi(objectData)
 	case "logical-bridge":
 		fmt.Printf("LGM recevied %s %s\n", eventType, objectData.Name)
 		handleLB(objectData)
@@ -126,8 +126,68 @@ func handleLB(objectData *event_bus.ObjectData) {
 	}
 }
 
-func handlesvi(eventName string) {
-	fmt.Printf("dummy %s\n", eventName)
+func handlesvi(objectData *event_bus.ObjectData) {
+	var comp common.Component
+	SVI, err := infradb.GetSvi(objectData.Name)
+	if err != nil {
+		fmt.Printf("LGM: GetSvi error: %s %s\n", err, objectData.Name)
+		return
+	} else {
+		fmt.Printf("LGM : GetSvi Name: %s\n", SVI.Name)
+	}
+	if (objectData.ResourceVersion != SVI.ResourceVersion){
+		fmt.Printf("LGM: Mismatch in resoruce version %+v\n and SVI resource version %+v\n", objectData.ResourceVersion, SVI.ResourceVersion)
+		comp.Name= "lgm"
+		comp.CompStatus= common.COMP_STATUS_ERROR
+		if comp.Timer ==0 {
+			comp.Timer=2 * time.Second
+		} else {
+			comp.Timer=comp.Timer*2
+		}
+		infradb.UpdateSviStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
+		return
+	}
+	if len(SVI.Status.Components) != 0 {
+		for i := 0; i < len(SVI.Status.Components); i++ {
+			if SVI.Status.Components[i].Name == "lgm" {
+				comp = SVI.Status.Components[i]
+			}
+		}
+	}
+	if SVI.Status.SviOperStatus != infradb.SVI_OPER_STATUS_TO_BE_DELETED {
+		details, status := set_up_svi(SVI)
+		comp.Name = "lgm"
+		if status == true {
+			comp.Details = details
+			comp.CompStatus = common.COMP_STATUS_SUCCESS
+			comp.Timer = 0
+		} else {
+			if comp.Timer == 0 {
+				comp.Timer = 2 * time.Second
+			} else {
+				comp.Timer = comp.Timer * 2
+			}
+			comp.CompStatus = common.COMP_STATUS_ERROR
+		}
+		fmt.Printf("LGM: %+v \n", comp)
+		infradb.UpdateSviStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
+	} else {
+		status := tear_down_svi(SVI)
+		comp.Name = "lgm"
+		if status == true {
+			comp.CompStatus = common.COMP_STATUS_SUCCESS
+			comp.Timer = 0
+		} else {
+			comp.CompStatus = common.COMP_STATUS_ERROR
+			if comp.Timer == 0 {
+				 comp.Timer = 2 * time.Second
+			} else {
+				comp.Timer = comp.Timer * 2
+			}
+		}
+		fmt.Printf("LGM: %+v \n", comp)
+		infradb.UpdateSviStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
+	}
 }
 
 func handlevrf(objectData *event_bus.ObjectData) {
@@ -246,7 +306,6 @@ func set_up_bridge(LB *infradb.LogicalBridge) bool {
 		VtepIP := fmt.Sprintf("%+v", LB.Spec.VtepIP.IP)
 		Vlanid := fmt.Sprintf("%+v", LB.Spec.VlanId)
 		ip_mtu := fmt.Sprintf("%+v", ip_mtu)
-		fmt.Printf("%v %v %v %v %v\n", Vni, VtepIP, Vlanid, ip_mtu)
 		CP, err := run([]string{"ip", "link", "add", link, "type", "vxlan", "id", Vni, "local", VtepIP, "dstport", "4789", "nolearning", "proxy"}, false)
 		if err != 0 {
 			fmt.Printf("LGM:Error in executing command %s %s\n", "link add ", link)
@@ -380,6 +439,55 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
 	details := fmt.Sprintf("{\"routing_table\":\"%s\"}", routing_table)
 	*VRF.Metadata.RoutingTable[0] = VRF.Spec.Vni
 	return details, true
+}
+
+func set_up_svi(SVI *infradb.Svi) (string, bool) {
+	link_svi := fmt.Sprintf("%+v-%+v", path.Base(SVI.Spec.Vrf),strings.Split(path.Base(SVI.Spec.LogicalBridge),"vlan")[1])
+	MacAddress := fmt.Sprintf("%+v", SVI.Spec.MacAddress)
+	ip_mtu := fmt.Sprintf("%+v", ip_mtu)
+	vid := strings.Split(path.Base(SVI.Spec.LogicalBridge),"vlan")[1]
+	CP, err := run([]string{"bridge", "vlan", "add", "dev", br_tenant, "vid", vid ,"self"},false)
+	if err != 0 {
+		fmt.Printf("LGM: Error in executing command %s %s\n", "bridge vlan add dev ", br_tenant)
+		fmt.Printf("%s\n", CP)
+		return "", false
+	}
+	fmt.Printf("LGM Executed : bridge vlan add dev %s vid %s self\n", br_tenant, vid)
+	CP, err = run([]string{"ip", "link", "add", "link", br_tenant, "name", link_svi, "type", "vlan", "id", vid}, false)
+	if err != 0 {
+		fmt.Printf("LGM: Error in executing command %s %s %s\n", "ip link add link",br_tenant, link_svi)
+		fmt.Printf("%s\n", CP)
+		return "", false
+	}
+	CP, err = run([]string{"ip", "link", "set", link_svi, "address", MacAddress}, false)
+	if err != 0 {
+		fmt.Printf("LGM: Error in executing command %s %s\n", "ip link set", link_svi)
+		fmt.Printf("%s\n", CP)
+		return "", false
+	}
+	CP, err = run([]string{"ip", "link", "set", link_svi, "master", path.Base(SVI.Spec.Vrf), "up", "mtu", ip_mtu}, false)
+	if err != 0 {
+		fmt.Printf("LGM: Error in executing command %s %s\n", "ip link set", link_svi)
+		fmt.Printf("%s\n", CP)
+		return "", false
+	}
+	command := fmt.Sprintf("net.ipv4.conf.%s.arp_accept=1", link_svi)
+	CP, err = run([]string{"sysctl", "-w", command}, false)
+	if err != 0 {
+		fmt.Printf("LGM: Error in executing command %s %s\n","sysctl -w net.ipv4.conf.link_svi.arp_accept=1", link_svi)
+		fmt.Printf("%s\n", CP)
+		return "", false
+	}
+	for _,ip_intf := range SVI.Spec.GatewayIPs {
+		IP := fmt.Sprintf("+%v", ip_intf.IP.To4())
+		CP, err = run([]string{"ip", "address", "add", IP, "dev", link_svi}, false)
+		if err != 0 {
+			fmt.Printf("LGM: Error in executing command %s %s\n","ip address add",ip_intf.IP.To4())
+			fmt.Printf("%s\n", CP)
+			return "", false
+		}
+	}
+	return "", true
 }
 
 func GenerateMac() net.HardwareAddr {
@@ -541,6 +649,22 @@ func tear_down_vrf(VRF *infradb.Vrf) bool {
 	}
 	return true
 }
+
+func tear_down_svi(SVI *infradb.Svi) bool {
+	link_svi := fmt.Sprintf("%+v-%+v", path.Base(SVI.Spec.Vrf),strings.Split(path.Base(SVI.Spec.LogicalBridge),"vlan")[1])
+	CP, err := run([]string{"ifconfig", "-a", link_svi}, false)
+	if err != 0 {
+		fmt.Printf("CP LGM %s\n", CP)
+		return true
+	}
+	CP, err = run([]string{"ip", "link", "del", link_svi}, false)
+	if err != 0 {
+		fmt.Printf("LGM: Error in executing command %s %s\n","ip link del", link_svi)
+		return false
+	}
+	return true
+}
+		
 
 func tear_down_bridge(LB *infradb.LogicalBridge) bool {
 	link := fmt.Sprintf("vxlan-%+v", LB.Spec.VlanId)

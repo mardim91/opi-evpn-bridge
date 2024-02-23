@@ -43,7 +43,7 @@ func (s *Server) CreateBridgePort(ctx context.Context, in *pb.CreateBridgePortRe
 	// idempotent API when called with same key, should return same object
 	bpObj, err := s.getBridgePort(in.BridgePort.Name)
 	if err != nil {
-		if err != badger.ErrKeyNotFound {
+		if err != infradb.ErrKeyNotFound {
 			fmt.Printf("CreateBridgePort(): Failed to interact with store: %v", err)
 			return nil, err
 		}

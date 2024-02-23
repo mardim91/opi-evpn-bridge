@@ -103,7 +103,7 @@ func NewBridgePort(in *pb.BridgePort) *BridgePort {
 		Name: in.Name,
 		Spec: &BridgePortSpec{
 			Ptype:          bpType,
-			MacAddress:     (*net.HardwareAddr)(&in.Spec.MacAddress),
+			MacAddress: BytetoMac(in.Spec.MacAddress),
 			LogicalBridges: in.Spec.LogicalBridges,
 		},
 		Status: &BridgePortStatus{
