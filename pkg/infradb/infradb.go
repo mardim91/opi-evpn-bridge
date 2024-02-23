@@ -30,6 +30,7 @@ var (
 	ErrLogicalBridgeNotFound = errors.New("the referenced Logical Bridge has not been found")
 	ErrVrfNotEmpty           = errors.New("the VRF is not empty")
 	ErrLogicalBridgeNotEmpty = errors.New("the LogicalBridge is not empty")
+	ErrRoutingTableInUse     = errors.New("The routing table is allready in use")
 	// Add more error constants as needed
 )
 
@@ -99,7 +100,11 @@ func DeleteLB(Name string) error {
 
 	lb := LogicalBridge{}
 	found, err := infradb.client.Get(Name, &lb)
-	if found != true {
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+	if !found {
 		return ErrKeyNotFound
 	}
 
@@ -1202,5 +1207,72 @@ func UpdateSviStatus(Name string, resourceVersion string, notificationId string,
 
 	task_manager.TaskMan.StatusUpdated(svi.Name, "svi", svi.ResourceVersion, notificationId, false, &component)
 
+	return nil
+}
+
+func SaveRoutingTable(rtNum uint32) error {
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	rts := make(map[uint32]bool)
+	found, err := infradb.client.Get("rts", &rts)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	if !found {
+		rts[rtNum] = false
+		err = infradb.client.Set("rts", &rts)
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
+		return nil
+	}
+
+	_, ok := rts[rtNum]
+	if ok {
+		fmt.Printf("SaveRoutingTable(): Routing Table %+v in use\n", rtNum)
+		return ErrRoutingTableInUse
+	}
+
+	rts[rtNum] = false
+	err = infradb.client.Set("rts", &rts)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+	return nil
+}
+
+func DeleteRoutingTable(rtNum uint32) error {
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	rts := make(map[uint32]bool)
+	found, err := infradb.client.Get("rts", &rts)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	if !found {
+		fmt.Println("DeleteRoutingTable(): No routing tables have been found")
+		return ErrKeyNotFound
+	}
+
+	_, ok := rts[rtNum]
+	if !ok {
+		fmt.Printf("DeleteRoutingTable(): Routing Table %+v not found\n", rtNum)
+		return ErrKeyNotFound
+	}
+
+	delete(rts, rtNum)
+	err = infradb.client.Set("rts", &rts)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
 	return nil
 }
