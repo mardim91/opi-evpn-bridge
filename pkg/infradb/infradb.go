@@ -30,7 +30,8 @@ var (
 	ErrLogicalBridgeNotFound = errors.New("the referenced Logical Bridge has not been found")
 	ErrVrfNotEmpty           = errors.New("the VRF is not empty")
 	ErrLogicalBridgeNotEmpty = errors.New("the LogicalBridge is not empty")
-	ErrRoutingTableInUse     = errors.New("The routing table is allready in use")
+	ErrRoutingTableInUse     = errors.New("the routing table is allready in use")
+	ErrVniInUse              = errors.New("the VNI is allready in use")
 	// Add more error constants as needed
 )
 
@@ -50,9 +51,10 @@ func Close() error {
 	return infradb.client.Close()
 }
 func CreateLB(lb *LogicalBridge) error {
-	// TODO: Add checks to see if the VNI is already in use by another L2VPN
 	globalLock.Lock()
 	defer globalLock.Unlock()
+
+	vpns := make(map[uint32]bool)
 
 	subscribers := event_bus.EBus.GetSubscribers("logical-bridge")
 	if subscribers == nil {
@@ -61,10 +63,39 @@ func CreateLB(lb *LogicalBridge) error {
 
 	fmt.Printf("CreateLB(): Create Logical Bridge: %+v\n", lb)
 
+	// Check if VNI is allready used
+	if lb.Spec.Vni != nil {
+		found, err := infradb.client.Get("vpns", &vpns)
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
+
+		if !found {
+			vpns[*lb.Spec.Vni] = false
+		} else {
+			_, ok := vpns[*lb.Spec.Vni]
+			if ok {
+				fmt.Printf("CreateLB(): VNI allready in use: %+v\n", lb.Spec.Vni)
+				return ErrVniInUse
+			}
+			vpns[*lb.Spec.Vni] = false
+		}
+	}
+
 	err := infradb.client.Set(lb.Name, lb)
 	if err != nil {
 		log.Fatal(err)
 		return err
+	}
+
+	// Store VNI to DB in the vpns map
+	if lb.Spec.Vni != nil {
+		err = infradb.client.Set("vpns", &vpns)
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
 	}
 
 	// Add the New Created Logical Bridge to the "lbs" map
@@ -257,6 +288,25 @@ func UpdateLBStatus(Name string, resourceVersion string, notificationId string, 
 	if lastCompSuccsess {
 		if lb.Status.LBOperStatus == LB_OPER_STATUS_TO_BE_DELETED {
 			err = infradb.client.Delete(lb.Name)
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+
+			// Delete VNI from the VPN map
+			vpns := make(map[uint32]bool)
+			found, err = infradb.client.Get("vpns", &vpns)
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+			if !found {
+				fmt.Println("UpdateLBStatus(): No VPNs have been found")
+				return ErrKeyNotFound
+			}
+
+			delete(vpns, *lb.Spec.Vni)
+			err = infradb.client.Set("vpns", &vpns)
 			if err != nil {
 				log.Fatal(err)
 				return err
@@ -626,9 +676,10 @@ func UpdateBPStatus(Name string, resourceVersion string, notificationId string, 
 }
 
 func CreateVrf(vrf *Vrf) error {
-	//TODO: Add checks to see if the vni is already in use by another L3VPN
 	globalLock.Lock()
 	defer globalLock.Unlock()
+
+	vpns := make(map[uint32]bool)
 
 	subscribers := event_bus.EBus.GetSubscribers("vrf")
 	if subscribers == nil {
@@ -637,10 +688,41 @@ func CreateVrf(vrf *Vrf) error {
 
 	fmt.Printf("CreateVrf(): Create Vrf: %+v\n", vrf)
 
+	// TODO: Move the check for VNI in a common place
+	// and use that comomn code also for checking the LB vni
+	// Check if VNI is allready used
+	if vrf.Spec.Vni != nil {
+		found, err := infradb.client.Get("vpns", &vpns)
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
+
+		if !found {
+			vpns[*vrf.Spec.Vni] = false
+		} else {
+			_, ok := vpns[*vrf.Spec.Vni]
+			if ok {
+				fmt.Printf("CreateVrf(): VNI allready in use: %+v\n", vrf.Spec.Vni)
+				return ErrVniInUse
+			}
+			vpns[*vrf.Spec.Vni] = false
+		}
+	}
+
 	err := infradb.client.Set(vrf.Name, vrf)
 	if err != nil {
 		log.Fatal(err)
 		return err
+	}
+
+	// Store VNI to DB in the vpns map
+	if vrf.Spec.Vni != nil {
+		err = infradb.client.Set("vpns", &vpns)
+		if err != nil {
+			log.Fatal(err)
+			return err
+		}
 	}
 
 	// Add the New Created VRF to the "vrfs" map
@@ -832,6 +914,26 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationId string,
 				return err
 			}
 
+			// Delete VNI from the VPN map
+			vpns := make(map[uint32]bool)
+			found, err = infradb.client.Get("vpns", &vpns)
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+			if !found {
+				fmt.Println("UpdateVrfStatus(): No VPNs have been found")
+				return ErrKeyNotFound
+			}
+
+			delete(vpns, *vrf.Spec.Vni)
+			err = infradb.client.Set("vpns", &vpns)
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+
+			// Delete VRF from VRFs Map
 			vrfs := make(map[string]bool)
 			found, err = infradb.client.Get("vrfs", &vrfs)
 			if err != nil {

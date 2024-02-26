@@ -87,8 +87,8 @@ func NewLogicalBridge(in *pb.LogicalBridge) *LogicalBridge {
 			Components:   components,
 		},
 		Metadata:        &LogicalBridgeMetadata{},
-		BridgePorts:	make(map[string]bool),
-		MacTable:	make(map[string]string),
+		BridgePorts:     make(map[string]bool),
+		MacTable:        make(map[string]string),
 		ResourceVersion: generateVersion(),
 	}
 }
@@ -126,15 +126,7 @@ func (in *LogicalBridge) ToPb() *pb.LogicalBridge {
 		default:
 			component.Status = pb.CompStatus_COMP_STATUS_UNSPECIFIED
 		}
-		/*if comp.CompStatus == common.COMP_STATUS_PENDING {
-			component.Status = pb.CompStatus_COMP_STATUS_PENDING
-		} else if comp.CompStatus == common.COMP_STATUS_SUCCESS {
-			component.Status = pb.CompStatus_COMP_STATUS_SUCCESS
-		} else if comp.CompStatus == common.COMP_STATUS_ERROR {
-			component.Status = pb.CompStatus_COMP_STATUS_ERROR
-		} else {
-			component.Status = pb.CompStatus_COMP_STATUS_UNSPECIFIED
-		}*/
+
 		lb.Status.Components = append(lb.Status.Components, component)
 	}
 

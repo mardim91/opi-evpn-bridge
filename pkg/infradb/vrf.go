@@ -29,41 +29,14 @@ const (
 	VRF_OPER_STATUS_TO_BE_DELETED = iota
 )
 
-/*
-type COMP_STATUS int
-
-const (
-
-	COMP_STATUS_UNSPECIFIED COMP_STATUS = iota + 1
-	COMP_STATUS_PENDING
-	COMP_STATUS_SUCCESS
-	COMP_STATUS_ERROR
-
-)
-
-// Vrf object, separate from protobuf for decoupling
-
-	type Component struct {
-		Name       string
-		CompStatus COMP_STATUS
-		//Free format json string
-		Details string
-		Timer   time.Duration
-	}
-*/
 type VrfStatus struct {
 	VrfOperStatus VRF_OPER_STATUS
 	Components    []common.Component
 }
 type VrfSpec struct {
-	// TODO: Need to change the uint32 to *uint32
-	Vni uint32
-	// TODO: need to change the net.IPNet to *net.IPNet
-	LoopbackIP net.IPNet
-	VtepIP     net.IPNet
-	// LocalAs      uint32
-	// RoutingTable uint32
-	// MacAddress   net.HardwareAddr
+	Vni        *uint32
+	LoopbackIP *net.IPNet
+	VtepIP     *net.IPNet
 }
 
 type VrfMetadata struct {
@@ -75,8 +48,8 @@ type VrfMetadata struct {
 
 type Vrf struct {
 	Name            string
-	Spec            VrfSpec
-	Status          VrfStatus
+	Spec            *VrfSpec
+	Status          *VrfStatus
 	Metadata        *VrfMetadata
 	Svis            map[string]bool
 	ResourceVersion string
@@ -98,15 +71,15 @@ func NewVrfWithArgs(name string, vni *uint32, loopbackIP, vtepIP *net.IPNet) (*V
 	vrf.Name = name
 
 	if vni != nil {
-		vrf.Spec.Vni = *vni
+		vrf.Spec.Vni = vni
 	}
 
 	if loopbackIP != nil {
-		vrf.Spec.LoopbackIP = *loopbackIP
+		vrf.Spec.LoopbackIP = loopbackIP
 	}
 
 	if vtepIP != nil {
-		vrf.Spec.VtepIP = *vtepIP
+		vrf.Spec.VtepIP = vtepIP
 	}
 
 	subscribers := event_bus.EBus.GetSubscribers("vrf")
@@ -119,7 +92,7 @@ func NewVrfWithArgs(name string, vni *uint32, loopbackIP, vtepIP *net.IPNet) (*V
 		components = append(components, component)
 	}
 
-	vrf.Status = VrfStatus{
+	vrf.Status = &VrfStatus{
 		VrfOperStatus: VRF_OPER_STATUS(VRF_OPER_STATUS_DOWN),
 		Components:    components,
 	}
@@ -155,12 +128,12 @@ func NewVrf(in *pb.Vrf) *Vrf {
 
 	return &Vrf{
 		Name: in.Name,
-		Spec: VrfSpec{
-			Vni:        *in.Spec.Vni,
-			LoopbackIP: lip,
-			VtepIP:     vip,
+		Spec: &VrfSpec{
+			Vni:        in.Spec.Vni,
+			LoopbackIP: &lip,
+			VtepIP:     &vip,
 		},
-		Status: VrfStatus{
+		Status: &VrfStatus{
 			VrfOperStatus: VRF_OPER_STATUS(VRF_OPER_STATUS_DOWN),
 
 			Components: components,
@@ -173,19 +146,17 @@ func NewVrf(in *pb.Vrf) *Vrf {
 
 // ToPb transforms VRF object to protobuf message
 func (in *Vrf) ToPb() *pb.Vrf {
-	loopbackIP := common.ConvertToIPPrefix(&in.Spec.LoopbackIP)
-	vtepip := common.ConvertToIPPrefix(&in.Spec.VtepIP)
+	loopbackIP := common.ConvertToIPPrefix(in.Spec.LoopbackIP)
+	vtepip := common.ConvertToIPPrefix(in.Spec.VtepIP)
 	vrf := &pb.Vrf{
 		Name: in.Name,
 		Spec: &pb.VrfSpec{
-			Vni:              &in.Spec.Vni,
+			Vni:              in.Spec.Vni,
 			LoopbackIpPrefix: loopbackIP,
 
 			VtepIpPrefix: vtepip,
 		},
-		Status: &pb.VrfStatus{
-			//LocalAs: in.Spec.LocalAs,
-		},
+		Status: &pb.VrfStatus{},
 	}
 	if in.Status.VrfOperStatus == VRF_OPER_STATUS_DOWN {
 		vrf.Status.OperStatus = pb.VRFOperStatus_VRF_OPER_STATUS_DOWN
@@ -208,19 +179,9 @@ func (in *Vrf) ToPb() *pb.Vrf {
 		default:
 			component.Status = pb.CompStatus_COMP_STATUS_UNSPECIFIED
 		}
-		/*
-			if comp.CompStatus == common.COMP_STATUS_PENDING {
-				component.Status = pb.CompStatus_COMP_STATUS_PENDING
-			} else if comp.CompStatus == common.COMP_STATUS_SUCCESS {
-				component.Status = pb.CompStatus_COMP_STATUS_SUCCESS
-			} else if comp.CompStatus == common.COMP_STATUS_SUCCESS {
-				component.Status = pb.CompStatus_COMP_STATUS_ERROR
-			} else {
-				component.Status = pb.CompStatus_COMP_STATUS_UNSPECIFIED
-			}*/
+
 		vrf.Status.Components = append(vrf.Status.Components, component)
 	}
-	// TODO: add LocalAs, LoopbackIP, VtepIP
 	return vrf
 }
 

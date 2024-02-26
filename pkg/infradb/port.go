@@ -103,7 +103,7 @@ func NewBridgePort(in *pb.BridgePort) *BridgePort {
 		Name: in.Name,
 		Spec: &BridgePortSpec{
 			Ptype:          bpType,
-			MacAddress: BytetoMac(in.Spec.MacAddress),
+			MacAddress:     BytetoMac(in.Spec.MacAddress),
 			LogicalBridges: in.Spec.LogicalBridges,
 		},
 		Status: &BridgePortStatus{
@@ -153,7 +153,7 @@ func (in *BridgePort) ToPb() *pb.BridgePort {
 			component.Status = pb.CompStatus_COMP_STATUS_PENDING
 		} else if comp.CompStatus == common.COMP_STATUS_SUCCESS {
 			component.Status = pb.CompStatus_COMP_STATUS_SUCCESS
-		} else if comp.CompStatus == common.COMP_STATUS_SUCCESS {
+		} else if comp.CompStatus == common.COMP_STATUS_ERROR {
 			component.Status = pb.CompStatus_COMP_STATUS_ERROR
 		} else {
 			component.Status = pb.CompStatus_COMP_STATUS_UNSPECIFIED

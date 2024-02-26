@@ -100,13 +100,14 @@ func NewSvi(in *pb.Svi) *Svi {
 	}
 }
 
-func BytetoMac(Mac []byte)(*net.HardwareAddr) {
+func BytetoMac(Mac []byte) *net.HardwareAddr {
 	MacAddr, err := net.ParseMAC(string(Mac))
 	if err != nil {
 		return nil
 	}
 	return &MacAddr
 }
+
 // ToPb transforms Svi object to protobuf message
 func (in *Svi) ToPb() *pb.Svi {
 	var gatewayIPs []*opinetcommon.IPPrefix
@@ -142,7 +143,7 @@ func (in *Svi) ToPb() *pb.Svi {
 			component.Status = pb.CompStatus_COMP_STATUS_PENDING
 		} else if comp.CompStatus == common.COMP_STATUS_SUCCESS {
 			component.Status = pb.CompStatus_COMP_STATUS_SUCCESS
-		} else if comp.CompStatus == common.COMP_STATUS_SUCCESS {
+		} else if comp.CompStatus == common.COMP_STATUS_ERROR {
 			component.Status = pb.CompStatus_COMP_STATUS_ERROR
 		} else {
 			component.Status = pb.CompStatus_COMP_STATUS_UNSPECIFIED
