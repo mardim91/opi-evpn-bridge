@@ -340,7 +340,7 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
 	if !reflect.ValueOf(VRF.Spec.Vni).IsZero() {
 		// Configure the VRF in FRR and set up BGP EVPN for it
 		vrf_name := fmt.Sprintf("vrf %s", VRF.Name)
-		vni_id := fmt.Sprintf("vni %s", strconv.Itoa(int(VRF.Spec.Vni)))
+		vni_id := fmt.Sprintf("vni %s", strconv.Itoa(int(*VRF.Spec.Vni)))
 		CP, err := run([]string{"vtysh", "-c", "conf", "t", "-c", vrf_name, "-c", vni_id, "-c", "exit-vrf", "-c", "exit"}, false)
 		if err != 0 || check_frr_result(CP, false) {
 			fmt.Printf("FRR: Error in conf VRF/VNI conf VRF/VNI %s %s command %s\n", vrf_name, vni_id, CP)
@@ -361,13 +361,13 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
 		}
 		fmt.Printf("FRR: Executed config t bgp_vrf_name %s bgp_route_id %s no bgp ebgp-requires-policy exit-vrf exit\n", bgp_vrf_name, bgp_route_id)
 		// Update the VRF with attributes from FRR
-		cmd := fmt.Sprintf("show bgp l2vpn evpn vni %s json", strconv.Itoa(int(VRF.Spec.Vni)))
+		cmd := fmt.Sprintf("show bgp l2vpn evpn vni %s json", strconv.Itoa(int(*VRF.Spec.Vni)))
 		CP, err = run([]string{"vtysh", "-c", cmd}, false)
 		if err != 0 || check_frr_result(CP, true) {
 			fmt.Printf("FRR: Error in evpn evpn command %s\n", cmd)
 			return "", false
 		}
-		fmt.Printf("FRR: Executed show bgp l2vpn evpn vni %s json\n", strconv.Itoa(int(VRF.Spec.Vni)))
+		fmt.Printf("FRR: Executed show bgp l2vpn evpn vni %s json\n", strconv.Itoa(int(*VRF.Spec.Vni)))
 		if len(CP) != 7 {
 			CP = CP[2 : len(CP)-2]
 		} else {

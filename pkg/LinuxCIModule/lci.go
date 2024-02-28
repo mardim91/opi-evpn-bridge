@@ -17,6 +17,8 @@ import (
         "net"
         "strings"
         "strconv"
+        "github.com/opiproject/opi-evpn-bridge/pkg/utils"
+        "context"
 )
 
 type ModulelciHandler struct{}
@@ -95,17 +97,17 @@ func handlebp(objectData *event_bus.ObjectData){
 
 func set_up_bp(BP *infradb.BridgePort)(bool){
 	resourceID := path.Base(BP.Name)
-	bridge,err := nl.LinkByName("br-tenant")
+	bridge,err := nlink.LinkByName(ctx,"br-tenant")
 	if err != nil{
 		fmt.Printf("LCI: Unable to find key br-tenant\n")
 		return false
 	}
-	iface, err := nl.LinkByName(resourceID)
+	iface, err := nlink.LinkByName(ctx, resourceID)
 	if err != nil {
 		fmt.Printf("LCI: Unable to find key %s\n", resourceID)
 		return false
 	}
-	if err:= nl.LinkSetMaster(iface, bridge); err != nil {
+	if err:= nlink.LinkSetMaster(ctx, iface, bridge); err != nil {
 		fmt.Printf("LCI: Failed to add iface to bridge: %v", err)
 		return false
 	}
@@ -118,13 +120,13 @@ func set_up_bp(BP *infradb.BridgePort)(bool){
 		vid := uint16(BrObj.Spec.VlanId)
 		switch BP.Spec.Ptype {
 			case infradb.ACCESS:
-				if err := nl.BridgeVlanAdd(iface, vid, true, true, false, false); err != nil {
+				if err := nlink.BridgeVlanAdd(ctx, iface, vid, true, true, false, false); err != nil {
 					fmt.Printf("Failed to add vlan to bridge: %v", err)
 					return false
 				}
 			case infradb.TRUNK:
 			// Example: bridge vlan add dev eth2 vid 20
-				if err := nl.BridgeVlanAdd(iface, vid, false, false, false, false); err != nil {
+				if err := nlink.BridgeVlanAdd(ctx, iface, vid, false, false, false, false); err != nil {
 					fmt.Printf("Failed to add vlan to bridge: %v", err)
 					return false
 				}
@@ -133,7 +135,7 @@ func set_up_bp(BP *infradb.BridgePort)(bool){
 				return false
 		}
 	}
-	if err := nl.LinkSetUp(iface); err != nil {
+	if err := nlink.LinkSetUp(ctx, iface); err != nil {
 		fmt.Printf("Failed to up iface link: %v", err)
 		return false
 	}
@@ -142,12 +144,12 @@ func set_up_bp(BP *infradb.BridgePort)(bool){
 
 func tear_down_bp(BP *infradb.BridgePort)(bool){
 	resourceID := path.Base(BP.Name)
-	iface, err := nl.LinkByName(resourceID)
+	iface, err := nlink.LinkByName(ctx, resourceID)
 	if err != nil {
 		fmt.Printf("LCI: Unable to find key %s\n", resourceID)
 		return false
 	}
-	if err := nl.LinkSetDown(iface); err != nil {
+	if err := nlink.LinkSetDown(ctx, iface); err != nil {
 		fmt.Printf("LCI: Failed to down link: %v", err)
 		return false
 	}
@@ -158,18 +160,19 @@ func tear_down_bp(BP *infradb.BridgePort)(bool){
 			return false
 		}
 		vid := uint16(BrObj.Spec.VlanId)
-		if err := nl.BridgeVlanDel(iface, vid, true, true, false, false); err != nil {
+		if err := nlink.BridgeVlanDel(ctx, iface, vid, true, true, false, false); err != nil {
 			fmt.Printf("LCI: Failed to delete vlan to bridge: %v", err)
 			return false
 		}
 	}
-	if err := nl.LinkDel(iface); err != nil {
+	if err := nlink.LinkDel(ctx, iface); err != nil {
 		fmt.Printf("Failed to delete link: %v", err)
 		return false
 	}
 	return true
 }
-
+var ctx context.Context
+var nlink utils.Netlink
 func Init() {
         config, err := readConfig("config.yaml")
         if err != nil {
@@ -183,4 +186,6 @@ func Init() {
                         }
                 }
         }
+	ctx = context.Background()
+	nlink = utils.NewNetlinkWrapper()
 }

@@ -13,6 +13,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+	"errors"
+	"os/exec"
 )
 
 // Netlink represents limited subset of functions from netlink package
@@ -30,6 +32,23 @@ type Netlink interface {
 	LinkSetNoMaster(context.Context, netlink.Link) error
 	BridgeVlanAdd(context.Context, netlink.Link, uint16, bool, bool, bool, bool) error
 	BridgeVlanDel(context.Context, netlink.Link, uint16, bool, bool, bool, bool) error
+	LinkSetMTU(context.Context, netlink.Link, int) error
+	BridgeFdbAdd(context.Context, string, string) error
+}
+
+func run(cmd []string, flag bool) (string, int) {
+        var out []byte
+        var err error
+        out, err = exec.Command("sudo", cmd...).CombinedOutput()
+        if err != nil {
+                if flag {
+                        //panic(fmt.Sprintf("Command %s': exit code %s;", out, err.Error()))
+                }
+                //fmt.Printf("Command %s': exit code %s;\n", out, err)
+                return "Error", -1
+        }
+        output := string(out)
+        return output, 0
 }
 
 // NetlinkWrapper wrapper for netlink package
@@ -147,4 +166,18 @@ func (n *NetlinkWrapper) BridgeVlanDel(ctx context.Context, link netlink.Link, v
 	childSpan.SetAttributes(attribute.String("link.name", link.Attrs().Name))
 	defer childSpan.End()
 	return netlink.BridgeVlanDel(link, vid, pvid, untagged, self, master)
+}
+
+func (n *NetlinkWrapper) LinkSetMTU(ctx context.Context, link netlink.Link, mtu int) error {
+	_, childSpan := n.tracer.Start(ctx, "netlink.LinkSetMTU")
+	childSpan.SetAttributes(attribute.String("link.name", link.Attrs().Name))
+	defer childSpan.End()
+	return netlink.LinkSetMTU(link, mtu)
+}
+func (n *NetlinkWrapper) BridgeFdbAdd(ctx context.Context, link string, MacAddress string) error {
+	_, err := run([]string{"bridge", "fdb", "add", MacAddress, "dev", link, "master", "static", "extern_learn"}, false)
+        if err !=0 {
+                return errors.New("Failed to add fdb entry")
+        }
+	return nil
 }

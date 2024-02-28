@@ -427,7 +427,7 @@ const (
 }*/
 
 func _is_l3vpn_enabled(VRF *infradb.Vrf) uint32 {
-	return VRF.Spec.Vni
+	return *VRF.Spec.Vni
 }
 
 func bigEndian16(id uint32) interface{} {
@@ -652,10 +652,10 @@ func (l L3Decoder) _get_grpc_info(representors map[string][2]string) []GrpcPairP
 	return grpc_ports
 }
 func (l L3Decoder) get_vrf_id(route netlink_polling.Route_struct) uint32 {
-	if route.Vrf.Spec.Vni == 0 {
+	if route.Vrf.Spec.Vni == nil {
 		return 0
 	} else {
-		return route.Vrf.Spec.Vni
+		return *route.Vrf.Spec.Vni
 	}
 }
 func (l L3Decoder) _l3_host_route(route netlink_polling.Route_struct, Delete string) []interface{} {
@@ -1279,7 +1279,7 @@ func (v VxlanDecoder) translate_added_vrf(VRF *infradb.Vrf) []interface{} {
 	/*if _is_l3vpn_enabled(VRF) != 0{
 	                return entries
 		}*/
-	var tcam_prefix, _ = _get_tcam_prefix(VRF.Spec.Vni, Direction.Rx)
+	var tcam_prefix, _ = _get_tcam_prefix(*VRF.Spec.Vni, Direction.Rx)
 	G, _ := infradb.GetVrf(VRF.Name)
 	var detail map[string]interface{}
 	var Rmac net.HardwareAddr
@@ -1309,14 +1309,14 @@ func (v VxlanDecoder) translate_added_vrf(VRF *infradb.Vrf) []interface{} {
 		TableField: p4client.TableField{
 			FieldValue: map[string][2]interface{}{
 				"dst_ip": {VRF.Spec.VtepIP.IP, "exact"},
-				"vni":    {uint32(VRF.Spec.Vni), "exact"},
+				"vni":    {uint32(*VRF.Spec.Vni), "exact"},
 				"da":     {Rmac, "exact"},
 			},
 			Priority: int32(0),
 		},
 		Action: p4client.Action{
 			Action_name: "linux_networking_control.pop_vxlan_set_vrf_id",
-			Params:      []interface{}{ModPointer.IGNORE_PTR, uint32(tcam_prefix), uint32(_to_egress_vsi(v._default_vsi)), VRF.Spec.Vni},
+			Params:      []interface{}{ModPointer.IGNORE_PTR, uint32(tcam_prefix), uint32(_to_egress_vsi(v._default_vsi)), *VRF.Spec.Vni},
 		},
 	})
 	return entries
@@ -1356,7 +1356,7 @@ func (v VxlanDecoder) translate_deleted_vrf(VRF *infradb.Vrf) []interface{} {
 		TableField: p4client.TableField{
 			FieldValue: map[string][2]interface{}{
 				"dst_ip": {VRF.Spec.VtepIP.IP, "exact"},
-				"vni":    {uint32(VRF.Spec.Vni), "exact"},
+				"vni":    {uint32(*VRF.Spec.Vni), "exact"},
 				"da":     {Rmac, "exact"},
 			},
 			Priority: int32(0),

@@ -387,14 +387,14 @@ func (route Route_struct) annotate() Route_struct {
 		// route.Metadata["nh_ids"] = append(route.Metadata["nh_ids"], string(NH.id))
 		route.Metadata["nh_ids"] = NH.Id
 	}
-	if route.Vrf.Spec.Vni != 0 {
-		route.Metadata["vrf_id"] = route.Vrf.Spec.Vni
+	if route.Vrf.Spec.Vni != nil {
+		route.Metadata["vrf_id"] = *route.Vrf.Spec.Vni
 	} else {
 		route.Metadata["vrf_id"] = 0
 	}
 	if len(route.Nexthops) != 0 {
 		NH := route.Nexthops[0]
-		if route.Vrf.Spec.Vni == 0 { // GRD
+		if route.Vrf.Spec.Vni == nil { // GRD
 			if NH.Nh_type == PHY {
 				route.Metadata["direction"] = RX_TX
 			} else if NH.Nh_type == ACC {
@@ -1206,7 +1206,7 @@ func read_neighbors(V *infradb.Vrf) {
 	var N Neigh_list
 	var err error
 	var Nb string
-	if V.Spec.Vni == 0 {
+	if V.Spec.Vni == nil {
 		/* No support for "ip neighbor show" command in netlink library Raised ticket https://github.com/vishvananda/netlink/issues/913 ,
 		   so using ip command as WA */
 		Nb, err = run([]string{"ip", "-j", "-d", "neighbor", "show"})
@@ -1425,7 +1425,7 @@ func lookup_route(dst net.IP, V *infradb.Vrf) Route_struct {
 	//  if there is no match in the DB.
 	var CP string
 	var err error
-	if V.Spec.Vni != 0 {
+	if V.Spec.Vni != nil {
 		CP, err = run([]string{"ip", "-j", "route", "get", dst.String(), "vrf", path.Base(V.Name), "fibmatch"})
 	} else {
 		CP, err = run([]string{"ip", "-j", "route", "get", dst.String(), "fibmatch"})
@@ -1529,7 +1529,7 @@ func (nexthop Nexthop_struct) annotate() Nexthop_struct {
 		vtepip := G.Spec.VtepIP.IP
 		nexthop.Metadata["local_vtep_ip"] = vtepip.String()
 		nexthop.Metadata["remote_vtep_ip"] = nexthop.NH.Gw.String()
-		nexthop.Metadata["vni"] = nexthop.Vrf.Spec.Vni
+		nexthop.Metadata["vni"] = *nexthop.Vrf.Spec.Vni
 		if !reflect.ValueOf(nexthop.Neighbor).IsZero() {
 			// if nexthop.neighbor.Type == SVI{
 			nexthop.Metadata["inner_dmac"] = nexthop.Neighbor.Neigh0.HardwareAddr.String()
@@ -1568,7 +1568,7 @@ func (nexthop Nexthop_struct) annotate() Nexthop_struct {
 		if reflect.ValueOf(nexthop.Vrf.Spec.Vni).IsZero() {
 			nexthop.Metadata["vlan_id"] = uint32(4089)
 		} else {
-			nexthop.Metadata["vlan_id"] = nexthop.Vrf.Spec.Vni
+			nexthop.Metadata["vlan_id"] = *nexthop.Vrf.Spec.Vni
 		}
 	}
 	return nexthop

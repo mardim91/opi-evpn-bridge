@@ -703,7 +703,7 @@ func CreateVrf(vrf *Vrf) error {
 		} else {
 			_, ok := vpns[*vrf.Spec.Vni]
 			if ok {
-				fmt.Printf("CreateVrf(): VNI allready in use: %+v\n", vrf.Spec.Vni)
+				fmt.Printf("CreateVrf(): VNI allready in use: %+v\n", *vrf.Spec.Vni)
 				return ErrVniInUse
 			}
 			vpns[*vrf.Spec.Vni] = false

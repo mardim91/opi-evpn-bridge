@@ -336,9 +336,6 @@ func set_up_bridge(LB *infradb.LogicalBridge) bool {
 }
 
 func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
-	vtip := fmt.Sprintf("%+v", VRF.Spec.VtepIP.IP)
-	VNI := fmt.Sprintf("%+v", VRF.Spec.Vni)
-	routing_table := fmt.Sprintf("%+v", VRF.Spec.Vni)
 	Ip_Mtu := fmt.Sprintf("%+v", ip_mtu)
 	Ifname := strings.Split(VRF.Name, "/")
 	ifwlen := len(Ifname)
@@ -351,6 +348,10 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
 		*VRF.Metadata.RoutingTable[1] = 255
 		return "", true
 	}
+	vtip := fmt.Sprintf("%+v", VRF.Spec.VtepIP.IP)
+	VNI := fmt.Sprintf("%+v", *VRF.Spec.Vni)
+	routing_table := fmt.Sprintf("%+v", *VRF.Spec.Vni)
+	fmt.Printf("set_up_vrf: %s %s %s\n", vtip, VNI, routing_table)
 	VRF.Metadata.RoutingTable = make([]*uint32, 1)
 	VRF.Metadata.RoutingTable[0] = new(uint32)
 	if routing_table_busy(routing_table) {
@@ -437,7 +438,7 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
 		fmt.Printf("LGM Executed : ip link set vxlan-%s master br-%s up mtu %s\n", VRF.Name, VRF.Name, Ip_Mtu)
 	}
 	details := fmt.Sprintf("{\"routing_table\":\"%s\"}", routing_table)
-	*VRF.Metadata.RoutingTable[0] = VRF.Spec.Vni
+	*VRF.Metadata.RoutingTable[0] = *VRF.Spec.Vni
 	return details, true
 }
 
@@ -560,12 +561,12 @@ type valid_ip struct {
 	Mask int
 }
 
-func get_ip_address(dev string) net.IPNet {
+func get_ip_address(dev string) *net.IPNet {
 	var valid_ips []valid_ip
 	CP, err := run([]string{"ip", "-j", "address", "show", "dev", dev}, false)
 	if err != 0 {
 		fmt.Printf("LGM:Error in executing \n")
-		return net.IPNet{
+		return &net.IPNet{
 			IP: net.ParseIP("0.0.0.0"),
 		}
 	}
@@ -600,7 +601,7 @@ func get_ip_address(dev string) net.IPNet {
 	binary.LittleEndian.PutUint64(b1, uint64(mtoip[1]))
 	b0 := make([]byte, 8)
 	binary.LittleEndian.PutUint64(b0, uint64(mtoip[0]))
-	nIP := net.IPNet{
+	nIP := &net.IPNet{
 		IP:   net.ParseIP(valid_ips[0].IP),
 		Mask: net.IPv4Mask(b0[0], b1[0], b2[0], b3[0]),
 	}
@@ -608,7 +609,6 @@ func get_ip_address(dev string) net.IPNet {
 }
 
 func tear_down_vrf(VRF *infradb.Vrf) bool {
-	routing_table := fmt.Sprintf("%+v", VRF.Spec.Vni)
 	Ifname := strings.Split(VRF.Name, "/")
 	ifwlen := len(Ifname)
 	VRF.Name = Ifname[ifwlen-1]
@@ -620,6 +620,7 @@ func tear_down_vrf(VRF *infradb.Vrf) bool {
 	if VRF.Name == "GRD" {
 		return true
 	}
+	routing_table := fmt.Sprintf("%+v", *VRF.Spec.Vni)
 	// Delete the Linux networking artefacts in reverse order
 	if !reflect.ValueOf(VRF.Spec.Vni).IsZero() {
 		CP, err = run([]string{"ip", "link", "delete", "vxlan-" + VRF.Name}, false)
