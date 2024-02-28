@@ -8,7 +8,6 @@ package vrf
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"reflect"
 
@@ -29,7 +28,7 @@ import (
 func (s *Server) CreateVrf(ctx context.Context, in *pb.CreateVrfRequest) (*pb.Vrf, error) {
 	// check input correctness
 	if err := s.validateCreateVrfRequest(in); err != nil {
-		fmt.Printf("CreateVrf(): validation failure: %v", err)
+		log.Printf("CreateVrf(): validation failure: %v", err)
 		return nil, err
 	}
 	// see https://google.aip.dev/133#user-specified-ids
@@ -43,7 +42,7 @@ func (s *Server) CreateVrf(ctx context.Context, in *pb.CreateVrfRequest) (*pb.Vr
 	vrfObj, err := s.getVrf(in.Vrf.Name)
 	if err != nil {
 		if err != infradb.ErrKeyNotFound {
-			fmt.Printf("CreateVrf(): Failed to interact with store: %v", err)
+			log.Printf("CreateVrf(): Failed to interact with store: %v", err)
 			return nil, err
 		}
 	} else {
@@ -64,19 +63,19 @@ func (s *Server) CreateVrf(ctx context.Context, in *pb.CreateVrfRequest) (*pb.Vr
 func (s *Server) DeleteVrf(ctx context.Context, in *pb.DeleteVrfRequest) (*emptypb.Empty, error) {
 	// check input correctness
 	if err := s.validateDeleteVrfRequest(in); err != nil {
-		fmt.Printf("DeleteVrf(): validation failure: %v", err)
+		log.Printf("DeleteVrf(): validation failure: %v", err)
 		return nil, err
 	}
 	// fetch object from the database
 	_, err := s.getVrf(in.Name)
 	if err != nil {
 		if err != badger.ErrKeyNotFound {
-			fmt.Printf("Failed to interact with store: %v", err)
+			log.Printf("Failed to interact with store: %v", err)
 			return nil, err
 		}
 		if !in.AllowMissing {
 			err = status.Errorf(codes.NotFound, "unable to find key %s", in.Name)
-			fmt.Printf("DeleteVrf(): Vrf with id %v: Not Found %v", in.Name, err)
+			log.Printf("DeleteVrf(): Vrf with id %v: Not Found %v", in.Name, err)
 			return nil, err
 		}
 		return &emptypb.Empty{}, nil
@@ -94,19 +93,19 @@ func (s *Server) DeleteVrf(ctx context.Context, in *pb.DeleteVrfRequest) (*empty
 func (s *Server) UpdateVrf(ctx context.Context, in *pb.UpdateVrfRequest) (*pb.Vrf, error) {
 	// check input correctness
 	if err := s.validateUpdateVrfRequest(in); err != nil {
-		fmt.Printf("UpdateVrf(): validation failure: %v", err)
+		log.Printf("UpdateVrf(): validation failure: %v", err)
 		return nil, err
 	}
 	// fetch object from the database
 	vrfObj, err := s.getVrf(in.Vrf.Name)
 	if err != nil {
 		if err != infradb.ErrKeyNotFound {
-			fmt.Printf("UpdateVrf(): Failed to interact with store: %v", err)
+			log.Printf("UpdateVrf(): Failed to interact with store: %v", err)
 			return nil, err
 		}
 		if !in.AllowMissing {
 			err = status.Errorf(codes.NotFound, "unable to find key %s", in.Vrf.Name)
-			fmt.Printf("UpdateVrf(): Vrf with id %v: Not Found %v", in.Vrf.Name, err)
+			log.Printf("UpdateVrf(): Vrf with id %v: Not Found %v", in.Vrf.Name, err)
 			return nil, err
 		}
 
@@ -153,18 +152,18 @@ func (s *Server) UpdateVrf(ctx context.Context, in *pb.UpdateVrfRequest) (*pb.Vr
 func (s *Server) GetVrf(ctx context.Context, in *pb.GetVrfRequest) (*pb.Vrf, error) {
 	// check input correctness
 	if err := s.validateGetVrfRequest(in); err != nil {
-		fmt.Printf("GetVrf(): validation failure: %v", err)
+		log.Printf("GetVrf(): validation failure: %v", err)
 		return nil, err
 	}
 	// fetch object from the database
 	vrfObj, err := s.getVrf(in.Name)
 	if err != nil {
 		if err != infradb.ErrKeyNotFound {
-			fmt.Printf("Failed to interact with store: %v", err)
+			log.Printf("Failed to interact with store: %v", err)
 			return nil, err
 		}
 		err = status.Errorf(codes.NotFound, "unable to find key %s", in.Name)
-		fmt.Printf("GetVrf(): Vrf with id %v: Not Found %v", in.Name, err)
+		log.Printf("GetVrf(): Vrf with id %v: Not Found %v", in.Name, err)
 		return nil, err
 	}
 
@@ -175,7 +174,7 @@ func (s *Server) GetVrf(ctx context.Context, in *pb.GetVrfRequest) (*pb.Vrf, err
 func (s *Server) ListVrfs(_ context.Context, in *pb.ListVrfsRequest) (*pb.ListVrfsResponse, error) {
 	// check required fields
 	if err := s.validateListVrfsRequest(in); err != nil {
-		fmt.Printf("ListVrfs(): validation failure: %v", err)
+		log.Printf("ListVrfs(): validation failure: %v", err)
 		return nil, err
 	}
 	// fetch pagination from the database, calculate size and offset
@@ -188,11 +187,11 @@ func (s *Server) ListVrfs(_ context.Context, in *pb.ListVrfsRequest) (*pb.ListVr
 	Blobarray, err = s.getAllVrfs()
 	if err != nil {
 		if err != infradb.ErrKeyNotFound {
-			fmt.Printf("Failed to interact with store: %v", err)
+			log.Printf("Failed to interact with store: %v", err)
 			return nil, err
 		}
 		err := status.Errorf(codes.NotFound, "Error: %v", err)
-		fmt.Printf("ListVrfs(): %v", err)
+		log.Printf("ListVrfs(): %v", err)
 		return nil, err
 	}
 	// sort is needed, since MAP is unsorted in golang, and we might get different results

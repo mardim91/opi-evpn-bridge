@@ -108,7 +108,7 @@ func startSubscriber(eventBus *eb.EventBus, eventType string) {
 		for {
 			select {
 			case event := <-subscriber.Ch:
-				fmt.Printf("Subscriber for %s received event: \n", eventType)
+				log.Printf("Subscriber for %s received event: \n", eventType)
 				switch eventType {
 				case "route_added":
 					handleRouteAdded(event)
@@ -153,7 +153,7 @@ func handleRouteAdded(route interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Add_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry:-", e)
+			log.Println("Entry is not of type p4client.TableEntry:-", e)
 		}
 	}
 }
@@ -169,7 +169,7 @@ func handleRouteUpdated(route interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Del_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 	// for _, decoder := range decoders {
@@ -179,7 +179,7 @@ func handleRouteUpdated(route interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Add_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -194,7 +194,7 @@ func handleRouteDeleted(route interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Del_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -212,7 +212,7 @@ func handleNexthopAdded(nexthop interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Add_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Vxlan.translate_added_nexthop(nexthopData)
@@ -220,7 +220,7 @@ func handleNexthopAdded(nexthop interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Add_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -236,7 +236,7 @@ func handleNexthopUpdated(nexthop interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Del_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Vxlan.translate_deleted_nexthop(nexthopData)
@@ -244,7 +244,7 @@ func handleNexthopUpdated(nexthop interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Del_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 	// for _, decoder := range decoders {
@@ -256,7 +256,7 @@ func handleNexthopUpdated(nexthop interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Add_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Vxlan.translate_added_nexthop(nexthopData)
@@ -264,7 +264,7 @@ func handleNexthopUpdated(nexthop interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Add_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -282,7 +282,7 @@ func handleNexthopDeleted(nexthop interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Del_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Vxlan.translate_deleted_nexthop(nexthopData)
@@ -290,7 +290,7 @@ func handleNexthopDeleted(nexthop interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Del_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -306,7 +306,7 @@ func handleFbdEntryAdded(fbdEntry interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Add_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Pod.translate_added_fdb(fbdEntryData)
@@ -314,7 +314,7 @@ func handleFbdEntryAdded(fbdEntry interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Add_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -331,7 +331,7 @@ func handleFbdEntryUpdated(fdbEntry interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Del_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Pod.translate_deleted_fdb(fbdEntryData)
@@ -339,7 +339,7 @@ func handleFbdEntryUpdated(fdbEntry interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Del_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 
@@ -352,7 +352,7 @@ func handleFbdEntryUpdated(fdbEntry interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Add_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Pod.translate_added_fdb(fbdEntryData)
@@ -360,7 +360,7 @@ func handleFbdEntryUpdated(fdbEntry interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Add_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -376,7 +376,7 @@ func handleFbdEntryDeleted(fdbEntry interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Del_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Pod.translate_deleted_fdb(fbdEntryData)
@@ -384,7 +384,7 @@ func handleFbdEntryDeleted(fdbEntry interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Del_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -402,7 +402,7 @@ func handleL2NexthopAdded(l2NextHop interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Add_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Pod.translate_added_l2_nexthop(l2NextHopData)
@@ -410,7 +410,7 @@ func handleL2NexthopAdded(l2NextHop interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Add_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -426,7 +426,7 @@ func handleL2NexthopUpdated(l2NextHop interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Del_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Pod.translate_deleted_l2_nexthop(l2NextHopData)
@@ -434,7 +434,7 @@ func handleL2NexthopUpdated(l2NextHop interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Del_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 	//        for _, decoder := range decoders {
@@ -446,7 +446,7 @@ func handleL2NexthopUpdated(l2NextHop interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Add_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Pod.translate_deleted_l2_nexthop(l2NextHopData)
@@ -454,7 +454,7 @@ func handleL2NexthopUpdated(l2NextHop interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Add_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -471,7 +471,7 @@ func handleL2NexthopDeleted(l2NextHop interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Del_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Pod.translate_deleted_l2_nexthop(l2NextHopData)
@@ -479,7 +479,7 @@ func handleL2NexthopDeleted(l2NextHop interface{}) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Add_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -488,19 +488,19 @@ func handleL2NexthopDeleted(l2NextHop interface{}) {
 func (h *ModuleipuHandler) HandleEvent(eventType string, objectData *event_bus.ObjectData) {
 	switch eventType {
 	case "vrf":
-		fmt.Printf("IPU recevied %s %s\n", eventType, objectData.Name)
+		log.Printf("IPU recevied %s %s\n", eventType, objectData.Name)
 		handlevrf(objectData)
 	/*case "logical-bridge":
-		fmt.Printf("IPU recevied %s %s\n", eventType, objectData.Name)
+		log.Printf("IPU recevied %s %s\n", eventType, objectData.Name)
 		handlelb(objectData)
 	case "bridge-port":
-		fmt.Printf("IPU recevied %s %s\n", eventType, objectData.Name)
+		log.Printf("IPU recevied %s %s\n", eventType, objectData.Name)
 		handlebp(objectData)
 	case "svi":
-		fmt.Printf("IPU recevied %s %s\n", eventType, objectData.Name)
+		log.Printf("IPU recevied %s %s\n", eventType, objectData.Name)
 		handlesvi(objectData)*/
 	default:
-		fmt.Println("error: Unknown event type %s", eventType)
+		log.Println("error: Unknown event type %s", eventType)
 	}
 }
 
@@ -508,13 +508,13 @@ func handlevrf(objectData *event_bus.ObjectData) {
 	        var comp common.Component
                 VRF, err := infradb.GetVrf(objectData.Name)
                 if err != nil {
-                        fmt.Printf("IPU: GetVRF error: %s %s\n", err, objectData.Name)
+                        log.Printf("IPU: GetVRF error: %s %s\n", err, objectData.Name)
                         return
                 } else {
-                        fmt.Printf("IPU : GetVRF Name: %s\n", VRF.Name)
+                        log.Printf("IPU : GetVRF Name: %s\n", VRF.Name)
                 }
                 if (objectData.ResourceVersion != VRF.ResourceVersion){
-                        fmt.Printf("IPU: Mismatch in resoruce version %+v\n and VRF resource version %+v\n", objectData.ResourceVersion, VRF.ResourceVersion)
+                        log.Printf("IPU: Mismatch in resoruce version %+v\n and VRF resource version %+v\n", objectData.ResourceVersion, VRF.ResourceVersion)
                         comp.Name= "ipu"
                         comp.CompStatus= common.COMP_STATUS_ERROR
                         if comp.Timer ==0 {  // wait timer is 2 powerof natural numbers ex : 1,2,3...
@@ -549,7 +549,7 @@ func handlevrf(objectData *event_bus.ObjectData) {
                                 comp.Name = "ipu"
                                 comp.CompStatus = common.COMP_STATUS_ERROR
                         }
-                        fmt.Printf("ipu: %+v\n", comp)
+                        log.Printf("ipu: %+v\n", comp)
                         infradb.UpdateVrfStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, VRF.Metadata, comp)
                 } else {
                         status := tear_down_vrf(VRF)
@@ -566,7 +566,7 @@ func handlevrf(objectData *event_bus.ObjectData) {
                                         comp.Timer = comp.Timer * 2
                                 }
                         }
-                        fmt.Printf("ipu: %+v\n", comp)
+                        log.Printf("ipu: %+v\n", comp)
                         infradb.UpdateVrfStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
                 }
 }
@@ -575,10 +575,10 @@ func handlelb(objectData *event_bus.ObjectData) {
         var comp common.Component
         LB, err := infradb.GetLB(objectData.Name)
         if err != nil {
-                fmt.Printf("IPU: GetLB error: %s %s\n", err, objectData.Name)
+                log.Printf("IPU: GetLB error: %s %s\n", err, objectData.Name)
                 return
         } else {
-                fmt.Printf("IPU : GetLB Name: %s\n", LB.Name)
+                log.Printf("IPU : GetLB Name: %s\n", LB.Name)
         }
         if len(LB.Status.Components) != 0 {
                 for i := 0; i < len(LB.Status.Components); i++ {
@@ -602,7 +602,7 @@ func handlelb(objectData *event_bus.ObjectData) {
                         }
                         comp.CompStatus = common.COMP_STATUS_ERROR
                 }
-                fmt.Printf("IPU: %+v \n", comp)
+                log.Printf("IPU: %+v \n", comp)
                 infradb.UpdateLBStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
         } else {
                 status := tear_down_lb(LB)
@@ -618,7 +618,7 @@ func handlelb(objectData *event_bus.ObjectData) {
                                 comp.Timer = comp.Timer * 2
                         }
                 }
-                fmt.Printf("IPU: %+v\n", comp)
+                log.Printf("IPU: %+v\n", comp)
                 infradb.UpdateLBStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
         }
 }
@@ -627,7 +627,7 @@ func handlebp(objectData *event_bus.ObjectData){
         var comp common.Component
         BP, err := infradb.GetBP(objectData.Name)
         if err != nil {
-                fmt.Printf("IPU : GetBP error: %s\n", err)
+                log.Printf("IPU : GetBP error: %s\n", err)
                 return
         }
         if (len(BP.Status.Components) != 0 ){
@@ -652,7 +652,7 @@ func handlebp(objectData *event_bus.ObjectData){
                         }
                         comp.CompStatus = common.COMP_STATUS_ERROR
                 }
-                fmt.Printf("IPU: %+v \n",comp)
+                log.Printf("IPU: %+v \n",comp)
                 infradb.UpdateBPStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,BP.Metadata,comp)
         }else {
                 status := tear_down_bp(BP)
@@ -668,7 +668,7 @@ func handlebp(objectData *event_bus.ObjectData){
                         }
                         comp.CompStatus = common.COMP_STATUS_ERROR
                 }
-                fmt.Printf("IPU: %+v \n",comp)
+                log.Printf("IPU: %+v \n",comp)
                 infradb.UpdateBPStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
         }
 }
@@ -677,13 +677,13 @@ func handlesvi(objectData *event_bus.ObjectData) {
         var comp common.Component
         SVI, err := infradb.GetSvi(objectData.Name)
         if err != nil {
-                fmt.Printf("IPU: GetSvi error: %s %s\n", err, objectData.Name)
+                log.Printf("IPU: GetSvi error: %s %s\n", err, objectData.Name)
                 return
         } else {
-                fmt.Printf("IPU : GetSvi Name: %s\n", SVI.Name)
+                log.Printf("IPU : GetSvi Name: %s\n", SVI.Name)
         }
         if (objectData.ResourceVersion != SVI.ResourceVersion){
-                fmt.Printf("IPU: Mismatch in resoruce version %+v\n and SVI resource version %+v\n", objectData.ResourceVersion, SVI.ResourceVersion)
+                log.Printf("IPU: Mismatch in resoruce version %+v\n and SVI resource version %+v\n", objectData.ResourceVersion, SVI.ResourceVersion)
                 comp.Name= "ipu"
                 comp.CompStatus= common.COMP_STATUS_ERROR
                 if comp.Timer ==0 {
@@ -716,7 +716,7 @@ func handlesvi(objectData *event_bus.ObjectData) {
                         }
                         comp.CompStatus = common.COMP_STATUS_ERROR
                 }
-                fmt.Printf("IPU: %+v \n", comp)
+                log.Printf("IPU: %+v \n", comp)
                 infradb.UpdateSviStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
         } else {
                 status := tear_down_svi(SVI)
@@ -732,7 +732,7 @@ func handlesvi(objectData *event_bus.ObjectData) {
                                 comp.Timer = comp.Timer * 2
                         }
                 }
-                fmt.Printf("IPU: %+v \n", comp)
+                log.Printf("IPU: %+v \n", comp)
                 infradb.UpdateSviStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
         }
 }
@@ -747,7 +747,7 @@ func offload_vrf(VRF *infradb.Vrf) (string, bool) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Add_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry:-", e)
+			log.Println("Entry is not of type p4client.TableEntry:-", e)
 			return "", false
 		}
 	}
@@ -761,7 +761,7 @@ func set_up_lb(LB *infradb.LogicalBridge) (bool) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Add_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry:-", e)
+			log.Println("Entry is not of type p4client.TableEntry:-", e)
 			return false
 		}
 	}
@@ -775,7 +775,7 @@ func set_up_bp(BP *infradb.BridgePort)(bool) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Add_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry:-", e)
+			log.Println("Entry is not of type p4client.TableEntry:-", e)
 			return false
 		}
 	}
@@ -789,7 +789,7 @@ func set_up_svi(SVI *infradb.Svi) (string, bool) {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Add_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry:-", e)
+			log.Println("Entry is not of type p4client.TableEntry:-", e)
 			return "", false
 		}
 	}
@@ -806,7 +806,7 @@ func tear_down_vrf(VRF *infradb.Vrf) bool {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Del_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 			return false
 		}
 	}
@@ -820,7 +820,7 @@ func tear_down_lb(LB *infradb.LogicalBridge) bool {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Del_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 			return false
 		}
 	}
@@ -834,7 +834,7 @@ func tear_down_bp(BP *infradb.BridgePort) bool {
                 if e, ok := entry.(p4client.TableEntry); ok {
                         p4client.Del_entry(e)
                 } else {
-                        fmt.Println("Entry is not of type p4client.TableEntry")
+                        log.Println("Entry is not of type p4client.TableEntry")
                         return false
                 }
         }
@@ -848,7 +848,7 @@ func tear_down_svi(SVI *infradb.Svi) bool {
                 if e, ok := entry.(p4client.TableEntry); ok {
                         p4client.Del_entry(e)
                 } else {
-                        fmt.Println("Entry is not of type p4client.TableEntry")
+                        log.Println("Entry is not of type p4client.TableEntry")
                         return false
                 }
         }
@@ -893,13 +893,13 @@ func Init() {
 	// read config and load the pipeline using p4runtime
 	/*configFile, err := ioutil.ReadFile("config.yaml")
 	if err != nil {
-		fmt.Println("Error reading config file:", err)
+		log.Println("Error reading config file:", err)
 		return
 	}
 	var configMap map[string]interface{}
 	err = yaml.Unmarshal(configFile, &configMap)
 	if err != nil {
-		fmt.Println("Error parsing config:", err)
+		log.Println("Error parsing config:", err)
 		return
 	}
 	p4 := configMap["p4"].(map[interface{}]interface{})
@@ -922,7 +922,7 @@ func Init() {
 	/*for k, v := range p4["representors"].(map[interface{}]interface{}) {
 		vsi, mac, err := ids_of(v.(string))
 		if err != nil {
-			fmt.Println("Error:", err)
+			log.Println("Error:", err)
 			return
 		}
 		representors[k.(string)] = [2]string{vsi, mac}
@@ -930,12 +930,12 @@ func Init() {
 	for k, v := range config.GlobalConfig.P4.Representors {
 		vsi, mac, err := ids_of(v.(string))
 		if err != nil {
-			fmt.Println("Error:", err)
+			log.Println("Error:", err)
 			return
 		}
 		representors[k] = [2]string{vsi, mac}
 	}
-	fmt.Println(" REPRESENTORS %+v", representors)
+	log.Println(" REPRESENTORS %+v", representors)
 	L3 = L3.L3DecoderInit(representors)
 	Pod = Pod.PodDecoderInit(representors)
 	// decoders = []interface{}{L3, Vxlan, Pod}
@@ -945,7 +945,7 @@ func Init() {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Add_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 	Podentries := Pod.Static_additions()
@@ -953,7 +953,7 @@ func Init() {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Add_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -964,7 +964,7 @@ func Exit() {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Del_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 	Podentries := Pod.Static_deletions()
@@ -972,7 +972,7 @@ func Exit() {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			p4client.Del_entry(e)
 		} else {
-			fmt.Println("Entry is not of type p4client.TableEntry")
+			log.Println("Entry is not of type p4client.TableEntry")
 		}
 	}
 }

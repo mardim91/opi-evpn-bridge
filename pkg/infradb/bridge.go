@@ -9,7 +9,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
-
+	"log"
 	// pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
@@ -67,7 +67,7 @@ func NewLogicalBridge(in *pb.LogicalBridge) *LogicalBridge {
 
 	subscribers := event_bus.EBus.GetSubscribers("logical-bridge")
 	if subscribers == nil {
-		fmt.Println("NewLogicalBridge(): No subscribers for Logical Bridge objects")
+		log.Println("NewLogicalBridge(): No subscribers for Logical Bridge objects")
 	}
 
 	for _, sub := range subscribers {

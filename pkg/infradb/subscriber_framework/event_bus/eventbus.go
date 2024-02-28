@@ -1,9 +1,9 @@
 package event_bus
 
 import (
-	"fmt"
 	"sort"
 	"sync"
+	"log"
 )
 
 var EBus = NewEventBus()
@@ -41,7 +41,7 @@ func (e *EventBus) StartSubscriber(moduleName, eventType string, priority int, e
 		for {
 			select {
 			case event := <-subscriber.Ch:
-				fmt.Printf("\nSubscriber %s for %s received \n", moduleName, eventType)
+				log.Printf("\nSubscriber %s for %s received \n", moduleName, eventType)
 
 				handlerKey := moduleName + "." + eventType
 				if handler, ok := e.eventHandlers[handlerKey]; ok {
@@ -89,7 +89,7 @@ func (e *EventBus) Subscribe(moduleName, eventType string, priority int, eventHa
 		return e.subscribers[eventType][i].Priority < e.subscribers[eventType][j].Priority
 	})
 
-	fmt.Printf("Subscriber %s registered for event %s with priority %d\n", moduleName, eventType, priority)
+	log.Printf("Subscriber %s registered for event %s with priority %d\n", moduleName, eventType, priority)
 	return subscriber
 }
 
@@ -114,7 +114,7 @@ func (e *EventBus) Unsubscribe(subscriber *Subscriber) {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 	subscriber.Quit <- true
-	fmt.Printf("\nSubscriber %s is unsubscribed for all events\n", subscriber.Name)
+	log.Printf("\nSubscriber %s is unsubscribed for all events\n", subscriber.Name)
 }
 
 func (s *Subscriber) Unsubscribe() {
@@ -131,7 +131,7 @@ func (e *EventBus) UnsubscribeEvent(subscriber *Subscriber, eventType string) {
 			if sub == subscriber {
 				e.subscribers[eventType] = append(subscribers[:i], subscribers[i+1:]...)
 				subscriber.Quit <- true
-				fmt.Printf("\nSubscriber %s is unsubscribed for event %s\n", subscriber.Name, eventType)
+				log.Printf("\nSubscriber %s is unsubscribed for event %s\n", subscriber.Name, eventType)
 				break
 			}
 		}

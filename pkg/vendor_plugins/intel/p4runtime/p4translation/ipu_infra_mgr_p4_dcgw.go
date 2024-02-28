@@ -9,7 +9,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-
+	"log"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	netlink_polling "github.com/opiproject/opi-evpn-bridge/pkg/netlink"
 	p4client "github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/intel/p4runtime/p4driverAPI"
@@ -443,7 +443,7 @@ func _big_endian_16(id interface{}) interface{} {
 	var value = []interface{}{id}
 	var packed_data, err = bp.Pack(pack_format, value)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 	var unpacked_data = binary.BigEndian.Uint16(packed_data)
 	return unpacked_data
@@ -455,7 +455,7 @@ func _big_endian_32(id interface{}) interface{} {
 	var value = []interface{}{id}
 	var packed_data, err = bp.Pack(pack_format, value)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 	var unpacked_data = binary.BigEndian.Uint32(packed_data)
 	return unpacked_data
@@ -1287,21 +1287,21 @@ func (v VxlanDecoder) translate_added_vrf(VRF *infradb.Vrf) []interface{} {
 		if com.Name == "frr" {
 			err := json.Unmarshal([]byte(com.Details), &detail)
 			if err != nil {
-				fmt.Println("Error:", err)
+				log.Println("Error:", err)
 			}
 			rmac, found := detail["rmac"].(string)
 			if !found {
-				fmt.Println("Key 'rmac' not found")
+				log.Println("Key 'rmac' not found")
 				break
 			}
 			Rmac, err = net.ParseMAC(rmac)
 			if err != nil {
-				fmt.Println("Error parsing MAC address:", err)
+				log.Println("Error parsing MAC address:", err)
 			}
 		}
 	}
 	if reflect.ValueOf(Rmac).IsZero() {
-		fmt.Println("Rmac not found for Vtep :", VRF.Spec.VtepIP.IP)
+		log.Println("Rmac not found for Vtep :", VRF.Spec.VtepIP.IP)
 		return entries
 	}
 	entries = append(entries, p4client.TableEntry{
@@ -1334,21 +1334,21 @@ func (v VxlanDecoder) translate_deleted_vrf(VRF *infradb.Vrf) []interface{} {
 		if com.Name == "frr" {
 			err := json.Unmarshal([]byte(com.Details), &detail)
 			if err != nil {
-				fmt.Println("Error:", err)
+				log.Println("Error:", err)
 			}
 			rmac, found := detail["rmac"].(string)
 			if !found {
-				fmt.Println("Key 'rmac' not found")
+				log.Println("Key 'rmac' not found")
 				break
 			}
 			Rmac, err = net.ParseMAC(rmac)
 			if err != nil {
-				fmt.Println("Error parsing MAC address:", err)
+				log.Println("Error parsing MAC address:", err)
 			}
 		}
 	}
 	if reflect.ValueOf(Rmac).IsZero() {
-		fmt.Println("Rmac not found for Vtep :", VRF.Spec.VtepIP.IP)
+		log.Println("Rmac not found for Vtep :", VRF.Spec.VtepIP.IP)
 		return entries
 	}
 	entries = append(entries, p4client.TableEntry{
@@ -1782,7 +1782,7 @@ func (p PodDecoder) PodDecoderInit(representors map[string][2]string) PodDecoder
                                         },
                                 })
                         } else{
-                                fmt.Println("logger TODO")
+                                log.Println("logger TODO")
                                 //logger.warn(f"no SVI for VLAN {vid} on BP {vsi}, skipping entry for SVI table")
                         }
                 }

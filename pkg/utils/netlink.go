@@ -44,7 +44,7 @@ func run(cmd []string, flag bool) (string, int) {
                 if flag {
                         //panic(fmt.Sprintf("Command %s': exit code %s;", out, err.Error()))
                 }
-                //fmt.Printf("Command %s': exit code %s;\n", out, err)
+                //log.Printf("Command %s': exit code %s;\n", out, err)
                 return "Error", -1
         }
         output := string(out)

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	// "log"
+	 "log"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -53,7 +53,7 @@ func run(cmd []string, flag bool) (string, int) {
 		if flag {
 			panic(fmt.Sprintf("LVM: Command %s': exit code %s;", out, err.Error()))
 		}
-		fmt.Printf("LVM: Command %s': exit code %s;\n", out, err)
+		log.Printf("LVM: Command %s': exit code %s;\n", out, err)
 		return "Error", -1
 	}
 	output := string(out)
@@ -63,13 +63,13 @@ func run(cmd []string, flag bool) (string, int) {
 func (h *ModulelvmHandler) HandleEvent(eventType string, objectData *event_bus.ObjectData) {
 	switch eventType {
 	case "vrf":
-		fmt.Printf("LVM recevied %s %s\n", eventType, objectData.Name)
+		log.Printf("LVM recevied %s %s\n", eventType, objectData.Name)
 		handlevrf(objectData)
 	case "bridge-port":
-		fmt.Printf("LVM recevied %s %s\n", eventType, objectData.Name)
+		log.Printf("LVM recevied %s %s\n", eventType, objectData.Name)
 		handlebp(objectData)
 	default:
-		fmt.Println("error: Unknown event type %s", eventType)
+		log.Println("error: Unknown event type %s", eventType)
 	}
 }
 
@@ -77,7 +77,7 @@ func handlebp(objectData *event_bus.ObjectData){
         var comp common.Component
         BP, err := infradb.GetBP(objectData.Name)
         if err != nil {
-                fmt.Printf("LVM : GetBP error: %s\n", err)
+                log.Printf("LVM : GetBP error: %s\n", err)
                 return
         }
         if (len(BP.Status.Components) != 0 ){
@@ -102,7 +102,7 @@ func handlebp(objectData *event_bus.ObjectData){
                         }
                         comp.CompStatus = common.COMP_STATUS_ERROR
                 }
-                fmt.Printf("LVM: %+v \n",comp)
+                log.Printf("LVM: %+v \n",comp)
                 infradb.UpdateBPStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,BP.Metadata,comp)
         }else {
                 status := tear_down_bp(BP)
@@ -118,7 +118,7 @@ func handlebp(objectData *event_bus.ObjectData){
                         }
                         comp.CompStatus = common.COMP_STATUS_ERROR
                 }
-                fmt.Printf("LVM: %+v \n",comp)
+                log.Printf("LVM: %+v \n",comp)
                 infradb.UpdateBPStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
         }
 }
@@ -137,50 +137,50 @@ func set_up_bp(BP *infradb.BridgePort)(bool){
 	BP.Metadata.VPort = vport
 	muxIntf, err := nlink.LinkByName(ctx, port_mux)
         if err != nil {
-                fmt.Printf("Failed to get link information for %s, error is %v\n", port_mux, err)
+                log.Printf("Failed to get link information for %s, error is %v\n", port_mux, err)
                 return false
         }
 	vlanLink := &netlink.Vlan{LinkAttrs: netlink.LinkAttrs{Name: link, ParentIndex: muxIntf.Attrs().Index,},VlanId: vport_id, VlanProtocol: netlink.VLAN_PROTOCOL_8021AD,}
         if err = nlink.LinkAdd(ctx, vlanLink); err != nil {
-                fmt.Printf("Failed to add VLAN sub-interface %s: %v\n", link, err)
+                log.Printf("Failed to add VLAN sub-interface %s: %v\n", link, err)
                 return false
         }
-	fmt.Printf("LVM: Executed ip link add link %s name %s type vlan protocol 802.1ad id %s\n", port_mux, link, vport)
+	log.Printf("LVM: Executed ip link add link %s name %s type vlan protocol 802.1ad id %s\n", port_mux, link, vport)
 	brIntf, err := nlink.LinkByName(ctx, br_tenant)
         if err != nil {
-                fmt.Printf("Failed to get link information for %s: %v\n", br_tenant, err)
+                log.Printf("Failed to get link information for %s: %v\n", br_tenant, err)
                 return false
         }
         if err = nlink.LinkSetMaster(ctx, vlanLink, brIntf); err != nil {
-                fmt.Printf("Failed to set master for %s: %v\n", brIntf, err)
+                log.Printf("Failed to set master for %s: %v\n", brIntf, err)
                 return false
         }
         if err = nlink.LinkSetUp(ctx, vlanLink); err != nil {
-                fmt.Printf("Failed to set up link for %s: %v\n", vlanLink, err)
+                log.Printf("Failed to set up link for %s: %v\n", vlanLink, err)
                 return false
         }
         if err = nlink.LinkSetMTU(ctx, vlanLink, ip_mtu); err != nil {
-                fmt.Printf("Failed to set MTU for %s: %v\n", vlanLink, err)
+                log.Printf("Failed to set MTU for %s: %v\n", vlanLink, err)
                 return false
         }
-	fmt.Printf("LVM: Executed ip link set %s master %s up mtu %s\n", link, br_tenant, ip_mtu)
+	log.Printf("LVM: Executed ip link set %s master %s up mtu %s\n", link, br_tenant, ip_mtu)
 	for _,vlan := range BP.Spec.LogicalBridges {
 		vid, err := strconv.Atoi(strings.Split(path.Base(vlan),"vlan")[1])
 		if err != nil {
-			fmt.Printf("Failed to convert LogicalBridges %s to integer: %v\n", vlan, err)
+			log.Printf("Failed to convert LogicalBridges %s to integer: %v\n", vlan, err)
 			return false
 		}
 		if err = nlink.BridgeVlanAdd(ctx, vlanLink, uint16(vid), true, false, false, false); err != nil {
-			fmt.Printf("Failed to add VLAN %d to bridge interface %s: %v\n", vport_id, link, err)
+			log.Printf("Failed to add VLAN %d to bridge interface %s: %v\n", vport_id, link, err)
 			return false
 		}
-		fmt.Printf("LVM: Executed bridge vlan add dev %s vid %s\n", link, vid)
+		log.Printf("LVM: Executed bridge vlan add dev %s vid %s\n", link, vid)
 	}
 	if err = nlink.BridgeFdbAdd(ctx, link, MacAddress); err != nil {
-		fmt.Printf("LVM: Error in executing command %s %s with error %s\n","bridge fdb add",link,err)
+		log.Printf("LVM: Error in executing command %s %s with error %s\n","bridge fdb add",link,err)
 		return false
 	}
-	fmt.Printf("LVM: Executed bridge fdb add %s dev %s master static extern_learn\n", MacAddress, link)
+	log.Printf("LVM: Executed bridge fdb add %s dev %s master static extern_learn\n", MacAddress, link)
 	return true
 }
 
@@ -189,14 +189,14 @@ func tear_down_bp(BP *infradb.BridgePort)(bool){
 	link := fmt.Sprintf("vport-%+v", vport_id)
 	Intf, err := nlink.LinkByName(ctx, link)
         if err != nil {
-                fmt.Printf("Failed to get link %s: %v\n", link)
+                log.Printf("Failed to get link %s: %v\n", link)
                 return true
         }
 	if err = nlink.LinkDel(ctx, Intf); err != nil {
-                fmt.Printf("Failed to delete link %s: %v\n", link, err)
+                log.Printf("Failed to delete link %s: %v\n", link, err)
                 return false
         }
-	fmt.Printf(" LVM: Executed ip link delete %s\n", link)
+	log.Printf(" LVM: Executed ip link delete %s\n", link)
 	return true
 }
 
@@ -204,11 +204,11 @@ func handlevrf(objectData *event_bus.ObjectData) {
 	var comp common.Component
 	VRF, err := infradb.GetVrf(objectData.Name)
 	if err != nil {
-		fmt.Printf("LVM : GetVrf error: %s\n", err)
+		log.Printf("LVM : GetVrf error: %s\n", err)
 		return
 	}
 	if objectData.ResourceVersion != VRF.ResourceVersion {
-		fmt.Printf("LVM: Mismatch in resoruce version %+v\n and VRF resource version %+v\n", objectData.ResourceVersion, VRF.ResourceVersion)
+		log.Printf("LVM: Mismatch in resoruce version %+v\n and VRF resource version %+v\n", objectData.ResourceVersion, VRF.ResourceVersion)
 		comp.Name = "lvm"
 		comp.CompStatus = common.COMP_STATUS_ERROR
 		if comp.Timer == 0 { // wait timer is 2 powerof natural numbers ex : 1,2,3...
@@ -269,7 +269,7 @@ func disable_rp_filter(Interface string) {
 		CP, err := run([]string{"sysctl", "-n", rp_disable}, false)
 		if err == 0 && strings.HasPrefix(CP, "0") {
 			rp_filter_disabled = true
-			fmt.Printf("LVM: rp_filter_disabled: %+v\n", rp_filter_disabled)
+			log.Printf("LVM: rp_filter_disabled: %+v\n", rp_filter_disabled)
 			break
 		}
 	}
@@ -279,7 +279,7 @@ func disable_rp_filter(Interface string) {
 }
 
 func set_up_vrf(VRF *infradb.Vrf) bool {
-	fmt.Printf("LVM configure linux function \n")
+	log.Printf("LVM configure linux function \n")
 	vlanIntf := fmt.Sprintf("rep-%+v",path.Base(VRF.Name))
 	if path.Base(VRF.Name) == "GRD" {
 		disable_rp_filter("rep-" + path.Base(VRF.Name))
@@ -287,33 +287,33 @@ func set_up_vrf(VRF *infradb.Vrf) bool {
 	}
 	muxIntf, err := nlink.LinkByName(ctx, vrf_mux)
 	if err != nil {
-		fmt.Printf("Failed to get link information for %s, error is %v\n", vrf_mux, err)
+		log.Printf("Failed to get link information for %s, error is %v\n", vrf_mux, err)
 		return false
 	}
 	vlanLink := &netlink.Vlan{LinkAttrs: netlink.LinkAttrs{Name: vlanIntf, ParentIndex: muxIntf.Attrs().Index,},VlanId: int(*VRF.Spec.Vni),}
 	if err = nlink.LinkAdd(ctx, vlanLink); err != nil {
-		fmt.Printf("Failed to add VLAN sub-interface %s: %v\n", vlanIntf, err)
+		log.Printf("Failed to add VLAN sub-interface %s: %v\n", vlanIntf, err)
 		return false
 	}
-	fmt.Printf(" LVM: Executed ip link add link %s name rep-%s type vlan id %s\n", vrf_mux, path.Base(VRF.Name), strconv.Itoa(int(*VRF.Spec.Vni)))
+	log.Printf(" LVM: Executed ip link add link %s name rep-%s type vlan id %s\n", vrf_mux, path.Base(VRF.Name), strconv.Itoa(int(*VRF.Spec.Vni)))
 	vrfIntf, err := nlink.LinkByName(ctx, path.Base(VRF.Name))
 	if err != nil {
-		fmt.Printf("Failed to get link information for %s: %v\n", path.Base(VRF.Name), err)
+		log.Printf("Failed to get link information for %s: %v\n", path.Base(VRF.Name), err)
 		return false
 	}
 	if err = nlink.LinkSetMaster(ctx, vlanLink, vrfIntf); err != nil {
-		fmt.Printf("Failed to set master for %s: %v\n", vlanIntf, err)
+		log.Printf("Failed to set master for %s: %v\n", vlanIntf, err)
 		return false
 	}
 	if err = nlink.LinkSetUp(ctx, vlanLink); err != nil {
-		fmt.Printf("Failed to set up link for %s: %v\n", vlanLink, err)
+		log.Printf("Failed to set up link for %s: %v\n", vlanLink, err)
 		return false
 	}
 	if err = nlink.LinkSetMTU(ctx, vlanLink, ip_mtu); err != nil {
-		fmt.Printf("Failed to set MTU for %s: %v\n", vlanLink, err)
+		log.Printf("Failed to set MTU for %s: %v\n", vlanLink, err)
 		return false
 	}
-	fmt.Printf(" LVM: Executed ip link set rep-%s master %s up mtu %s\n", path.Base(VRF.Name), path.Base(VRF.Name), ip_mtu)
+	log.Printf(" LVM: Executed ip link set rep-%s master %s up mtu %s\n", path.Base(VRF.Name), path.Base(VRF.Name), ip_mtu)
 	disable_rp_filter("rep-" + path.Base(VRF.Name))
 	return true
 }
@@ -325,14 +325,14 @@ func tear_down_vrf(VRF *infradb.Vrf) bool {
 	}
 	Intf, err := nlink.LinkByName(ctx, vlanIntf)
 	if err != nil {
-		fmt.Printf("Failed to get link %s: %v\n", vlanIntf)
+		log.Printf("Failed to get link %s: %v\n", vlanIntf)
 		return true
 	}
 	if err = nlink.LinkDel(ctx, Intf); err != nil {
-		fmt.Printf("Failed to delete link %s: %v\n", vlanIntf, err)
+		log.Printf("Failed to delete link %s: %v\n", vlanIntf, err)
 		return false
 	}
-	fmt.Printf(" LVM: Executed ip link delete rep-%s\n", path.Base(VRF.Name))
+	log.Printf(" LVM: Executed ip link delete rep-%s\n", path.Base(VRF.Name))
 	return true
 }
 

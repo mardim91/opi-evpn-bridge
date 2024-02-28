@@ -5,9 +5,9 @@
 package infradb
 
 import (
-	"fmt"
+//	"fmt"
 	"net"
-
+	"log"
 	// pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
@@ -78,7 +78,7 @@ func NewBridgePort(in *pb.BridgePort) *BridgePort {
 
 	subscribers := event_bus.EBus.GetSubscribers("bridge-port")
 	if subscribers == nil {
-		fmt.Println("NewBridgePort(): No subscribers for Bridge Port objects")
+		log.Println("NewBridgePort(): No subscribers for Bridge Port objects")
 	}
 
 	for _, sub := range subscribers {

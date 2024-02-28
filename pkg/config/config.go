@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/spf13/viper"
@@ -85,11 +84,11 @@ func LoadConfig() {
 		viper.SetConfigName("evpn.yaml")
 	}*/
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
+		log.Println("Using config file:", viper.ConfigFileUsed())
 	}
-	fmt.Println("Load Config Function")
+	log.Println("Load Config Function")
 	if err := viper.Unmarshal(&GlobalConfig); err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return
 	}
 	/*GlobalConfig.P4.Enable = viper.GetBool("p4.enabled")
@@ -97,7 +96,7 @@ func LoadConfig() {
 	GlobalConfig.Netlink.Enable = viper.GetBool("netlink.enabled")*/
 
 	log.Println("config %+v", GlobalConfig)
-	fmt.Printf("enabled from init config: %d\n", GlobalConfig.P4.Enabled)
+	log.Printf("enabled from init config: %d\n", GlobalConfig.P4.Enabled)
 }
 
 func GetConfig() *Config {

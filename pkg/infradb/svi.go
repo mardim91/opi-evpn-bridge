@@ -6,9 +6,9 @@ package infradb
 
 import (
 	"encoding/binary"
-	"fmt"
+//	"fmt"
 	"net"
-
+	"log"
 	// pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	opinetcommon "github.com/opiproject/opi-api/network/opinetcommon/v1alpha1/gen/go"
@@ -73,7 +73,7 @@ func NewSvi(in *pb.Svi) *Svi {
 
 	subscribers := event_bus.EBus.GetSubscribers("svi")
 	if subscribers == nil {
-		fmt.Println("NewSvi(): No subscribers for SVI objects")
+		log.Println("NewSvi(): No subscribers for SVI objects")
 	}
 
 	for _, sub := range subscribers {

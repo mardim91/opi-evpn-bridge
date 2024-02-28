@@ -1026,7 +1026,7 @@ func try_resolve(Nh Nexthop_struct) Nexthop_struct {
 			Nh.Resolved = true
 			nh := LatestNeighbors[neighbor_key]
 			Nh.Neighbor = &nh
-			// fmt.Println(Nh.neighbor)
+			// log.Println(Nh.neighbor)
 		} else {
 			Nh.Resolved = false
 			// Nh.Neighbor = Neigh_Struct{}
@@ -1048,13 +1048,13 @@ func check_NhDB(Nhk Nexthop_key) bool {
 
 func add_nexthop(NH Nexthop_struct, R Route_struct) Route_struct {
 	ch := check_NhDB(NH.Key)
-	//	 fmt.Printf("CH %d\n",ch)
+	//	 log.Printf("CH %d\n",ch)
 	if ch == true {
 		NH0 := LatestNexthop[NH.Key]
 		// Links route with existing nexthop
 		NH0.Route_refs = append(NH0.Route_refs, R)
 		R.Nexthops = append(R.Nexthops, NH0)
-		// fmt.Printf("Adding route to %v\n",nh.Key)
+		// log.Printf("Adding route to %v\n",nh.Key)
 	} else {
 		// Create a new nexthop entry
 		NH.Route_refs = append(NH.Route_refs, R)
@@ -1269,7 +1269,7 @@ func pre_filter_mac(F FdbEntry_struct) bool {
 func cmd_process_Rt(V *infradb.Vrf, R string, T int) Route_list {
 	var Route_data []Route_cmd_info
 	if len(R) <= 3 {
-		fmt.Println("NL: Error in the cmd:", R)
+		log.Println("NL: Error in the cmd:", R)
 		var route Route_list
 		return route
 	}
@@ -1336,7 +1336,7 @@ func read_routes(V *infradb.Vrf) {
 }
 
 func notify_add_del(R interface{}, event string) {
-	fmt.Printf("Notify event: %s\n", event)
+	log.Printf("Notify event: %s\n", event)
 	EventBus.Publish(event, R)
 }
 
@@ -1509,16 +1509,16 @@ func (nexthop Nexthop_struct) annotate() Nexthop_struct {
 			if com.Name == "frr" {
 				err := json.Unmarshal([]byte(com.Details), &detail)
 				if err != nil {
-					fmt.Println("Error:", err)
+					log.Println("Error:", err)
 				}
 				rmac, found := detail["rmac"].(string)
 				if !found {
-					fmt.Println("Key 'rmac' not found")
+					log.Println("Key 'rmac' not found")
 					break
 				}
 				Rmac, err = net.ParseMAC(rmac)
 				if err != nil {
-					fmt.Println("Error parsing MAC address:", err)
+					log.Println("Error parsing MAC address:", err)
 				}
 			}
 		}

@@ -8,7 +8,6 @@ package bridge
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"reflect"
 
@@ -30,7 +29,7 @@ import (
 func (s *Server) CreateLogicalBridge(ctx context.Context, in *pb.CreateLogicalBridgeRequest) (*pb.LogicalBridge, error) {
 	// check input correctness
 	if err := s.validateCreateLogicalBridgeRequest(in); err != nil {
-		fmt.Printf("CreateLogicalBridge(): validation failure: %v", err)
+		log.Printf("CreateLogicalBridge(): validation failure: %v", err)
 		return nil, err
 	}
 
@@ -45,7 +44,7 @@ func (s *Server) CreateLogicalBridge(ctx context.Context, in *pb.CreateLogicalBr
 	lbObj, err := s.getLogicalBridge(in.LogicalBridge.Name)
 	if err != nil {
 		if err != infradb.ErrKeyNotFound {
-			fmt.Printf("CreateLogicalBridge(): Failed to interact with store: %v", err)
+			log.Printf("CreateLogicalBridge(): Failed to interact with store: %v", err)
 			return nil, err
 		}
 	} else {
@@ -66,19 +65,19 @@ func (s *Server) CreateLogicalBridge(ctx context.Context, in *pb.CreateLogicalBr
 func (s *Server) DeleteLogicalBridge(ctx context.Context, in *pb.DeleteLogicalBridgeRequest) (*emptypb.Empty, error) {
 	// check input correctness
 	if err := s.validateDeleteLogicalBridgeRequest(in); err != nil {
-		fmt.Printf("DeleteLogicalBridge(): validation failure: %v", err)
+		log.Printf("DeleteLogicalBridge(): validation failure: %v", err)
 		return nil, err
 	}
 	// fetch object from the database
 	_, err := s.getLogicalBridge(in.Name)
 	if err != nil {
 		if err != infradb.ErrKeyNotFound {
-			fmt.Printf("Failed to interact with store: %v", err)
+			log.Printf("Failed to interact with store: %v", err)
 			return nil, err
 		}
 		if !in.AllowMissing {
 			err = status.Errorf(codes.NotFound, "unable to find key %s", in.Name)
-			fmt.Printf("DeleteLogicalBridge(): LogicalBridge with id %v: Not Found %v", in.Name, err)
+			log.Printf("DeleteLogicalBridge(): LogicalBridge with id %v: Not Found %v", in.Name, err)
 			return nil, err
 		}
 		return &emptypb.Empty{}, nil
@@ -96,7 +95,7 @@ func (s *Server) DeleteLogicalBridge(ctx context.Context, in *pb.DeleteLogicalBr
 func (s *Server) UpdateLogicalBridge(ctx context.Context, in *pb.UpdateLogicalBridgeRequest) (*pb.LogicalBridge, error) {
 	// check input correctness
 	if err := s.validateUpdateLogicalBridgeRequest(in); err != nil {
-		fmt.Printf("UpdateLogicalBridge(): validation failure: %v", err)
+		log.Printf("UpdateLogicalBridge(): validation failure: %v", err)
 		return nil, err
 	}
 
@@ -104,12 +103,12 @@ func (s *Server) UpdateLogicalBridge(ctx context.Context, in *pb.UpdateLogicalBr
 	lbObj, err := s.getLogicalBridge(in.LogicalBridge.Name)
 	if err != nil {
 		if err != badger.ErrKeyNotFound {
-			fmt.Printf("UpdateLogicalBridge(): Failed to interact with store: %v", err)
+			log.Printf("UpdateLogicalBridge(): Failed to interact with store: %v", err)
 			return nil, err
 		}
 		if !in.AllowMissing {
 			err = status.Errorf(codes.NotFound, "unable to find key %s", in.LogicalBridge.Name)
-			fmt.Printf("UpdateLogicalBridge(): LogicalBridge with id %v: Not Found %v", in.LogicalBridge.Name, err)
+			log.Printf("UpdateLogicalBridge(): LogicalBridge with id %v: Not Found %v", in.LogicalBridge.Name, err)
 			return nil, err
 		}
 
@@ -156,18 +155,18 @@ func (s *Server) UpdateLogicalBridge(ctx context.Context, in *pb.UpdateLogicalBr
 func (s *Server) GetLogicalBridge(ctx context.Context, in *pb.GetLogicalBridgeRequest) (*pb.LogicalBridge, error) {
 	// check input correctness
 	if err := s.validateGetLogicalBridgeRequest(in); err != nil {
-		fmt.Printf("GetLogicalBridge(): validation failure: %v", err)
+		log.Printf("GetLogicalBridge(): validation failure: %v", err)
 		return nil, err
 	}
 	// fetch object from the database
 	lbObj, err := s.getLogicalBridge(in.Name)
 	if err != nil {
 		if err != badger.ErrKeyNotFound {
-			fmt.Printf("Failed to interact with store: %v", err)
+			log.Printf("Failed to interact with store: %v", err)
 			return nil, err
 		}
 		err = status.Errorf(codes.NotFound, "unable to find key %s", in.Name)
-		fmt.Printf("GetLogicalBridge(): LogicalBridge with id %v: Not Found %v", in.Name, err)
+		log.Printf("GetLogicalBridge(): LogicalBridge with id %v: Not Found %v", in.Name, err)
 		return nil, err
 	}
 
@@ -178,7 +177,7 @@ func (s *Server) GetLogicalBridge(ctx context.Context, in *pb.GetLogicalBridgeRe
 func (s *Server) ListLogicalBridges(_ context.Context, in *pb.ListLogicalBridgesRequest) (*pb.ListLogicalBridgesResponse, error) {
 	// check input correctness
 	if err := s.validateListLogicalBridgesRequest(in); err != nil {
-		fmt.Printf("ListLogicalBridges(): validation failure: %v", err)
+		log.Printf("ListLogicalBridges(): validation failure: %v", err)
 		return nil, err
 	}
 	// fetch pagination from the database, calculate size and offset
@@ -191,11 +190,11 @@ func (s *Server) ListLogicalBridges(_ context.Context, in *pb.ListLogicalBridges
 	Blobarray, err = s.getAllLogicalBridges()
 	if err != nil {
 		if err != infradb.ErrKeyNotFound {
-			fmt.Printf("Failed to interact with store: %v", err)
+			log.Printf("Failed to interact with store: %v", err)
 			return nil, err
 		}
 		err := status.Errorf(codes.NotFound, "Error: %v", err)
-		fmt.Printf("ListLogicalBridges(): %v", err)
+		log.Printf("ListLogicalBridges(): %v", err)
 		return nil, err
 	}
 	// sort is needed, since MAP is unsorted in golang, and we might get different results

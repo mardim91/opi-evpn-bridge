@@ -59,12 +59,12 @@ var rootCmd = &cobra.Command{
 	},
 	Run: func(_ *cobra.Command, _ []string) {
 
-		/*fmt.Printf("GRPCPort: %d\n", viper.GetInt("grpc_port"))
-		fmt.Printf("HTTPPort: %d\n", viper.GetInt("http_port"))
-		fmt.Printf("TLSFiles: %s\n", viper.GetString("tls"))
-		fmt.Printf("DBAddress: %s\n", viper.GetString("db_addr"))
-		fmt.Printf("FRRAddress: %s\n", viper.GetString("frr_addr"))
-		fmt.Printf("Database: %s\n", viper.GetString("database"))
+		/*log.Printf("GRPCPort: %d\n", viper.GetInt("grpc_port"))
+		log.Printf("HTTPPort: %d\n", viper.GetInt("http_port"))
+		log.Printf("TLSFiles: %s\n", viper.GetString("tls"))
+		log.Printf("DBAddress: %s\n", viper.GetString("db_addr"))
+		log.Printf("FRRAddress: %s\n", viper.GetString("frr_addr"))
+		log.Printf("Database: %s\n", viper.GetString("database"))
 		config.GRPCPort = viper.GetInt("grpc_port")
 		config.HTTPPort = viper.GetInt("http_port")
 		config.TLSFiles = viper.GetString("tls")
@@ -72,34 +72,34 @@ var rootCmd = &cobra.Command{
 		config.DBAddress = viper.GetString("db_addr")
 		config.FRRAddress = viper.GetString("frr_addr")*/
 
-		fmt.Printf("enabled: %d\n", viper.GetBool("p4.enabled"))
+		log.Printf("enabled: %d\n", viper.GetBool("p4.enabled"))
 
-		//  fmt.Println("%+v",config)
+		//  log.Println("%+v",config)
 		/*var econfig evpnConfig
 		err := yaml.Unmarshal([]byte(config.evpn), &econfig)
 		if err != nil {
-			fmt.Println("Error:", err)
+			log.Println("Error:", err)
 			return
 		}
 		for _, sub := range econfig.Subs {
-			fmt.Printf("Name: %s, Priority: %d, Events: %v\n", sub.Name, sub.Priority, sub.Events)
+			log.Printf("Name: %s, Priority: %d, Events: %v\n", sub.Name, sub.Priority, sub.Events)
 		}*/
 
 		/*var cfg config.Config
 		if err := viper.Unmarshal(&cfg); err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			return
 		    }
 		config.SetConfig(cfg)
 		log.Println("config %+v",config.GlobalConfig)
-		fmt.Printf("enabled from init config: %d\n", config.GlobalConfig.P4.Enable)*/
+		log.Printf("enabled from init config: %d\n", config.GlobalConfig.P4.Enable)*/
 
 		// Starting Task Manager process
 		task_manager.TaskMan.StartTaskManager()
 
 		err := infradb.NewInfraDB(config.GlobalConfig.DBAddress, config.GlobalConfig.Database)
 		if err != nil {
-			fmt.Printf("\n error in creating db %s", err)
+			log.Printf("\n error in creating db %s", err)
 		}
 		go runGatewayServer(config.GlobalConfig.GRPCPort, config.GlobalConfig.HTTPPort)
 
@@ -113,17 +113,17 @@ var rootCmd = &cobra.Command{
 		}
 		infradb.CreateLB(&br)
 		br1, err :=infradb.GetLB("abc")
-		fmt.Printf("GetLB Bridge Name: %+=v\n", br1)
+		log.Printf("GetLB Bridge Name: %+=v\n", br1)
 		err = infradb.DeleteLB("abc")
 		if err != nil {
-			fmt.Printf("GetLB error: %s\n", err)
+			log.Printf("GetLB error: %s\n", err)
 		}
 
 		br2,err := infradb.GetLB("abc")
 		if err != nil {
-			fmt.Printf("GetLB error: %s\n", err)
+			log.Printf("GetLB error: %s\n", err)
 		} else {
-			fmt.Printf("GetLB Bridge Name: %s\n", br2.Name)
+			log.Printf("GetLB Bridge Name: %s\n", br2.Name)
 		}
 		vrf := infradb.Vrf{
 			Name: "green3",
@@ -148,24 +148,24 @@ var rootCmd = &cobra.Command{
 		}
 		err = infradb.CreateVrf(&vrf)
 		if err != nil {
-			fmt.Printf("GetVRF error: %s\n", err)
+			log.Printf("GetVRF error: %s\n", err)
 		} else {
-			fmt.Printf("GetVRF VRF Name: %+v\n", err)
+			log.Printf("GetVRF VRF Name: %+v\n", err)
 		}
 		br3,err := infradb.GetVrf("green3")
 		if err != nil {
-			fmt.Printf("GetVRF error: %s\n", err)
+			log.Printf("GetVRF error: %s\n", err)
 		} else {
-			fmt.Printf("GetVRF VRF Name: %+v\n", br3)
+			log.Printf("GetVRF VRF Name: %+v\n", br3)
 		}
 		comp := infradb.Component{Name: "FRR", CompStatus: infradb.COMP_STATUS_ERROR}
 		err =	infradb.UpdateVrfStatus("green3","1234325", comp)
 
 		br4,err := infradb.GetVrf("green3")
 		if err != nil {
-			fmt.Printf("GetVRF error: %s\n", err)
+			log.Printf("GetVRF error: %s\n", err)
 		} else {
-			fmt.Printf("GetVRF VRF Name: %+v\n", br4)
+			log.Printf("GetVRF VRF Name: %+v\n", br4)
 		}*/
 
 		// TODO: We need to initialize the modules that exist in the configuration
@@ -179,7 +179,7 @@ var rootCmd = &cobra.Command{
 
 		// Create GRD VRF configuration during startup
 		if err := createGrdVrf(); err != nil {
-			fmt.Printf("Error in creating GRD VRF %+v\n", err)
+			log.Printf("Error in creating GRD VRF %+v\n", err)
 		}
 
 		runGrpcServer(config.GlobalConfig.GRPCPort, config.GlobalConfig.TLSFiles)
@@ -198,7 +198,7 @@ func initialize() {
 	rootCmd.PersistentFlags().StringVar(&config.GlobalConfig.Database, "database", "redis", "Database connection string")
 
 	if err := viper.GetViper().BindPFlags(rootCmd.PersistentFlags()); err != nil {
-		fmt.Printf("Error binding flags to Viper: %v\n", err)
+		log.Printf("Error binding flags to Viper: %v\n", err)
 		os.Exit(1)
 	}
 }
@@ -214,16 +214,16 @@ func initConfig() {
 	}
 
 	/*if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
+		log.Println("Using config file:", viper.ConfigFileUsed())
 	}
 	*/
 	config.LoadConfig()
 	/*if err := viper.Unmarshal(&config); err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return
 	    }
 	log.Println("config %+v",config)
-	fmt.Printf("enabled from init config: %d\n", config.P4.Enable)*/
+	log.Printf("enabled from init config: %d\n", config.P4.Enable)*/
 }
 
 func validateConfigs() error {
@@ -266,7 +266,7 @@ func validateConfigs() error {
 func main() {
 	initialize()
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		os.Exit(1)
 	}
 }
@@ -364,13 +364,13 @@ func runGatewayServer(grpcPort int, httpPort int) {
 func createGrdVrf() error {
 	grdVrf, err := infradb.NewVrfWithArgs("//network.opiproject.org/vrfs/GRD", nil, nil, nil)
 	if err != nil {
-		fmt.Printf("CreateGrdVrf(): Error in initializing GRD VRF object %+v\n", err)
+		log.Printf("CreateGrdVrf(): Error in initializing GRD VRF object %+v\n", err)
 		return err
 	}
 
 	err = infradb.CreateVrf(grdVrf)
 	if err != nil {
-		fmt.Printf("CreateGrdVrf(): Error in creating GRD VRF object %+v\n", err)
+		log.Printf("CreateGrdVrf(): Error in creating GRD VRF object %+v\n", err)
 		return err
 	}
 

@@ -110,7 +110,7 @@ func Buildmfs(tablefield TableField) (map[string]client.MatchInterface, bool, er
 				mfs[key] = &client.ExactMatch{Value: uint32toBytes(value[0].(uint32))}
 			}
 		default:
-			fmt.Println("Unknown field", v)
+			log.Println("Unknown field", v)
 			return mfs, false, fmt.Errorf("invalid inputtype %d for %s", v, key)
 		}
 	}
@@ -139,13 +139,13 @@ func Del_entry(Entry TableEntry) error {
 	}
 	if isTernary {
 		entry := P4RtC.NewTableEntry(Entry.Tablename, mfs, nil, Options)
-		fmt.Println("Delete Table Name---", Entry.Tablename)
-		fmt.Println("Delete Rule----", entry)
+		log.Println("Delete Table Name---", Entry.Tablename)
+		log.Println("Delete Rule----", entry)
 		return P4RtC.DeleteTableEntry(Ctx, entry)
 	} else {
 		entry := P4RtC.NewTableEntry(Entry.Tablename, mfs, nil, nil)
-		fmt.Println("Delete Table Name---", Entry.Tablename)
-		fmt.Println("Delete Rule----", entry)
+		log.Println("Delete Table Name---", Entry.Tablename)
+		log.Println("Delete Rule----", entry)
 		return P4RtC.DeleteTableEntry(Ctx, entry)
 	}
 }
@@ -174,7 +174,7 @@ func Add_entry(Entry TableEntry) error {
 			buf := new(bytes.Buffer)
 			err1 := binary.Write(buf, binary.BigEndian, v)
 			if err1 != nil {
-				fmt.Println("binary.Write failed:", err1)
+				log.Println("binary.Write failed:", err1)
 				return err1
 			}
 			params[i] = buf.Bytes()
@@ -182,7 +182,7 @@ func Add_entry(Entry TableEntry) error {
 			buf := new(bytes.Buffer)
 			err1 := binary.Write(buf, binary.BigEndian, v)
 			if err1 != nil {
-				fmt.Println("binary.Write failed:", err1)
+				log.Println("binary.Write failed:", err1)
 				return err1
 			}
 			params[i] = buf.Bytes()
@@ -191,7 +191,7 @@ func Add_entry(Entry TableEntry) error {
 		case net.IP:
 			params[i] = v
 		default:
-			fmt.Println("Unknown actionparam", v)
+			log.Println("Unknown actionparam", v)
 			return nil
 		}
 	}
@@ -200,13 +200,13 @@ func Add_entry(Entry TableEntry) error {
 
 	if isTernary {
 		entry := P4RtC.NewTableEntry(Entry.Tablename, mfs, actionSet, Options)
-		fmt.Println("isTernary Table Name---", Entry.Tablename)
-		fmt.Println("Rule----", entry)
+		log.Println("isTernary Table Name---", Entry.Tablename)
+		log.Println("Rule----", entry)
 		return P4RtC.InsertTableEntry(Ctx, entry)
 	} else {
 		entry := P4RtC.NewTableEntry(Entry.Tablename, mfs, actionSet, nil)
-		fmt.Println("Table Name---", Entry.Tablename)
-		fmt.Println("Rule----", entry)
+		log.Println("Table Name---", Entry.Tablename)
+		log.Println("Rule----", entry)
 		return P4RtC.InsertTableEntry(Ctx, entry)
 	}
 }

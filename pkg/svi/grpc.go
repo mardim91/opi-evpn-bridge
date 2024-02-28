@@ -8,7 +8,6 @@ package svi
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"reflect"
 
@@ -29,7 +28,7 @@ import (
 func (s *Server) CreateSvi(ctx context.Context, in *pb.CreateSviRequest) (*pb.Svi, error) {
 	// check input correctness
 	if err := s.validateCreateSviRequest(in); err != nil {
-		fmt.Printf("CreateSvi(): validation failure: %v", err)
+		log.Printf("CreateSvi(): validation failure: %v", err)
 		return nil, err
 	}
 	// see https://google.aip.dev/133#user-specified-ids
@@ -43,7 +42,7 @@ func (s *Server) CreateSvi(ctx context.Context, in *pb.CreateSviRequest) (*pb.Sv
 	sviObj, err := s.getSvi(in.Svi.Name)
 	if err != nil {
 		if err != infradb.ErrKeyNotFound {
-			fmt.Printf("CreateSvi(): Failed to interact with store: %v", err)
+			log.Printf("CreateSvi(): Failed to interact with store: %v", err)
 			return nil, err
 		}
 	} else {
@@ -64,19 +63,19 @@ func (s *Server) CreateSvi(ctx context.Context, in *pb.CreateSviRequest) (*pb.Sv
 func (s *Server) DeleteSvi(ctx context.Context, in *pb.DeleteSviRequest) (*emptypb.Empty, error) {
 	// check input correctness
 	if err := s.validateDeleteSviRequest(in); err != nil {
-		fmt.Printf("DeleteSvi(): validation failure: %v", err)
+		log.Printf("DeleteSvi(): validation failure: %v", err)
 		return nil, err
 	}
 	// fetch object from the database
 	_, err := s.getSvi(in.Name)
 	if err != nil {
 		if err != badger.ErrKeyNotFound {
-			fmt.Printf("Failed to interact with store: %v", err)
+			log.Printf("Failed to interact with store: %v", err)
 			return nil, err
 		}
 		if !in.AllowMissing {
 			err = status.Errorf(codes.NotFound, "unable to find key %s", in.Name)
-			fmt.Printf("DeleteSvi(): Svi with id %v: Not Found %v", in.Name, err)
+			log.Printf("DeleteSvi(): Svi with id %v: Not Found %v", in.Name, err)
 			return nil, err
 		}
 		return &emptypb.Empty{}, nil
@@ -94,19 +93,19 @@ func (s *Server) DeleteSvi(ctx context.Context, in *pb.DeleteSviRequest) (*empty
 func (s *Server) UpdateSvi(ctx context.Context, in *pb.UpdateSviRequest) (*pb.Svi, error) {
 	// check input correctness
 	if err := s.validateUpdateSviRequest(in); err != nil {
-		fmt.Printf("UpdateSvi(): validation failure: %v", err)
+		log.Printf("UpdateSvi(): validation failure: %v", err)
 		return nil, err
 	}
 	// fetch object from the database
 	sviObj, err := s.getSvi(in.Svi.Name)
 	if err != nil {
 		if err != badger.ErrKeyNotFound {
-			fmt.Printf("UpdateSvi(): Failed to interact with store: %v", err)
+			log.Printf("UpdateSvi(): Failed to interact with store: %v", err)
 			return nil, err
 		}
 		if !in.AllowMissing {
 			err = status.Errorf(codes.NotFound, "unable to find key %s", in.Svi.Name)
-			fmt.Printf("UpdateSvi(): Svi with id %v: Not Found %v", in.Svi.Name, err)
+			log.Printf("UpdateSvi(): Svi with id %v: Not Found %v", in.Svi.Name, err)
 			return nil, err
 		}
 
@@ -153,18 +152,18 @@ func (s *Server) UpdateSvi(ctx context.Context, in *pb.UpdateSviRequest) (*pb.Sv
 func (s *Server) GetSvi(ctx context.Context, in *pb.GetSviRequest) (*pb.Svi, error) {
 	// check input correctness
 	if err := s.validateGetSviRequest(in); err != nil {
-		fmt.Printf("GetSvi(): validation failure: %v", err)
+		log.Printf("GetSvi(): validation failure: %v", err)
 		return nil, err
 	}
 	// fetch object from the database
 	sviObj, err := s.getSvi(in.Name)
 	if err != nil {
 		if err != badger.ErrKeyNotFound {
-			fmt.Printf("Failed to interact with store: %v", err)
+			log.Printf("Failed to interact with store: %v", err)
 			return nil, err
 		}
 		err = status.Errorf(codes.NotFound, "unable to find key %s", in.Name)
-		fmt.Printf("GetSvi(): Svi with id %v: Not Found %v", in.Name, err)
+		log.Printf("GetSvi(): Svi with id %v: Not Found %v", in.Name, err)
 		return nil, err
 	}
 
@@ -175,7 +174,7 @@ func (s *Server) GetSvi(ctx context.Context, in *pb.GetSviRequest) (*pb.Svi, err
 func (s *Server) ListSvis(_ context.Context, in *pb.ListSvisRequest) (*pb.ListSvisResponse, error) {
 	// check required fields
 	if err := s.validateListSvisRequest(in); err != nil {
-		fmt.Printf("ListSvis(): validation failure: %v", err)
+		log.Printf("ListSvis(): validation failure: %v", err)
 		return nil, err
 	}
 	// fetch pagination from the database, calculate size and offset
@@ -188,11 +187,11 @@ func (s *Server) ListSvis(_ context.Context, in *pb.ListSvisRequest) (*pb.ListSv
 	Blobarray, err = s.getAllSvis()
 	if err != nil {
 		if err != infradb.ErrKeyNotFound {
-			fmt.Printf("Failed to interact with store: %v", err)
+			log.Printf("Failed to interact with store: %v", err)
 			return nil, err
 		}
 		err := status.Errorf(codes.NotFound, "Error: %v", err)
-		fmt.Printf("ListSvis(): %v", err)
+		log.Printf("ListSvis(): %v", err)
 		return nil, err
 	}
 	// sort is needed, since MAP is unsorted in golang, and we might get different results

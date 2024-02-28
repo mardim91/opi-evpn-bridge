@@ -5,9 +5,8 @@
 package task_manager
 
 import (
-	"fmt"
 	"time"
-
+	"log"
 	"github.com/google/uuid"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
 
@@ -70,7 +69,7 @@ func newTaskStatus(name, objectType, resourceVersion, notificationId string, dro
 
 func (t *TaskManager) StartTaskManager() {
 	go t.processTasks()
-	fmt.Println("Task Manager has started")
+	log.Println("Task Manager has started")
 }
 
 func (t *TaskManager) CreateTask(name, objectType, resourceVersion string, subs []*event_bus.Subscriber) {
@@ -78,7 +77,7 @@ func (t *TaskManager) CreateTask(name, objectType, resourceVersion string, subs 
 	// The reason that we use a go routing to enqueue the task is because we do not want the main thread to block
 	// if the queue is full but only the go routine to block
 	go t.taskQueue.Enqueue(task)
-	fmt.Printf("CreateTask(): New Task has been created: %+v\n", task)
+	log.Printf("CreateTask(): New Task has been created: %+v\n", task)
 }
 
 func (t *TaskManager) StatusUpdated(name, objectType, resourceVersion, notificationId string, dropTask bool, component *common.Component) {
@@ -89,7 +88,7 @@ func (t *TaskManager) StatusUpdated(name, objectType, resourceVersion, notificat
 	// Is there any case where this can happen
 	// (nobody reads what is written on the channel and the StatusUpdated gets stuck) ?
 	t.taskStatusChan <- taskStatus
-	fmt.Printf("StatusUpdated(): New Task Status has been created and sent to channel: %+v\n", taskStatus)
+	log.Printf("StatusUpdated(): New Task Status has been created and sent to channel: %+v\n", taskStatus)
 }
 
 func (t *TaskManager) processTasks() {
@@ -97,7 +96,7 @@ func (t *TaskManager) processTasks() {
 
 	for {
 		task := t.taskQueue.Dequeue()
-		fmt.Printf("processTasks(): Task has been dequeued for processing: %+v\n", task)
+		log.Printf("processTasks(): Task has been dequeued for processing: %+v\n", task)
 
 		subsToIterate := task.subs[task.sub_index:]
 	loopTwo:
@@ -112,7 +111,7 @@ func (t *TaskManager) processTasks() {
 				NotificationId: uuid.NewString(),
 			}
 			event_bus.EBus.Publish(objectData, sub)
-			fmt.Printf("processTasks(): Notification has been sent to subscriber %+v with data %+v\n", sub, objectData)
+			log.Printf("processTasks(): Notification has been sent to subscriber %+v with data %+v\n", sub, objectData)
 
 		loopThree:
 			for {
@@ -123,17 +122,17 @@ func (t *TaskManager) processTasks() {
 				select {
 				case taskStatus = <-t.taskStatusChan:
 
-					fmt.Printf("processTasks(): Task Status has been received from the channel %+v\n", taskStatus)
+					log.Printf("processTasks(): Task Status has been received from the channel %+v\n", taskStatus)
 					if taskStatus.notificationId == objectData.NotificationId {
-						fmt.Printf("processTasks(): received notification id %+v equals the sent notification id %+v\n", taskStatus.notificationId, objectData.NotificationId)
+						log.Printf("processTasks(): received notification id %+v equals the sent notification id %+v\n", taskStatus.notificationId, objectData.NotificationId)
 						break loopThree
 					}
-					fmt.Printf("processTasks(): received notification id %+v doesn't equal the sent notification id %+v\n", taskStatus.notificationId, objectData.NotificationId)
+					log.Printf("processTasks(): received notification id %+v doesn't equal the sent notification id %+v\n", taskStatus.notificationId, objectData.NotificationId)
 
 				// We need a timeout in case that the subscriber doesn't update the status at all for whatever reason.
 				// If that occurs then we just take a note which subscriber need to revisit and we requeue the task without any timer
 				case <-time.After(30 * time.Second):
-					fmt.Printf("processTasks(): No task status has been received in the channel from subscriber %+v. The task %+v will be requeued immediately Task Status %+v\n", sub, task, taskStatus)
+					log.Printf("processTasks(): No task status has been received in the channel from subscriber %+v. The task %+v will be requeued immediately Task Status %+v\n", sub, task, taskStatus)
 					task.sub_index = task.sub_index + i
 					go t.taskQueue.Enqueue(task)
 					break loopThree
@@ -143,19 +142,19 @@ func (t *TaskManager) processTasks() {
 			// This check is needed in order to move to the next task if the status channel has timed out or we need to drop the task in case that
 			// the task of the object is referring to an old already updated object or the object is no longer in the database (has been deleted).
 			if taskStatus == nil || taskStatus.dropTask {
-				fmt.Println("processTasks(): Move to the next Task in the queue")
+				log.Println("processTasks(): Move to the next Task in the queue")
 				break loopTwo
 			}
 
 			switch taskStatus.component.CompStatus {
 			case common.COMP_STATUS_SUCCESS:
-				fmt.Printf("processTasks(): Subscriber %+v has processed the task %+v successfully\n", sub, task)
+				log.Printf("processTasks(): Subscriber %+v has processed the task %+v successfully\n", sub, task)
 				continue loopTwo
 			default:
-				fmt.Printf("processTasks(): Subscriber %+v has not processed the task %+v successfully\n", sub, task)
+				log.Printf("processTasks(): Subscriber %+v has not processed the task %+v successfully\n", sub, task)
 				task.sub_index = task.sub_index + i
 				task.retryTimer = taskStatus.component.Timer
-				fmt.Printf("processTasks(): The Task will be requeued after %+v\n", task.retryTimer)
+				log.Printf("processTasks(): The Task will be requeued after %+v\n", task.retryTimer)
 				time.AfterFunc(task.retryTimer, func() {
 					t.taskQueue.Enqueue(task)
 				})

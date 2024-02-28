@@ -8,7 +8,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
-
+	"log"
 	// "time"
 	// pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
@@ -90,7 +90,7 @@ func NewVrfWithArgs(name string, vni *uint32, loopbackIP, vtepIP *net.IPNet) (*V
 
 	subscribers := event_bus.EBus.GetSubscribers("vrf")
 	if subscribers == nil {
-		fmt.Println("NewVrfWithArgs(): No subscribers for Vrf objects")
+		log.Println("NewVrfWithArgs(): No subscribers for Vrf objects")
 	}
 
 	for _, sub := range subscribers {
@@ -124,7 +124,7 @@ func NewVrf(in *pb.Vrf) *Vrf {
 
 	subscribers := event_bus.EBus.GetSubscribers("vrf")
 	if subscribers == nil {
-		fmt.Println("NewVrf(): No subscribers for Vrf objects")
+		log.Println("NewVrf(): No subscribers for Vrf objects")
 	}
 
 	for _, sub := range subscribers {

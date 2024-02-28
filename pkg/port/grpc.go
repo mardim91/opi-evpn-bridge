@@ -8,7 +8,6 @@ package port
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"reflect"
 
@@ -30,7 +29,7 @@ import (
 func (s *Server) CreateBridgePort(ctx context.Context, in *pb.CreateBridgePortRequest) (*pb.BridgePort, error) {
 	// check input correctness
 	if err := s.validateCreateBridgePortRequest(in); err != nil {
-		fmt.Printf("CreateBridgePort(): validation failure: %v", err)
+		log.Printf("CreateBridgePort(): validation failure: %v", err)
 		return nil, err
 	}
 	// see https://google.aip.dev/133#user-specified-ids
@@ -44,7 +43,7 @@ func (s *Server) CreateBridgePort(ctx context.Context, in *pb.CreateBridgePortRe
 	bpObj, err := s.getBridgePort(in.BridgePort.Name)
 	if err != nil {
 		if err != infradb.ErrKeyNotFound {
-			fmt.Printf("CreateBridgePort(): Failed to interact with store: %v", err)
+			log.Printf("CreateBridgePort(): Failed to interact with store: %v", err)
 			return nil, err
 		}
 	} else {
@@ -64,19 +63,19 @@ func (s *Server) CreateBridgePort(ctx context.Context, in *pb.CreateBridgePortRe
 func (s *Server) DeleteBridgePort(ctx context.Context, in *pb.DeleteBridgePortRequest) (*emptypb.Empty, error) {
 	// check input correctness
 	if err := s.validateDeleteBridgePortRequest(in); err != nil {
-		fmt.Printf("DeleteBridgePort(): validation failure: %v", err)
+		log.Printf("DeleteBridgePort(): validation failure: %v", err)
 		return nil, err
 	}
 	// fetch object from the database
 	_, err := s.getBridgePort(in.Name)
 	if err != nil {
 		if err != badger.ErrKeyNotFound {
-			fmt.Printf("Failed to interact with store: %v", err)
+			log.Printf("Failed to interact with store: %v", err)
 			return nil, err
 		}
 		if !in.AllowMissing {
 			err = status.Errorf(codes.NotFound, "unable to find key %s", in.Name)
-			fmt.Printf("DeleteBridgePort(): BridgePort with id %v: Not Found %v", in.Name, err)
+			log.Printf("DeleteBridgePort(): BridgePort with id %v: Not Found %v", in.Name, err)
 			return nil, err
 		}
 		return &emptypb.Empty{}, nil
@@ -93,19 +92,19 @@ func (s *Server) DeleteBridgePort(ctx context.Context, in *pb.DeleteBridgePortRe
 func (s *Server) UpdateBridgePort(ctx context.Context, in *pb.UpdateBridgePortRequest) (*pb.BridgePort, error) {
 	// check input correctness
 	if err := s.validateUpdateBridgePortRequest(in); err != nil {
-		fmt.Printf("UpdateBridgePort(): validation failure: %v", err)
+		log.Printf("UpdateBridgePort(): validation failure: %v", err)
 		return nil, err
 	}
 	// fetch object from the
 	bpObj, err := s.getBridgePort(in.BridgePort.Name)
 	if err != nil {
 		if err != badger.ErrKeyNotFound {
-			fmt.Printf("UpdateBridgePort(): Failed to interact with store: %v", err)
+			log.Printf("UpdateBridgePort(): Failed to interact with store: %v", err)
 			return nil, err
 		}
 		if !in.AllowMissing {
 			err = status.Errorf(codes.NotFound, "unable to find key %s", in.BridgePort.Name)
-			fmt.Printf("UpdateBridgePort(): BridgePort with id %v: Not Found %v", in.BridgePort.Name, err)
+			log.Printf("UpdateBridgePort(): BridgePort with id %v: Not Found %v", in.BridgePort.Name, err)
 			return nil, err
 		}
 
@@ -152,18 +151,18 @@ func (s *Server) UpdateBridgePort(ctx context.Context, in *pb.UpdateBridgePortRe
 func (s *Server) GetBridgePort(ctx context.Context, in *pb.GetBridgePortRequest) (*pb.BridgePort, error) {
 	// check input correctness
 	if err := s.validateGetBridgePortRequest(in); err != nil {
-		fmt.Printf("GetBridgePort(): validation failure: %v", err)
+		log.Printf("GetBridgePort(): validation failure: %v", err)
 		return nil, err
 	}
 	// fetch object from the database
 	bpObj, err := s.getBridgePort(in.Name)
 	if err != nil {
 		if err != badger.ErrKeyNotFound {
-			fmt.Printf("Failed to interact with store: %v", err)
+			log.Printf("Failed to interact with store: %v", err)
 			return nil, err
 		}
 		err = status.Errorf(codes.NotFound, "unable to find key %s", in.Name)
-		fmt.Printf("GetBridgePort(): BridgePort with id %v: Not Found %v", in.Name, err)
+		log.Printf("GetBridgePort(): BridgePort with id %v: Not Found %v", in.Name, err)
 		return nil, err
 	}
 
@@ -174,7 +173,7 @@ func (s *Server) GetBridgePort(ctx context.Context, in *pb.GetBridgePortRequest)
 func (s *Server) ListBridgePorts(_ context.Context, in *pb.ListBridgePortsRequest) (*pb.ListBridgePortsResponse, error) {
 	// check required fields
 	if err := s.validateListBridgePortsRequest(in); err != nil {
-		fmt.Printf("ListBridgePorts(): validation failure: %v", err)
+		log.Printf("ListBridgePorts(): validation failure: %v", err)
 		return nil, err
 	}
 	// fetch pagination from the database, calculate size and offset
@@ -187,11 +186,11 @@ func (s *Server) ListBridgePorts(_ context.Context, in *pb.ListBridgePortsReques
 	Blobarray, err = s.getAllBridgePorts()
 	if err != nil {
 		if err != infradb.ErrKeyNotFound {
-			fmt.Printf("Failed to interact with store: %v", err)
+			log.Printf("Failed to interact with store: %v", err)
 			return nil, err
 		}
 		err := status.Errorf(codes.NotFound, "Error: %v", err)
-		fmt.Printf("ListBridgePorts(): %v", err)
+		log.Printf("ListBridgePorts(): %v", err)
 		return nil, err
 	}
 	// sort is needed, since MAP is unsorted in golang, and we might get different results

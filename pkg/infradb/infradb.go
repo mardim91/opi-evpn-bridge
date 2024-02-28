@@ -5,7 +5,6 @@ package infradb
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"sync"
 
@@ -58,10 +57,10 @@ func CreateLB(lb *LogicalBridge) error {
 
 	subscribers := event_bus.EBus.GetSubscribers("logical-bridge")
 	if subscribers == nil {
-		fmt.Println("CreateLB(): No subscribers for Logical Bridge objects")
+		log.Println("CreateLB(): No subscribers for Logical Bridge objects")
 	}
 
-	fmt.Printf("CreateLB(): Create Logical Bridge: %+v\n", lb)
+	log.Printf("CreateLB(): Create Logical Bridge: %+v\n", lb)
 
 	// Check if VNI is allready used
 	if lb.Spec.Vni != nil {
@@ -76,7 +75,7 @@ func CreateLB(lb *LogicalBridge) error {
 		} else {
 			_, ok := vpns[*lb.Spec.Vni]
 			if ok {
-				fmt.Printf("CreateLB(): VNI allready in use: %+v\n", lb.Spec.Vni)
+				log.Printf("CreateLB(): VNI allready in use: %+v\n", lb.Spec.Vni)
 				return ErrVniInUse
 			}
 			vpns[*lb.Spec.Vni] = false
@@ -126,7 +125,7 @@ func DeleteLB(Name string) error {
 
 	subscribers := event_bus.EBus.GetSubscribers("logical-bridge")
 	if subscribers == nil {
-		fmt.Println("DeleteLB(): No subscribers for Logical Bridge objects")
+		log.Println("DeleteLB(): No subscribers for Logical Bridge objects")
 	}
 
 	lb := LogicalBridge{}
@@ -192,7 +191,7 @@ func GetAllLBs() ([]*LogicalBridge, error) {
 	}
 
 	if !found {
-		fmt.Println("GetAllLogicalBridges(): No Logical Bridges have been found")
+		log.Println("GetAllLogicalBridges(): No Logical Bridges have been found")
 		return nil, ErrKeyNotFound
 	}
 
@@ -201,12 +200,12 @@ func GetAllLBs() ([]*LogicalBridge, error) {
 		found, err := infradb.client.Get(key, lb)
 
 		if err != nil {
-			fmt.Printf("GetAllLogicalBridges(): Failed to get the Logical Bridge %s from store: %v", key, err)
+			log.Printf("GetAllLogicalBridges(): Failed to get the Logical Bridge %s from store: %v", key, err)
 			return nil, err
 		}
 
 		if !found {
-			fmt.Printf("GetAllLogicalBridges():Logical Bridge %s not found", key)
+			log.Printf("GetAllLogicalBridges():Logical Bridge %s not found", key)
 			return nil, ErrKeyNotFound
 		}
 		lbs = append(lbs, lb)
@@ -221,7 +220,7 @@ func UpdateLB(lb *LogicalBridge) error {
 
 	subscribers := event_bus.EBus.GetSubscribers("logical-bridge")
 	if subscribers == nil {
-		fmt.Println("UpdateLB(): No subscribers for Logical Bridge objects")
+		log.Println("UpdateLB(): No subscribers for Logical Bridge objects")
 	}
 
 	err := infradb.client.Set(lb.Name, lb)
@@ -254,14 +253,14 @@ func UpdateLBStatus(Name string, resourceVersion string, notificationId string, 
 	if !found {
 		// No Logical Bridge object has been found in the database so we will instruct TaskManager to drop the Task that is related with this status update.
 		task_manager.TaskMan.StatusUpdated(Name, "logical-bridge", lb.ResourceVersion, notificationId, true, &component)
-		fmt.Printf("UpdateLBStatus(): No Logical Bridge object has been found in DB with Name %s\n", Name)
+		log.Printf("UpdateLBStatus(): No Logical Bridge object has been found in DB with Name %s\n", Name)
 		return nil
 	}
 
 	if lb.ResourceVersion != resourceVersion {
 		// Logical Bridge object in the database with different resourceVersion so we will instruct TaskManager to drop the Task that is related with this status update.
 		task_manager.TaskMan.StatusUpdated(lb.Name, "logical-bridge", lb.ResourceVersion, notificationId, true, &component)
-		fmt.Printf("UpdateLBStatus(): Invalid resourceVersion %s for Logical Bridge %+v\n", resourceVersion, lb)
+		log.Printf("UpdateLBStatus(): Invalid resourceVersion %s for Logical Bridge %+v\n", resourceVersion, lb)
 		return nil
 	}
 
@@ -301,7 +300,7 @@ func UpdateLBStatus(Name string, resourceVersion string, notificationId string, 
 				return err
 			}
 			if !found {
-				fmt.Println("UpdateLBStatus(): No VPNs have been found")
+				log.Println("UpdateLBStatus(): No VPNs have been found")
 				return ErrKeyNotFound
 			}
 
@@ -319,7 +318,7 @@ func UpdateLBStatus(Name string, resourceVersion string, notificationId string, 
 				return err
 			}
 			if !found {
-				fmt.Println("UpdateLBStatus(): No Logical Bridges have been found")
+				log.Println("UpdateLBStatus(): No Logical Bridges have been found")
 				return ErrKeyNotFound
 			}
 
@@ -330,7 +329,7 @@ func UpdateLBStatus(Name string, resourceVersion string, notificationId string, 
 				return err
 			}
 
-			fmt.Printf("UpdateLBStatus(): Logical Bridge %s has been deleted\n", Name)
+			log.Printf("UpdateLBStatus(): Logical Bridge %s has been deleted\n", Name)
 		} else {
 			lb.Status.LBOperStatus = LB_OPER_STATUS_UP
 			err = infradb.client.Set(lb.Name, lb)
@@ -338,7 +337,7 @@ func UpdateLBStatus(Name string, resourceVersion string, notificationId string, 
 				log.Fatal(err)
 				return err
 			}
-			fmt.Printf("UpdateLBStatus(): Logical Bridge %s has been updated: %+v\n", Name, lb)
+			log.Printf("UpdateLBStatus(): Logical Bridge %s has been updated: %+v\n", Name, lb)
 		}
 	} else {
 		err = infradb.client.Set(lb.Name, lb)
@@ -346,7 +345,7 @@ func UpdateLBStatus(Name string, resourceVersion string, notificationId string, 
 			log.Fatal(err)
 			return err
 		}
-		fmt.Printf("UpdateLBStatus(): Logical Bridge %s has been updated: %+v\n", Name, lb)
+		log.Printf("UpdateLBStatus(): Logical Bridge %s has been updated: %+v\n", Name, lb)
 	}
 
 	task_manager.TaskMan.StatusUpdated(lb.Name, "logical-bridge", lb.ResourceVersion, notificationId, false, &component)
@@ -360,14 +359,14 @@ func CreateBP(bp *BridgePort) error {
 
 	subscribers := event_bus.EBus.GetSubscribers("bridge-port")
 	if subscribers == nil {
-		fmt.Println("CreateBP(): No subscribers for Bridge Port objects")
+		log.Println("CreateBP(): No subscribers for Bridge Port objects")
 	}
 
 	// Dimitris: Do I need to add here a check for MAC uniquness in of BP ?
 	// The way to do this is to create a MAP of MACs and store it in the DB
 	// and then check if MAC exist in this MAP everytime a new BP gets created.
 
-	fmt.Printf("CreateBP(): Create Bridge Port: %+v\n", bp)
+	log.Printf("CreateBP(): Create Bridge Port: %+v\n", bp)
 
 	// If Transparent Trunk then all the Logical Bridges are included by default
 	if bp.TransparentTrunk {
@@ -378,7 +377,7 @@ func CreateBP(bp *BridgePort) error {
 			return err
 		}
 		if !found {
-			fmt.Println("CreateBP(): No Logical Bridges have been found")
+			log.Println("CreateBP(): No Logical Bridges have been found")
 			return ErrKeyNotFound
 		}
 
@@ -450,7 +449,7 @@ func DeleteBP(Name string) error {
 
 	subscribers := event_bus.EBus.GetSubscribers("bridge-port")
 	if subscribers == nil {
-		fmt.Println("DeleteBP(): No subscribers for Bridge Port objects")
+		log.Println("DeleteBP(): No subscribers for Bridge Port objects")
 	}
 
 	bp := BridgePort{}
@@ -503,7 +502,7 @@ func GetAllBPs() ([]*BridgePort, error) {
 	}
 
 	if !found {
-		fmt.Println("GetAllBPs(): No Bridge Ports have been found")
+		log.Println("GetAllBPs(): No Bridge Ports have been found")
 		return nil, ErrKeyNotFound
 	}
 
@@ -512,12 +511,12 @@ func GetAllBPs() ([]*BridgePort, error) {
 		found, err := infradb.client.Get(key, bp)
 
 		if err != nil {
-			fmt.Printf("GetAllBPs(): Failed to get the Bridge Port %s from store: %v", key, err)
+			log.Printf("GetAllBPs(): Failed to get the Bridge Port %s from store: %v", key, err)
 			return nil, err
 		}
 
 		if !found {
-			fmt.Printf("GetAllBPs(): Bridge Port %s not found", key)
+			log.Printf("GetAllBPs(): Bridge Port %s not found", key)
 			return nil, ErrKeyNotFound
 		}
 		bps = append(bps, bp)
@@ -535,7 +534,7 @@ func UpdateBP(bp *BridgePort) error {
 
 	subscribers := event_bus.EBus.GetSubscribers("bridge-port")
 	if subscribers == nil {
-		fmt.Println("UpdateBP(): No subscribers for Bridge Port objects")
+		log.Println("UpdateBP(): No subscribers for Bridge Port objects")
 	}
 
 	err := infradb.client.Set(bp.Name, bp)
@@ -568,14 +567,14 @@ func UpdateBPStatus(Name string, resourceVersion string, notificationId string, 
 	if !found {
 		// No Bridge Port object has been found in the database so we will instruct TaskManager to drop the Task that is related with this status update.
 		task_manager.TaskMan.StatusUpdated(Name, "bridge-port", bp.ResourceVersion, notificationId, true, &component)
-		fmt.Printf("UpdateBPStatus(): No Bridge Port object has been found in DB with Name %s\n", Name)
+		log.Printf("UpdateBPStatus(): No Bridge Port object has been found in DB with Name %s\n", Name)
 		return nil
 	}
 
 	if bp.ResourceVersion != resourceVersion {
 		// Bridge Port object in the database with different resourceVersion so we will instruct TaskManager to drop the Task that is related with this status update.
 		task_manager.TaskMan.StatusUpdated(bp.Name, "bridge-port", bp.ResourceVersion, notificationId, true, &component)
-		fmt.Printf("UpdateBPStatus(): Invalid resourceVersion %s for Bridge Port %+v\n", resourceVersion, bp)
+		log.Printf("UpdateBPStatus(): Invalid resourceVersion %s for Bridge Port %+v\n", resourceVersion, bp)
 		return nil
 	}
 
@@ -639,7 +638,7 @@ func UpdateBPStatus(Name string, resourceVersion string, notificationId string, 
 				return err
 			}
 			if !found {
-				fmt.Println("UpdateBPStatus(): No Bridge Ports have been found")
+				log.Println("UpdateBPStatus(): No Bridge Ports have been found")
 				return ErrKeyNotFound
 			}
 
@@ -650,7 +649,7 @@ func UpdateBPStatus(Name string, resourceVersion string, notificationId string, 
 				return err
 			}
 
-			fmt.Printf("UpdateBPStatus(): Bridge Port %s has been deleted\n", Name)
+			log.Printf("UpdateBPStatus(): Bridge Port %s has been deleted\n", Name)
 		} else {
 			bp.Status.BPOperStatus = BP_OPER_STATUS_UP
 			err = infradb.client.Set(bp.Name, bp)
@@ -658,7 +657,7 @@ func UpdateBPStatus(Name string, resourceVersion string, notificationId string, 
 				log.Fatal(err)
 				return err
 			}
-			fmt.Printf("UpdateBPStatus(): Bridge Port %s has been updated: %+v\n", Name, bp)
+			log.Printf("UpdateBPStatus(): Bridge Port %s has been updated: %+v\n", Name, bp)
 		}
 	} else {
 
@@ -667,7 +666,7 @@ func UpdateBPStatus(Name string, resourceVersion string, notificationId string, 
 			log.Fatal(err)
 			return err
 		}
-		fmt.Printf("UpdateBPStatus(): Bridge Port %s has been updated: %+v\n", Name, bp)
+		log.Printf("UpdateBPStatus(): Bridge Port %s has been updated: %+v\n", Name, bp)
 	}
 
 	task_manager.TaskMan.StatusUpdated(bp.Name, "bridge-port", bp.ResourceVersion, notificationId, false, &component)
@@ -683,10 +682,10 @@ func CreateVrf(vrf *Vrf) error {
 
 	subscribers := event_bus.EBus.GetSubscribers("vrf")
 	if subscribers == nil {
-		fmt.Println("CreateVrf(): No subscribers for Vrf objects")
+		log.Println("CreateVrf(): No subscribers for Vrf objects")
 	}
 
-	fmt.Printf("CreateVrf(): Create Vrf: %+v\n", vrf)
+	log.Printf("CreateVrf(): Create Vrf: %+v\n", vrf)
 
 	// TODO: Move the check for VNI in a common place
 	// and use that comomn code also for checking the LB vni
@@ -703,7 +702,7 @@ func CreateVrf(vrf *Vrf) error {
 		} else {
 			_, ok := vpns[*vrf.Spec.Vni]
 			if ok {
-				fmt.Printf("CreateVrf(): VNI allready in use: %+v\n", *vrf.Spec.Vni)
+				log.Printf("CreateVrf(): VNI allready in use: %+v\n", *vrf.Spec.Vni)
 				return ErrVniInUse
 			}
 			vpns[*vrf.Spec.Vni] = false
@@ -754,7 +753,7 @@ func DeleteVrf(Name string) error {
 
 	subscribers := event_bus.EBus.GetSubscribers("vrf")
 	if subscribers == nil {
-		fmt.Println("DeleteVrf(): No subscribers for Vrf objects")
+		log.Println("DeleteVrf(): No subscribers for Vrf objects")
 	}
 
 	vrf := Vrf{}
@@ -811,7 +810,7 @@ func GetAllVrfs() ([]*Vrf, error) {
 	}
 
 	if !found {
-		fmt.Println("GetAllVrfs(): No VRFs have been found")
+		log.Println("GetAllVrfs(): No VRFs have been found")
 		return nil, ErrKeyNotFound
 	}
 
@@ -820,12 +819,12 @@ func GetAllVrfs() ([]*Vrf, error) {
 		found, err := infradb.client.Get(key, vrf)
 
 		if err != nil {
-			fmt.Printf("GetAllVrfs(): Failed to get the VRF %s from store: %v", key, err)
+			log.Printf("GetAllVrfs(): Failed to get the VRF %s from store: %v", key, err)
 			return nil, err
 		}
 
 		if !found {
-			fmt.Printf("GetAllVrfs(): VRF %s not found", key)
+			log.Printf("GetAllVrfs(): VRF %s not found", key)
 			return nil, ErrKeyNotFound
 		}
 		vrfs = append(vrfs, vrf)
@@ -840,7 +839,7 @@ func UpdateVrf(vrf *Vrf) error {
 
 	subscribers := event_bus.EBus.GetSubscribers("vrf")
 	if subscribers == nil {
-		fmt.Println("CreateVrf(): No subscribers for Vrf objects")
+		log.Println("CreateVrf(): No subscribers for Vrf objects")
 	}
 
 	err := infradb.client.Set(vrf.Name, vrf)
@@ -873,14 +872,14 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationId string,
 	if !found {
 		// No VRF object has been found in the database so we will instruct TaskManager to drop the Task that is related with this status update.
 		task_manager.TaskMan.StatusUpdated(Name, "vrf", vrf.ResourceVersion, notificationId, true, &component)
-		fmt.Printf("UpdateVrfStatus(): No VRF object has been found in DB with Name %s\n", Name)
+		log.Printf("UpdateVrfStatus(): No VRF object has been found in DB with Name %s\n", Name)
 		return nil
 	}
 
 	if vrf.ResourceVersion != resourceVersion {
 		// VRF object in the database with different resourceVersion so we will instruct TaskManager to drop the Task that is related with this status update.
 		task_manager.TaskMan.StatusUpdated(vrf.Name, "vrf", vrf.ResourceVersion, notificationId, true, &component)
-		fmt.Printf("UpdateVrfStatus(): Invalid resourceVersion %s for VRF %+v\n", resourceVersion, vrf)
+		log.Printf("UpdateVrfStatus(): Invalid resourceVersion %s for VRF %+v\n", resourceVersion, vrf)
 		return nil
 	}
 
@@ -922,7 +921,7 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationId string,
 				return err
 			}
 			if !found {
-				fmt.Println("UpdateVrfStatus(): No VPNs have been found")
+				log.Println("UpdateVrfStatus(): No VPNs have been found")
 				return ErrKeyNotFound
 			}
 
@@ -941,7 +940,7 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationId string,
 				return err
 			}
 			if !found {
-				fmt.Println("UpdateVrfStatus(): No VRFs have been found")
+				log.Println("UpdateVrfStatus(): No VRFs have been found")
 				return ErrKeyNotFound
 			}
 
@@ -952,7 +951,7 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationId string,
 				return err
 			}
 
-			fmt.Printf("UpdateVrfStatus(): VRF %s has been deleted\n", Name)
+			log.Printf("UpdateVrfStatus(): VRF %s has been deleted\n", Name)
 		} else {
 			vrf.Status.VrfOperStatus = VRF_OPER_STATUS_UP
 			err = infradb.client.Set(vrf.Name, vrf)
@@ -960,7 +959,7 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationId string,
 				log.Fatal(err)
 				return err
 			}
-			fmt.Printf("UpdateVrfStatus(): VRF %s has been updated: %+v\n", Name, vrf)
+			log.Printf("UpdateVrfStatus(): VRF %s has been updated: %+v\n", Name, vrf)
 		}
 	} else {
 		err = infradb.client.Set(vrf.Name, vrf)
@@ -968,7 +967,7 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationId string,
 			log.Fatal(err)
 			return err
 		}
-		fmt.Printf("UpdateVrfStatus(): VRF %s has been updated: %+v\n", Name, vrf)
+		log.Printf("UpdateVrfStatus(): VRF %s has been updated: %+v\n", Name, vrf)
 	}
 
 	task_manager.TaskMan.StatusUpdated(vrf.Name, "vrf", vrf.ResourceVersion, notificationId, false, &component)
@@ -982,10 +981,10 @@ func CreateSvi(svi *Svi) error {
 
 	subscribers := event_bus.EBus.GetSubscribers("svi")
 	if subscribers == nil {
-		fmt.Println("CreateSvi(): No subscribers for SVI objects")
+		log.Println("CreateSvi(): No subscribers for SVI objects")
 	}
 
-	fmt.Printf("CreateSvi(): Create SVI: %+v\n", svi)
+	log.Printf("CreateSvi(): Create SVI: %+v\n", svi)
 
 	// Checking if the VRF exists
 	vrf := Vrf{}
@@ -1070,7 +1069,7 @@ func DeleteSvi(Name string) error {
 
 	subscribers := event_bus.EBus.GetSubscribers("svi")
 	if subscribers == nil {
-		fmt.Println("DeleteSvi(): No subscribers for SVI objects")
+		log.Println("DeleteSvi(): No subscribers for SVI objects")
 	}
 
 	svi := Svi{}
@@ -1123,7 +1122,7 @@ func GetAllSvis() ([]*Svi, error) {
 	}
 
 	if !found {
-		fmt.Println("GetAllSvis(): No Svis have been found")
+		log.Println("GetAllSvis(): No Svis have been found")
 		return nil, ErrKeyNotFound
 	}
 
@@ -1132,12 +1131,12 @@ func GetAllSvis() ([]*Svi, error) {
 		found, err := infradb.client.Get(key, svi)
 
 		if err != nil {
-			fmt.Printf("GetAllSvis(): Failed to get the SVI %s from store: %v", key, err)
+			log.Printf("GetAllSvis(): Failed to get the SVI %s from store: %v", key, err)
 			return nil, err
 		}
 
 		if !found {
-			fmt.Printf("GetAllSvis(): SVI %s not found", key)
+			log.Printf("GetAllSvis(): SVI %s not found", key)
 			return nil, ErrKeyNotFound
 		}
 		svis = append(svis, svi)
@@ -1152,7 +1151,7 @@ func UpdateSvi(svi *Svi) error {
 
 	subscribers := event_bus.EBus.GetSubscribers("svi")
 	if subscribers == nil {
-		fmt.Println("UpdateSvi(): No subscribers for SVI objects")
+		log.Println("UpdateSvi(): No subscribers for SVI objects")
 	}
 
 	err := infradb.client.Set(svi.Name, svi)
@@ -1185,14 +1184,14 @@ func UpdateSviStatus(Name string, resourceVersion string, notificationId string,
 	if !found {
 		// No Svi object has been found in the database so we will instruct TaskManager to drop the Task that is related with this status update.
 		task_manager.TaskMan.StatusUpdated(Name, "svi", svi.ResourceVersion, notificationId, true, &component)
-		fmt.Printf("UpdateSviStatus(): No SVI object has been found in DB with Name %s\n", Name)
+		log.Printf("UpdateSviStatus(): No SVI object has been found in DB with Name %s\n", Name)
 		return nil
 	}
 
 	if svi.ResourceVersion != resourceVersion {
 		// Svi object in the database with different resourceVersion so we will instruct TaskManager to drop the Task that is related with this status update.
 		task_manager.TaskMan.StatusUpdated(svi.Name, "svi", svi.ResourceVersion, notificationId, true, &component)
-		fmt.Printf("UpdateSviStatus(): Invalid resourceVersion %s for SVI %+v\n", resourceVersion, svi)
+		log.Printf("UpdateSviStatus(): Invalid resourceVersion %s for SVI %+v\n", resourceVersion, svi)
 		return nil
 	}
 
@@ -1276,7 +1275,7 @@ func UpdateSviStatus(Name string, resourceVersion string, notificationId string,
 				return err
 			}
 			if !found {
-				fmt.Println("UpdateSviStatus(): No Svis have been found")
+				log.Println("UpdateSviStatus(): No Svis have been found")
 				return ErrKeyNotFound
 			}
 
@@ -1287,7 +1286,7 @@ func UpdateSviStatus(Name string, resourceVersion string, notificationId string,
 				return err
 			}
 
-			fmt.Printf("UpdateSviStatus(): Svi %s has been deleted\n", Name)
+			log.Printf("UpdateSviStatus(): Svi %s has been deleted\n", Name)
 		} else {
 			svi.Status.SviOperStatus = SVI_OPER_STATUS_UP
 			err = infradb.client.Set(svi.Name, svi)
@@ -1295,7 +1294,7 @@ func UpdateSviStatus(Name string, resourceVersion string, notificationId string,
 				log.Fatal(err)
 				return err
 			}
-			fmt.Printf("UpdateSviStatus(): SVI %s has been updated: %+v\n", Name, svi)
+			log.Printf("UpdateSviStatus(): SVI %s has been updated: %+v\n", Name, svi)
 		}
 	} else {
 
@@ -1304,7 +1303,7 @@ func UpdateSviStatus(Name string, resourceVersion string, notificationId string,
 			log.Fatal(err)
 			return err
 		}
-		fmt.Printf("UpdateSviStatus(): SVI %s has been updated: %+v\n", Name, svi)
+		log.Printf("UpdateSviStatus(): SVI %s has been updated: %+v\n", Name, svi)
 	}
 
 	task_manager.TaskMan.StatusUpdated(svi.Name, "svi", svi.ResourceVersion, notificationId, false, &component)
@@ -1335,7 +1334,7 @@ func SaveRoutingTable(rtNum uint32) error {
 
 	_, ok := rts[rtNum]
 	if ok {
-		fmt.Printf("SaveRoutingTable(): Routing Table %+v in use\n", rtNum)
+		log.Printf("SaveRoutingTable(): Routing Table %+v in use\n", rtNum)
 		return ErrRoutingTableInUse
 	}
 
@@ -1360,13 +1359,13 @@ func DeleteRoutingTable(rtNum uint32) error {
 	}
 
 	if !found {
-		fmt.Println("DeleteRoutingTable(): No routing tables have been found")
+		log.Println("DeleteRoutingTable(): No routing tables have been found")
 		return ErrKeyNotFound
 	}
 
 	_, ok := rts[rtNum]
 	if !ok {
-		fmt.Printf("DeleteRoutingTable(): Routing Table %+v not found\n", rtNum)
+		log.Printf("DeleteRoutingTable(): Routing Table %+v not found\n", rtNum)
 		return ErrKeyNotFound
 	}
 
