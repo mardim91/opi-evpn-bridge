@@ -1,12 +1,12 @@
 package LinuxGeneralModule
 
 import (
-	"encoding/binary"
-	"encoding/json"
+	//"encoding/binary"
+	//"encoding/json"
 	"fmt"
 
 	// "io/ioutil"
-	"log"
+	//"log"
 	"math/rand"
 	"net"
 	"os/exec"
@@ -14,10 +14,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"context"
 	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
+	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
+	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 	// "gopkg.in/yaml.v2"
 	"path"
 )
@@ -271,6 +275,9 @@ func handlevrf(objectData *event_bus.ObjectData) {
 var default_vtep string
 var ip_mtu int
 var br_tenant string
+var ctx context.Context
+var nlink utils.Netlink
+
 
 func Init() {
 	/*config, err := readConfig("config.yaml")
@@ -288,15 +295,13 @@ func Init() {
 	br_tenant = "br-tenant"
 	default_vtep = config.GlobalConfig.Linux_frr.Default_vtep
 	ip_mtu = config.GlobalConfig.Linux_frr.Ip_mtu
+	ctx = context.Background()
+        nlink = utils.NewNetlinkWrapper()
 }
 
-func routing_table_busy(table string) bool {
-	_, err := run([]string{"ip", "route", "show", "table", table}, false)
-	if err != 0 {
-		// fmt.Println("%s\n",CP)
-		return false
-	}
-	return true // reflect.ValueOf(CP).IsZero() && len(CP)!= 0
+func routing_table_busy(table int) bool {
+	_,err := nlink.RouteListFiltered(ctx,netlink.FAMILY_V4,&netlink.Route{Table: table,},netlink.RT_FILTER_TABLE)
+	return err == nil 
 }
 
 func set_up_bridge(LB *infradb.LogicalBridge) bool {
@@ -348,59 +353,93 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
 		*VRF.Metadata.RoutingTable[1] = 255
 		return "", true
 	}
-	vtip := fmt.Sprintf("%+v", VRF.Spec.VtepIP.IP)
 	VNI := fmt.Sprintf("%+v", *VRF.Spec.Vni)
 	routing_table := fmt.Sprintf("%+v", *VRF.Spec.Vni)
-	fmt.Printf("set_up_vrf: %s %s %s\n", vtip, VNI, routing_table)
 	VRF.Metadata.RoutingTable = make([]*uint32, 1)
 	VRF.Metadata.RoutingTable[0] = new(uint32)
-	if routing_table_busy(routing_table) {
+	if routing_table_busy(int(*VRF.Spec.Vni)) {
 		fmt.Printf("LGM :Routing table %s is not empty\n", routing_table)
 		// return "Error"
 	}
-	if reflect.ValueOf(VRF.Spec.VtepIP).IsZero() {
+	var vtip string
+	if !reflect.ValueOf(VRF.Spec.VtepIP).IsZero() {
+		vtip = fmt.Sprintf("%+v", VRF.Spec.VtepIP.IP)
 		// Verify that the specified VTEP IP exists as local IP
-		_, err := run([]string{"ip", "route", "list", "exact", vtip, "table", "local"}, false)
-		if err != 0 {
+		err := nlink.RouteListIpTable(ctx,vtip) 
+		// Not found similar API in viswananda library so retain the linux commands as it is .. not able to get the route list exact vtip table local 
+		if err != true {
 			fmt.Printf(" LGM: VTEP IP not found: %+v\n", VRF.Spec.VtepIP)
 			return "", false
 		}
 	} else {
 		// Pick the IP of interface default VTEP interface
 		// fmt.Printf("LGM: VTEP iP %+v\n",get_ip_address(default_vtep))
-		VRF.Spec.VtepIP = get_ip_address(default_vtep)
+		vtip = fmt.Sprintf("%+v", VRF.Spec.VtepIP.IP)
+		*VRF.Spec.VtepIP = get_ip_address(default_vtep)
 	}
+	fmt.Printf("set_up_vrf: %s %s %s\n", vtip, VNI, routing_table)
 	// Create the VRF interface for the specified routing table and add loopback address
-	CP, err := run([]string{"ip", "link", "add", VRF.Name, "type", "vrf", "table", routing_table}, false)
-	if err != 0 {
-		fmt.Printf("LGM: Error in executing command %s %s\n", "link add VRF type vrf table ", routing_table)
-		fmt.Printf("%s\n", CP)
+
+	link_adderr := nlink.LinkAdd(ctx,&netlink.Vrf{                       
+                LinkAttrs: netlink.LinkAttrs{Name: VRF.Name,},
+                Table: *VRF.Spec.Vni,
+                })
+	if link_adderr !=nil {
+		fmt.Printf("LGM: Error in Adding VRF link table %d\n",VRF.Spec.Vni)
 		return "", false
 	}
-	fmt.Printf("LGM Executed : ip link add %s type vrf table %s\n", VRF.Name, routing_table)
-	CP, err = run([]string{"ip", "link", "set", VRF.Name, "up", "mtu", Ip_Mtu}, false)
-	if err != 0 {
-		fmt.Printf("LGM:Error in executing command %s %s\n", "link set VRF MTU ", Ip_Mtu)
-		fmt.Printf("%s\n", CP)
+
+	fmt.Printf("LGM: VRF link %s Added with table id %d\n", VRF.Name, VRF.Spec.Vni)
+
+	link,link_err := nlink.LinkByName(ctx,VRF.Name)
+	if (link_err != nil){
+		fmt.Printf("Link %s not found\n",VRF.Name)
 		return "", false
 	}
-	fmt.Printf("LGM Executed : ip link set %s up mtu  %s\n", VRF.Name, Ip_Mtu)
+
+	linkmtu_err := nlink.LinkSetMTU(ctx,link,ip_mtu)
+	if (linkmtu_err != nil){
+                fmt.Printf("Unable to set MTU to link %s \n",VRF.Name)
+                return "", false
+        }
+
+	linksetup_err := nlink.LinkSetUp(ctx,link)
+        if (linksetup_err != nil){
+                fmt.Printf("Unable to set link %s UP \n",VRF.Name)
+                return "", false
+        }
+/*	myip := make(net.IP, 4)
+	binary.BigEndian.PutUint32(myip, in.Vrf.Spec.LoopbackIpPrefix.Addr.GetV4Addr())
+*/
 	Lbip := fmt.Sprintf("%+v", VRF.Spec.LoopbackIP.IP)
-	CP, err = run([]string{"ip", "address", "add", Lbip, "dev", VRF.Name}, false)
-	if err != 0 {
-		fmt.Printf("LGM: Error in executing command %s %s\n", "address add LoopbackIP", Lbip)
-		fmt.Printf("%s\n", CP)
+	
+	var address = VRF.Spec.LoopbackIP
+	var Addrs = &netlink.Addr{
+			IPNet: address,
+		     }
+        addr_err :=nlink.AddrAdd(ctx,link,Addrs)
+	if addr_err != nil {
+		fmt.Printf("LGM: Unable to set the loopback ip to VRF link %s \n",VRF.Name)
 		return "", false
 	}
-	fmt.Printf("LGM Executed : ip address add %s dev %s\n", Lbip, VRF.Name)
-	// Add low-prio default route. Otherwise a miss leads to lookup in the next higher table
-	CP, err = run([]string{"ip", "route", "add", "throw", "default", "table", routing_table, "proto", "ipu_infra_mgr", "metric", "9999"}, false)
-	if err != 0 {
-		fmt.Printf("LGM: Error in executing command %s %s\n", "route add throw default table ", routing_table)
-		fmt.Printf("%s\n", CP)
-		return "", false
+	
+	fmt.Printf("LGM: Added Address %s dev %s\n", Lbip, VRF.Name)
+	
+	Src1 := net.IPv4(0,0,0,0)
+        route :=netlink.Route{
+                        Table:     int(*VRF.Spec.Vni),
+                        Type:      unix.RTN_THROW,
+                        Protocol:  255,
+                        Priority:  9999,
+                        Src: Src1,
+                }
+	routeadd_err := nlink.RouteAdd(ctx,&route)
+	if routeadd_err != nil {
+		fmt.Printf("LGM : Failed in adding Route throw default %+v\n",routeadd_err)
+		return "",false
 	}
-	fmt.Printf("LGM Executed : ip route add throw default table  %s proto ipu_infra_gmr metric 9999\n", routing_table)
+
+	fmt.Printf("LGM : Added route throw default table %s proto ipu_infra_gmr metric 9999\n", routing_table)
 	// Disable reverse-path filtering to accept ingress traffic punted by the pipeline
 	// disable_rp_filter("rep-"+VRF.Name)
 	// Configuration specific for VRFs associated with L3 EVPN
@@ -409,33 +448,88 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
 		// Linux apparently creates a deterministic MAC address for a bridge type link with a given
 		// name. We need to assign a true random MAC address to avoid collisions when pairing two
 		// IPU servers.
+
+		br_err := nlink.LinkAdd(ctx,&netlink.Bridge{                       
+                		 LinkAttrs: netlink.LinkAttrs{Name: "br-"+VRF.Name},
+                	})
+	        if br_err != nil {
+        	        fmt.Printf("Error in added bridge port\n")
+                	return "", false
+	        }
+		fmt.Printf("LGM Added link br-%s type bridge\n", VRF.Name  )
+
 		rmac := fmt.Sprintf("%+v", GenerateMac()) // str(macaddress.MAC(b'\x00'+random.randbytes(5))).replace("-", ":")
-		CP, err := run([]string{"ip", "link", "add", "br-" + VRF.Name, "address", rmac, "type", "bridge"}, false)
-		if err != 0 {
-			fmt.Printf("LGM Rmac : %s\n", rmac)
-			fmt.Printf("LGM: Error in executing command %s %s\n", "ip link add address rmac", CP)
+		hw,_ := net.ParseMAC(rmac)
+			
+		link_br,br_err := nlink.LinkByName(ctx,"br-"+VRF.Name)
+		if br_err != nil {
+			fmt.Printf("LGM : Error in getting the br-%s\n",VRF.Name)
 			return "", false
 		}
-		fmt.Printf("LGM Executed : ip link add br-%s address %s tyoe bridge\n", VRF.Name, rmac)
-		CP, err = run([]string{"ip", "link", "set", "br-" + VRF.Name, "master", VRF.Name, "up", "mtu", Ip_Mtu}, false)
-		if err != 0 {
-			fmt.Printf("LGM: Error in executing command %s %s\n", "ip link set master VRF mtu", CP)
+		hw_err := nlink.LinkSetHardwareAddr(ctx, link_br,hw)
+		if hw_err != nil {
+			fmt.Printf("LGM: Failed in the setting Hardware Address\n")
 			return "", false
 		}
-		fmt.Printf("LGM Executed : ip link set  br-%s master  %s up mtu \n", VRF.Name, Ip_Mtu)
+		
+		linkmtu_err := nlink.LinkSetMTU(ctx,link_br,ip_mtu)
+       		if (linkmtu_err != nil){
+               		fmt.Printf("Unable to set MTU to link br-%s \n",VRF.Name)
+	                return "", false
+	        }
+		
+		link_master, err_master := nlink.LinkByName(ctx,VRF.Name)
+	        if err_master != nil {
+        	        fmt.Printf("Error in getting the %s\n",VRF.Name)
+                	return "", false
+	        }
+
+		err :=nlink.LinkSetMaster(ctx,link_br, link_master)
+	        if err != nil {
+        	        fmt.Printf("Unable to set the master to br-%s link",VRF.Name)
+                	return "", false
+	        }
+
+		
+		linksetup_err = nlink.LinkSetUp(ctx,link_br)
+        	if (linksetup_err != nil){
+                	fmt.Printf("Unable to set link %s UP \n",VRF.Name)
+	                return "", false
+        	}
+		fmt.Printf("LGM: link set  br-%s master  %s up mtu \n", VRF.Name, Ip_Mtu)
+		
 		// Create the VXLAN link in the external bridge
-		CP, err = run([]string{"ip", "link", "add", "vxlan-" + VRF.Name, "type", "vxlan", "id", VNI, "local", vtip, "dstport", "4789", "nolearning", "proxy"}, false)
-		if err != 0 {
-			fmt.Printf("LGM: Error in executing command ip link add vxlan-%s type vxlan id %s local %s dstport 4789 nolearning proxy\n", VRF.Name, VNI, vtip, CP)
-			return "", false
-		}
-		fmt.Printf("LGM Executed : ip link add vxlan-%s type vxlan id %s local %s dstport 4789 nolearning proxy\n", VRF.Name, VNI, vtip)
-		CP, err = run([]string{"ip", "link", "set", "vxlan-" + VRF.Name, "master", "br-" + VRF.Name, "up", "mtu", Ip_Mtu}, false)
-		if err != 0 {
-			fmt.Printf("LGM: Error in executing command %s %s\n", "ip link set master BR up mtu", CP)
-			return "", false
-		}
-		fmt.Printf("LGM Executed : ip link set vxlan-%s master br-%s up mtu %s\n", VRF.Name, VRF.Name, Ip_Mtu)
+		
+		Src_vtep := VRF.Spec.VtepIP.IP
+		vxlan_err := nlink.LinkAdd(ctx,&netlink.Vxlan{
+			LinkAttrs: netlink.LinkAttrs{Name: "vxlan-"+VRF.Name,MTU :ip_mtu,},VxlanId: int(*VRF.Spec.Vni),SrcAddr : Src_vtep, Learning : false, Proxy : true,Port : 4789,})
+                if vxlan_err != nil {
+                        fmt.Printf("Error in added vxlan port\n")
+                        return "", false
+                }
+
+		fmt.Printf("LGM : link added vxlan-%s type vxlan id %s local %s dstport 4789 nolearning proxy\n", VRF.Name, VNI, vtip)
+	
+		link_vxlan, vxlan_err  := nlink.LinkByName(ctx,"vxlan-"+VRF.Name)
+                if vxlan_err != nil {
+                        fmt.Printf("Error in getting the %s\n","vxlan-"+VRF.Name)
+                        return "", false
+                }
+
+
+		err=nlink.LinkSetMaster(ctx,link_vxlan, link_br)
+                if err != nil {
+                        fmt.Printf("Unable to set the master to vxlan-%s link",VRF.Name)
+                        return "", false
+                }
+
+		fmt.Printf("VRF Link vxlan setup master  %+v\n",err)
+		
+		linksetup_err = nlink.LinkSetUp(ctx,link_vxlan)
+                if (linksetup_err != nil){
+                        fmt.Printf("Unable to set link %s UP \n",VRF.Name)
+                        return "", false
+                }
 	}
 	details := fmt.Sprintf("{\"routing_table\":\"%s\"}", routing_table)
 	*VRF.Metadata.RoutingTable[0] = *VRF.Spec.Vni
@@ -447,6 +541,7 @@ func set_up_svi(SVI *infradb.Svi) (string, bool) {
 	MacAddress := fmt.Sprintf("%+v", SVI.Spec.MacAddress)
 	ip_mtu := fmt.Sprintf("%+v", ip_mtu)
 	vid := strings.Split(path.Base(SVI.Spec.LogicalBridge),"vlan")[1]
+	/*
 	CP, err := run([]string{"bridge", "vlan", "add", "dev", br_tenant, "vid", vid ,"self"},false)
 	if err != 0 {
 		fmt.Printf("LGM: Error in executing command %s %s\n", "bridge vlan add dev ", br_tenant)
@@ -454,6 +549,7 @@ func set_up_svi(SVI *infradb.Svi) (string, bool) {
 		return "", false
 	}
 	fmt.Printf("LGM Executed : bridge vlan add dev %s vid %s self\n", br_tenant, vid)
+	*/
 	CP, err = run([]string{"ip", "link", "add", "link", br_tenant, "name", link_svi, "type", "vlan", "id", vid}, false)
 	if err != 0 {
 		fmt.Printf("LGM: Error in executing command %s %s %s\n", "ip link add link",br_tenant, link_svi)
@@ -506,33 +602,6 @@ func GenerateMac() net.HardwareAddr {
 	return mac
 }
 
-type Addr_show_dev struct {
-	Ifindex   int
-	Ifname    string
-	Flags     []string
-	Mtu       int
-	Qdisc     string
-	Operstate string
-	Group     string
-	Txqlen    int
-	Link_type string
-	Address   string
-	Broadcast string
-	Addr_info []AddrInfo
-}
-
-type AddrInfo struct {
-	Family              string
-	Local               string
-	Prefixlen           int
-	Broadcast           string
-	Scope               string
-	Noprefixroute       bool
-	Label               string
-	Valid_life_time     uint64
-	Preferred_life_time uint64
-}
-
 func NetMaskToInt(mask int) (netmaskint [4]int64) {
 	var binarystring string
 
@@ -561,92 +630,91 @@ type valid_ip struct {
 	Mask int
 }
 
-func get_ip_address(dev string) *net.IPNet {
-	var valid_ips []valid_ip
-	CP, err := run([]string{"ip", "-j", "address", "show", "dev", dev}, false)
-	if err != 0 {
-		fmt.Printf("LGM:Error in executing \n")
-		return &net.IPNet{
-			IP: net.ParseIP("0.0.0.0"),
+func get_ip_address(dev string) net.IPNet {
+	link, err := nlink.LinkByName(ctx,dev)  
+        if err != nil {
+	       fmt.Printf("LGM: Error in LinkByName %+v\n",err)
+               return net.IPNet{
+                        IP: net.ParseIP("0.0.0.0"),
+               }
+        }
+
+	addrs, err := nlink.AddrList(ctx,link, netlink.FAMILY_V4)   // ip address show
+        if err != nil {
+		fmt.Printf("LGM: Error in AddrList\n")
+	       return net.IPNet{
+                        IP: net.ParseIP("0.0.0.0"),
+               }
+        }
+	var address = &net.IPNet{
+                                IP: net.IPv4(127,0,0,0),
+                                Mask: net.CIDRMask(8, 32),}
+        var addr = &netlink.Addr{IPNet: address}
+	var valid_ips []netlink.Addr
+	for index:=0; index < len(addrs); index++ {
+		if !addr.Equal(addrs[index]){
+			valid_ips = append(valid_ips,addrs[index])	
 		}
 	}
-	// Res := CP[2:len(CP)-3]
-	Res := strings.Split(CP[2:len(CP)-3], "]},{")
-	// fmt.Printf("JSON1 %+v \n",Res[0])
-	// From the only interface in the list pick the first IP address
-	// outside 127.0.0.0/8 loopback network.
-	for i := 0; i < len(Res); i++ {
-		var Asd Addr_show_dev
-		err := json.Unmarshal([]byte(fmt.Sprintf("{%v}", Res[i])), &Asd)
-		if err != nil {
-			log.Println("error-", err)
-		}
-		// var ips []string
-		for addr := 0; addr < len(Asd.Addr_info); addr++ {
-			// ips=append(ips,Asd.Addr_info[addr].Local)
-			if Asd.Addr_info[addr].Local != "127.0.0.0/8" {
-				var VIp valid_ip
-				VIp.IP = Asd.Addr_info[addr].Local
-				VIp.Mask = Asd.Addr_info[addr].Prefixlen
-				valid_ips = append(valid_ips, VIp)
-			}
-		}
-	}
-	mtoip := NetMaskToInt(valid_ips[0].Mask)
-	b3 := make([]byte, 8) // Converting int64 to byte
-	binary.LittleEndian.PutUint64(b3, uint64(mtoip[3]))
-	b2 := make([]byte, 8)
-	binary.LittleEndian.PutUint64(b2, uint64(mtoip[2]))
-	b1 := make([]byte, 8)
-	binary.LittleEndian.PutUint64(b1, uint64(mtoip[1]))
-	b0 := make([]byte, 8)
-	binary.LittleEndian.PutUint64(b0, uint64(mtoip[0]))
-	nIP := &net.IPNet{
-		IP:   net.ParseIP(valid_ips[0].IP),
-		Mask: net.IPv4Mask(b0[0], b1[0], b2[0], b3[0]),
-	}
-	return nIP
+	return *valid_ips[0].IPNet
 }
 
 func tear_down_vrf(VRF *infradb.Vrf) bool {
 	Ifname := strings.Split(VRF.Name, "/")
 	ifwlen := len(Ifname)
 	VRF.Name = Ifname[ifwlen-1]
-	CP, err := run([]string{"ifconfig", "-a", VRF.Name}, false)
-	if err != 0 {
-		fmt.Printf("CP LGM %s\n", CP)
-		return true
-	}
+	link,err1 := nlink.LinkByName(ctx,VRF.Name)
+        if (err1 != nil){
+                fmt.Printf("Link %s not found %+v\n",VRF.Name,err1)
+                return true
+        }
+
 	if VRF.Name == "GRD" {
 		return true
 	}
 	routing_table := fmt.Sprintf("%+v", *VRF.Spec.Vni)
 	// Delete the Linux networking artefacts in reverse order
 	if !reflect.ValueOf(VRF.Spec.Vni).IsZero() {
-		CP, err = run([]string{"ip", "link", "delete", "vxlan-" + VRF.Name}, false)
-		if err != 0 {
-			fmt.Printf("LGM: Error in executing command %s %s\n", "ip link deleted vxlan ", CP)
+		
+		link_vxlan,link_err := nlink.LinkByName(ctx,"vxlan-"+VRF.Name)
+        	if (link_err != nil){
+	                fmt.Printf("Link vxlan-%s not found %+v\n",VRF.Name,link_err)
+                	return false
+        	}
+	 	delerr := nlink.LinkDel(ctx,link_vxlan)
+		if (delerr !=nil){
+			fmt.Printf("LGM: Error in delete vxlan %+v\n", delerr)
 			return false
 		}
-		fmt.Printf("LGM Executed : ip link delete vxlan-%s\n", VRF.Name)
-		CP, err = run([]string{"ip", "link", "delete", "br-" + VRF.Name}, false)
-		if err != 0 {
-			fmt.Printf("LGM: Error in executing command %s %s\n", "ip link delete br-vrf ", CP)
-			return false
-		}
-		fmt.Printf("LGM Executed : ip link delete br-%s\n", VRF.Name)
-		CP, err = run([]string{"ip", "route", "flush", "table", routing_table}, false)
-		if err != 0 {
-			fmt.Printf("LGM: Error in executing command ip route flush table %s\n", routing_table, CP)
-			return false
-		}
+		fmt.Printf("LGM : Delete vxlan-%s\n", VRF.Name)
+		
+		link_br,linkbr_err := nlink.LinkByName(ctx,"br-"+VRF.Name)
+                if (linkbr_err != nil){
+                        fmt.Printf("Link br-%s not found %+v\n",VRF.Name,linkbr_err)
+                        return false
+                }
+                delerr = nlink.LinkDel(ctx,link_br)
+                if (delerr !=nil){
+                        fmt.Printf("LGM: Error in delete br %+v\n", delerr)
+                        return false
+                }
+                fmt.Printf("LGM : Delete br-%s\n", VRF.Name)
+		
+	
+		flusherr := nlink.RouteFlushTable(ctx,routing_table)
+                if (flusherr !=nil){
+                        fmt.Printf("LGM: Error in flush table  %+v\n", routing_table)
+                        return false
+                }
 		fmt.Printf("LGM Executed : ip route flush table %s\n", routing_table)
-		CP, err = run([]string{"ip", "link", "delete", VRF.Name}, false)
-		if err != 0 {
-			fmt.Printf("LGM: Error in executing command ip link delete %s: %s\n", VRF.Name, CP)
-			return false
-		}
-		fmt.Printf("LGM Executed : ip link delete  %s\n", VRF.Name)
+		
+                
+		delerr = nlink.LinkDel(ctx,link)
+                if (delerr !=nil){
+                        fmt.Printf("LGM: Error in delete br %+v\n", delerr)
+                        return false
+                }
+		fmt.Printf("LGM :link delete  %s\n", VRF.Name)
 	}
 	return true
 }
