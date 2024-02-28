@@ -541,7 +541,7 @@ func set_up_svi(SVI *infradb.Svi) (string, bool) {
 	MacAddress := fmt.Sprintf("%+v", SVI.Spec.MacAddress)
 	ip_mtu := fmt.Sprintf("%+v", ip_mtu)
 	vid := strings.Split(path.Base(SVI.Spec.LogicalBridge),"vlan")[1]
-	/*
+	
 	CP, err := run([]string{"bridge", "vlan", "add", "dev", br_tenant, "vid", vid ,"self"},false)
 	if err != 0 {
 		fmt.Printf("LGM: Error in executing command %s %s\n", "bridge vlan add dev ", br_tenant)
@@ -549,7 +549,7 @@ func set_up_svi(SVI *infradb.Svi) (string, bool) {
 		return "", false
 	}
 	fmt.Printf("LGM Executed : bridge vlan add dev %s vid %s self\n", br_tenant, vid)
-	*/
+	
 	CP, err = run([]string{"ip", "link", "add", "link", br_tenant, "name", link_svi, "type", "vlan", "id", vid}, false)
 	if err != 0 {
 		fmt.Printf("LGM: Error in executing command %s %s %s\n", "ip link add link",br_tenant, link_svi)
