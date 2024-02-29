@@ -28,24 +28,13 @@ import (
 
 type ModulelgmHandler struct{}
 
-/*type SubscriberConfig struct {
-	Name     string   `yaml:"name"`
-	Priority int      `yaml:"priority"`
-	Events   []string `yaml:"events"`
-}
+const RoutingTableMax = 4000
+const RoutingTableMin = 1000
 
-type Linux_frrConfig struct {
-	Enable       bool   `yaml:"enabled"`
-	Default_vtep string `yaml:"default_vtep"`
-	Port_mux     string `yaml:"port_mux"`
-	Vrf_mux      string `yaml:"vrf_mux"`
-	Ip_mtu       int    `yaml:"ip_mtu"`
+// range specification, note that min <= max
+func Generate_route_table()(uint32) {
+       return uint32(rand.Intn(RoutingTableMax-RoutingTableMin+1) + RoutingTableMin)
 }
-
-type Config struct {
-	Subscribers []SubscriberConfig `yaml:"subscribers"`
-	Linux_frr   Linux_frrConfig    `yaml:"linux_frr"`
-}*/
 
 func run(cmd []string, flag bool) (string, int) {
 	var out []byte
@@ -299,8 +288,8 @@ func Init() {
         nlink = utils.NewNetlinkWrapper()
 }
 
-func routing_table_busy(table int) bool {
-	_,err := nlink.RouteListFiltered(ctx,netlink.FAMILY_V4,&netlink.Route{Table: table,},netlink.RT_FILTER_TABLE)
+func routing_table_busy(table uint32) bool {
+	_,err := nlink.RouteListFiltered(ctx,netlink.FAMILY_V4,&netlink.Route{Table: int(table),},netlink.RT_FILTER_TABLE)
 	return err == nil 
 }
 
@@ -383,12 +372,11 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
 		*VRF.Metadata.RoutingTable[1] = 255
 		return "", true
 	}
-	VNI := fmt.Sprintf("%+v", *VRF.Spec.Vni)
-	routing_table := fmt.Sprintf("%+v", *VRF.Spec.Vni)
+	routing_table := Generate_route_table()
 	VRF.Metadata.RoutingTable = make([]*uint32, 1)
 	VRF.Metadata.RoutingTable[0] = new(uint32)
-	if routing_table_busy(int(*VRF.Spec.Vni)) {
-		fmt.Printf("LGM :Routing table %s is not empty\n", routing_table)
+	if routing_table_busy(routing_table) {
+		fmt.Printf("LGM :Routing table %d is not empty\n", routing_table)
 		// return "Error"
 	}
 	var vtip string
@@ -407,12 +395,12 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
 		vtip = fmt.Sprintf("%+v", VRF.Spec.VtepIP.IP)
 		*VRF.Spec.VtepIP = get_ip_address(default_vtep)
 	}
-	fmt.Printf("set_up_vrf: %s %s %s\n", vtip, VNI, routing_table)
+	fmt.Printf("set_up_vrf: %s %d %d\n", vtip, *VRF.Spec.Vni, routing_table)
 	// Create the VRF interface for the specified routing table and add loopback address
 
 	link_adderr := nlink.LinkAdd(ctx,&netlink.Vrf{                       
                 LinkAttrs: netlink.LinkAttrs{Name: VRF.Name,},
-                Table: *VRF.Spec.Vni,
+                Table: routing_table,
                 })
 	if link_adderr !=nil {
 		fmt.Printf("LGM: Error in Adding VRF link table %d\n",VRF.Spec.Vni)
@@ -438,9 +426,6 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
 		fmt.Printf("LGM : Unable to set link %s UP \n",VRF.Name)
                 return "", false
         }
-/*	myip := make(net.IP, 4)
-	binary.BigEndian.PutUint32(myip, in.Vrf.Spec.LoopbackIpPrefix.Addr.GetV4Addr())
-*/
 	Lbip := fmt.Sprintf("%+v", VRF.Spec.LoopbackIP.IP)
 	
 	var address = VRF.Spec.LoopbackIP
@@ -457,7 +442,7 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
 	
 	Src1 := net.IPv4(0,0,0,0)
         route :=netlink.Route{
-                        Table:     int(*VRF.Spec.Vni),
+                        Table:     int(routing_table),
                         Type:      unix.RTN_THROW,
                         Protocol:  255,
                         Priority:  9999,
@@ -469,7 +454,7 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
 		return "",false
 	}
 
-	fmt.Printf("LGM : Added route throw default table %s proto opi_evpn_br metric 9999\n", routing_table)
+	fmt.Printf("LGM : Added route throw default table %d proto opi_evpn_br metric 9999\n", routing_table)
 	// Disable reverse-path filtering to accept ingress traffic punted by the pipeline
 	// disable_rp_filter("rep-"+VRF.Name)
 	// Configuration specific for VRFs associated with L3 EVPN
@@ -538,7 +523,7 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
                         return "", false
                 }
 
-		fmt.Printf("LGM : link added vxlan-%s type vxlan id %s local %s dstport 4789 nolearning proxy\n", VRF.Name, VNI, vtip)
+		fmt.Printf("LGM : link added vxlan-%s type vxlan id %d local %s dstport 4789 nolearning proxy\n", VRF.Name, *VRF.Spec.Vni, vtip)
 	
 		link_vxlan, vxlan_err  := nlink.LinkByName(ctx,"vxlan-"+VRF.Name)
                 if vxlan_err != nil {
@@ -553,7 +538,7 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
                         return "", false
                 }
 
-		fmt.Printf("VRF Link vxlan setup master  %+v\n",err)
+		fmt.Printf("LGM: VRF Link vxlan setup master\n")
 		
 		linksetup_err = nlink.LinkSetUp(ctx,link_vxlan)
                 if (linksetup_err != nil){
@@ -561,8 +546,8 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
                         return "", false
                 }
 	}
-	details := fmt.Sprintf("{\"routing_table\":\"%s\"}", routing_table)
-	*VRF.Metadata.RoutingTable[0] = *VRF.Spec.Vni
+	details := fmt.Sprintf("{\"routing_table\":\"%d\"}", routing_table)
+	*VRF.Metadata.RoutingTable[0] = routing_table
 	return details, true
 }
 
@@ -755,7 +740,7 @@ func tear_down_vrf(VRF *infradb.Vrf) bool {
 	if VRF.Name == "GRD" {
 		return true
 	}
-	routing_table := fmt.Sprintf("%+v", *VRF.Spec.Vni)
+	routing_table := *VRF.Metadata.RoutingTable[0]
 	// Delete the Linux networking artefacts in reverse order
 	if !reflect.ValueOf(VRF.Spec.Vni).IsZero() {
 		
@@ -784,12 +769,13 @@ func tear_down_vrf(VRF *infradb.Vrf) bool {
                 fmt.Printf("LGM : Delete br-%s\n", VRF.Name)
 		
 	
-		flusherr := nlink.RouteFlushTable(ctx,routing_table)
+		route_table := fmt.Sprintf("%+v",routing_table)
+	        flusherr := nlink.RouteFlushTable(ctx,route_table)
                 if (flusherr !=nil){
-                        fmt.Printf("LGM: Error in flush table  %+v\n", routing_table)
+                        fmt.Printf("LGM: Error in flush table  %+v\n", route_table)
                         return false
                 }
-		fmt.Printf("LGM Executed : ip route flush table %s\n", routing_table)
+		fmt.Printf("LGM Executed : ip route flush table %s\n", route_table)
 		
                 
 		delerr = nlink.LinkDel(ctx,link)
