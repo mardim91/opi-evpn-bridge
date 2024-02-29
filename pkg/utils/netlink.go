@@ -7,6 +7,8 @@ package utils
 import (
 	"context"
 	"net"
+	"os/exec"
+	"fmt"
 
 	"github.com/vishvananda/netlink"
 
@@ -14,7 +16,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"errors"
-	"os/exec"
 )
 
 // Netlink represents limited subset of functions from netlink package
@@ -24,6 +25,7 @@ type Netlink interface {
 	LinkSetHardwareAddr(context.Context, netlink.Link, net.HardwareAddr) error
 	AddrAdd(context.Context, netlink.Link, *netlink.Addr) error
 	AddrDel(context.Context, netlink.Link, *netlink.Addr) error
+	AddrList(context.Context, netlink.Link, int) ([]netlink.Addr, error)
 	LinkAdd(context.Context, netlink.Link) error
 	LinkDel(context.Context, netlink.Link) error
 	LinkSetUp(context.Context, netlink.Link) error
@@ -34,6 +36,10 @@ type Netlink interface {
 	BridgeVlanDel(context.Context, netlink.Link, uint16, bool, bool, bool, bool) error
 	LinkSetMTU(context.Context, netlink.Link, int) error
 	BridgeFdbAdd(context.Context, string, string) error
+	RouteAdd(context.Context,*netlink.Route) error
+	RouteListFiltered(context.Context,int,*netlink.Route,uint64) ([]netlink.Route, error)
+	RouteFlushTable(context.Context, string) error
+	RouteListIpTable(context.Context, string) bool
 }
 
 func run(cmd []string, flag bool) (string, int) {
@@ -44,7 +50,7 @@ func run(cmd []string, flag bool) (string, int) {
                 if flag {
                         //panic(fmt.Sprintf("Command %s': exit code %s;", out, err.Error()))
                 }
-                //log.Printf("Command %s': exit code %s;\n", out, err)
+                //fmt.Printf("Command %s': exit code %s;\n", out, err)
                 return "Error", -1
         }
         output := string(out)
@@ -69,6 +75,7 @@ func (n *NetlinkWrapper) LinkByName(ctx context.Context, name string) (netlink.L
 	_, childSpan := n.tracer.Start(ctx, "netlink.LinkByName")
 	childSpan.SetAttributes(attribute.String("link.name", name))
 	defer childSpan.End()
+
 	return netlink.LinkByName(name)
 }
 
@@ -104,6 +111,15 @@ func (n *NetlinkWrapper) AddrDel(ctx context.Context, link netlink.Link, addr *n
 	return netlink.AddrDel(link, addr)
 }
 
+// AddrList is a wrapper for netlink.AddrList
+func (n *NetlinkWrapper) AddrList(ctx context.Context, link netlink.Link, family int)  ([]netlink.Addr, error) {
+        _, childSpan := n.tracer.Start(ctx, "netlink.AddrList")
+        childSpan.SetAttributes(attribute.String("link.name", link.Attrs().Name))
+        defer childSpan.End()
+        return netlink.AddrList(link, family)
+}
+
+
 // LinkAdd is a wrapper for netlink.LinkAdd
 func (n *NetlinkWrapper) LinkAdd(ctx context.Context, link netlink.Link) error {
 	_, childSpan := n.tracer.Start(ctx, "netlink.LinkAdd")
@@ -126,6 +142,15 @@ func (n *NetlinkWrapper) LinkSetUp(ctx context.Context, link netlink.Link) error
 	childSpan.SetAttributes(attribute.String("link.name", link.Attrs().Name))
 	defer childSpan.End()
 	return netlink.LinkSetUp(link)
+}
+
+
+// LinkSetUp is a wrapper for netlink.LinkSetUp
+func (n *NetlinkWrapper) LinkSetMTU(ctx context.Context, link netlink.Link,mtu int) error {
+	_, childSpan := n.tracer.Start(ctx, "netlink.LinkSetMTU")
+	childSpan.SetAttributes(attribute.String("link.name", link.Attrs().Name))
+	defer childSpan.End()
+	return netlink.LinkSetMTU(link,mtu)
 }
 
 // LinkSetDown is a wrapper for netlink.LinkSetDown
@@ -168,16 +193,44 @@ func (n *NetlinkWrapper) BridgeVlanDel(ctx context.Context, link netlink.Link, v
 	return netlink.BridgeVlanDel(link, vid, pvid, untagged, self, master)
 }
 
-func (n *NetlinkWrapper) LinkSetMTU(ctx context.Context, link netlink.Link, mtu int) error {
-	_, childSpan := n.tracer.Start(ctx, "netlink.LinkSetMTU")
-	childSpan.SetAttributes(attribute.String("link.name", link.Attrs().Name))
-	defer childSpan.End()
-	return netlink.LinkSetMTU(link, mtu)
+// RouteListFiltered is a wrapper for netlink.RouteListFiltered
+func (n *NetlinkWrapper) RouteListFiltered(ctx context.Context, family int, route *netlink.Route, filter uint64) ([]netlink.Route,error) {
+	_, childSpan := n.tracer.Start(ctx, "netlink.RouteListFiltered")
+//	link,_:=netlink.LinkByIndex(route.LinkIndex)
+        childSpan.SetAttributes(attribute.String("route.LinkIndex", string(route.LinkIndex)))
+        defer childSpan.End()
+        return netlink.RouteListFiltered(family,route,filter)
 }
+
+
+// RouteAdd is a wrapper for netlink.RouteAdd
+func (n *NetlinkWrapper) RouteAdd(ctx context.Context,route *netlink.Route) (error) {
+	_, childSpan := n.tracer.Start(ctx, "netlink.RouteAdd")
+	netlink.LinkByIndex(route.LinkIndex)
+        childSpan.SetAttributes(attribute.String("route.LinkIndex", string(route.LinkIndex)))
+        defer childSpan.End()
+        return netlink.RouteAdd(route)
+}
+
+func (n *NetlinkWrapper) RouteFlushTable(ctx context.Context,routing_table string) error {
+	CP, err := run([]string{"ip", "route", "flush", "table", routing_table}, false)
+                if err != 0 {
+                        return fmt.Errorf("LGM: Error in executing command ip route flush table %s\n", routing_table, CP)
+		}
+	return nil
+}
+
+
+func (n *NetlinkWrapper) RouteListIpTable(ctx context.Context,vtip string) bool {
+	_, err := run([]string{"ip", "route", "list", "exact", vtip, "table", "local"}, false)
+                return err == 0 
+}
+
+
 func (n *NetlinkWrapper) BridgeFdbAdd(ctx context.Context, link string, MacAddress string) error {
-	_, err := run([]string{"bridge", "fdb", "add", MacAddress, "dev", link, "master", "static", "extern_learn"}, false)
+        _, err := run([]string{"bridge", "fdb", "add", MacAddress, "dev", link, "master", "static", "extern_learn"}, false)
         if err !=0 {
                 return errors.New("Failed to add fdb entry")
         }
-	return nil
+        return nil
 }
