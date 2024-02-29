@@ -1,4 +1,4 @@
-package LinuxVendorModule
+package ipu
 
 import (
 	"fmt"

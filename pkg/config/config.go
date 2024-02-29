@@ -60,6 +60,7 @@ type Config struct {
 	Database    string             `yaml:"database"`
 	DBAddress   string             `yaml:"dbaddress"`
 	FRRAddress  string             `yaml:"frraddress"`
+	Buildenv string		`yaml:"buildenv"`
 	Subscribers []SubscriberConfig `yaml:"subscribers"`
 	Linux_frr   Linux_frrConfig    `yaml:"linux_frr"`
 	Netlink     Netlink_Config     `yaml:"netlink"`

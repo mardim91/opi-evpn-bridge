@@ -39,12 +39,12 @@ import (
 	// "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	// "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	lgm "github.com/opiproject/opi-evpn-bridge/pkg/LinuxGeneralModule"
-	lvm "github.com/opiproject/opi-evpn-bridge/pkg/LinuxVendorModule"
+	gen_linux "github.com/opiproject/opi-evpn-bridge/pkg/LinuxGeneralModule"
+	ipu_linux "github.com/opiproject/opi-evpn-bridge/pkg/LinuxVendorModule/ipu"
 	frr "github.com/opiproject/opi-evpn-bridge/pkg/frr"
 	netlink "github.com/opiproject/opi-evpn-bridge/pkg/netlink"
-	ipu "github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/intel/p4runtime/p4translation"
-	lci "github.com/opiproject/opi-evpn-bridge/pkg/LinuxCIModule"
+	ipu_vendor "github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/intel/p4runtime/p4translation"
+	ci_linux "github.com/opiproject/opi-evpn-bridge/pkg/LinuxCIModule"
 )
 
 const (
@@ -172,12 +172,20 @@ var rootCmd = &cobra.Command{
 		// TODO: We need to initialize the modules that exist in the configuration
 		// and not all of them as in the case where we have only slowpath then there is no netlink or
 		// ipu module.
-		lgm.Init()
-		lvm.Init()
-		frr.Init()
-		netlink.Init()
-		ipu.Init()
-		lci.Init()
+		switch config.GlobalConfig.Buildenv {
+		case "ipu":
+			gen_linux.Init()
+			ipu_linux.Init()
+			frr.Init()
+			netlink.Init()
+			ipu_vendor.Init()
+		case "ci":
+			gen_linux.Init()
+			ci_linux.Init()
+			frr.Init()
+		default:
+			log.Fatal(" ERROR: Could not find Build env ")
+		}
 
 		// Create GRD VRF configuration during startup
 		if err := createGrdVrf(); err != nil {
