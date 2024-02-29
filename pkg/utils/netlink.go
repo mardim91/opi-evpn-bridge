@@ -40,12 +40,13 @@ type Netlink interface {
 	RouteListFiltered(context.Context,int,*netlink.Route,uint64) ([]netlink.Route, error)
 	RouteFlushTable(context.Context, string) error
 	RouteListIpTable(context.Context, string) bool
+	LinkSetBrNeighSuppress(context.Context, netlink.Link, bool) error
 }
 
 func run(cmd []string, flag bool) (string, int) {
         var out []byte
         var err error
-        out, err = exec.Command("sudo", cmd...).CombinedOutput()
+	out, err = exec.Command(cmd[0], cmd[1:]...).CombinedOutput()
         if err != nil {
                 if flag {
                         //panic(fmt.Sprintf("Command %s': exit code %s;", out, err.Error()))
@@ -233,4 +234,10 @@ func (n *NetlinkWrapper) BridgeFdbAdd(ctx context.Context, link string, MacAddre
                 return errors.New("Failed to add fdb entry")
         }
         return nil
+}
+func (n *NetlinkWrapper) LinkSetBrNeighSuppress(ctx context.Context, link netlink.Link, neigh_suppress bool) error {
+	_, childSpan := n.tracer.Start(ctx, "netlink.LinkSetBrNeighSuppress")
+	childSpan.SetAttributes(attribute.String("link.name", link.Attrs().Name))
+	defer childSpan.End()
+	return netlink.LinkSetBrNeighSuppress(link, neigh_suppress)
 }

@@ -44,6 +44,7 @@ import (
 	frr "github.com/opiproject/opi-evpn-bridge/pkg/frr"
 	netlink "github.com/opiproject/opi-evpn-bridge/pkg/netlink"
 	ipu "github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/intel/p4runtime/p4translation"
+	lci "github.com/opiproject/opi-evpn-bridge/pkg/LinuxCIModule"
 )
 
 const (
@@ -176,6 +177,7 @@ var rootCmd = &cobra.Command{
 		frr.Init()
 		netlink.Init()
 		ipu.Init()
+		lci.Init()
 
 		// Create GRD VRF configuration during startup
 		if err := createGrdVrf(); err != nil {

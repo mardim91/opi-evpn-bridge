@@ -150,7 +150,7 @@ var LatestL2Nexthop = make(map[L2Nexthop_key]L2Nexthop_struct)
 func run(cmd []string) (string, error) {
 	var out []byte
 	var err error
-	out, err = exec.Command("sudo", cmd...).Output()
+	out, err = exec.Command(cmd[0], cmd[1:]...).CombinedOutput()
 	if err != nil {
 		log.Println(cmd)
 		return "", err

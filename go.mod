@@ -24,7 +24,7 @@ require (
 	github.com/spf13/viper v1.15.0
 	github.com/stretchr/testify v1.8.4
 	github.com/vektra/mockery/v2 v2.38.0
-	github.com/vishvananda/netlink v1.2.1-beta.2
+	github.com/vishvananda/netlink v1.2.1-beta.2.0.20240226175043-124bb8e72178
 	github.com/ziutek/telnet v0.0.0-20180329124119-c3b780dc415b
 	go.einride.tech/aip v0.66.0
 	go.opentelemetry.io/otel v1.21.0

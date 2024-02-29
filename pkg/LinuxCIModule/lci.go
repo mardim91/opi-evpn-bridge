@@ -1,24 +1,16 @@
 package LinuxGeneralModule
 import (
         "fmt"
-        "io/ioutil"
         "log"
-        "reflect"
         "time"
         "github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
         "github.com/opiproject/opi-evpn-bridge/pkg/infradb"
         "github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
-	nl "github.com/vishvananda/netlink"
-        "gopkg.in/yaml.v2"
-        "os/exec"
-        "encoding/json"
-        "math/rand"
-        "encoding/binary"
-        "net"
-        "strings"
-        "strconv"
-        "github.com/opiproject/opi-evpn-bridge/pkg/utils"
-        "context"
+	"path"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
+	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
+	"context"
 )
 
 type ModulelciHandler struct{}
@@ -73,10 +65,9 @@ func handlebp(objectData *event_bus.ObjectData){
 			}
 			comp.CompStatus = common.COMP_STATUS_ERROR
 		}
-		log.Printf("LCI: %+v \n",comp)
-		infradb.UpdateBpStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,BP.Metadata,comp)
-	}
-	else {
+		fmt.Printf("LCI: %+v \n",comp)
+		infradb.UpdateBPStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,BP.Metadata,comp)
+	} else {
 		status := tear_down_bp(BP)
 		comp.Name= "lci"
 		if (status == true) {
@@ -126,12 +117,12 @@ func set_up_bp(BP *infradb.BridgePort)(bool){
 				}
 			case infradb.TRUNK:
 			// Example: bridge vlan add dev eth2 vid 20
-				if err := nlink.BridgeVlanAdd(ctx, iface, vid, false, false, false, false); err != nil {
-					log.Printf("Failed to add vlan to bridge: %v", err)
+			if err := nlink.BridgeVlanAdd(ctx, iface, vid, false, false, false, false); err != nil {
+					fmt.Printf("Failed to add vlan to bridge: %v", err)
 					return false
 				}
 			default:
-				fmt.printf("Only ACCESS or TRUNK supported and not (%d)", BP.Spec.Ptype)
+				fmt.Printf("Only ACCESS or TRUNK supported and not (%d)", BP.Spec.Ptype)
 				return false
 		}
 	}
@@ -188,4 +179,17 @@ func Init() {
         }
 	ctx = context.Background()
 	nlink = utils.NewNetlinkWrapper()
+}
+func readConfig(filename string) (*Config, error) {
+        data, err := ioutil.ReadFile(filename)
+        if err != nil {
+                return nil, err
+        }
+
+        var config Config
+        if err := yaml.Unmarshal(data, &config); err != nil {
+                return nil, err
+        }
+
+        return &config, nil
 }

@@ -211,7 +211,7 @@ func run(cmd []string, flag bool) (string, int) {
 	var out []byte
 	var err error
 	//  out, err = exec.Command("sudo",cmd...).Output()
-	out, err = exec.Command("sudo", cmd...).CombinedOutput()
+	out, err = exec.Command(cmd[0], cmd[1:]...).CombinedOutput()
 	if err != nil {
 		if flag == true {
 			panic(fmt.Sprintf("FRR: Command %s': exit code %s;", out, err.Error()))
