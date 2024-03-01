@@ -6,14 +6,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
+	//log
 	"net"
+	"os"
 	"os/exec"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+	"context"
 
+	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
@@ -68,13 +71,13 @@ type ModulefrrHandler struct{}
 func (h *ModulefrrHandler) HandleEvent(eventType string, objectData *event_bus.ObjectData) {
 	switch eventType {
 	case "vrf": // "VRF_added":
-		log.Printf("FRR recevied %s %s\n", eventType, objectData.Name)
+		fmt.Printf("FRR recevied %s %s\n", eventType, objectData.Name)
 		handlevrf(objectData)
 	case "svi":
-		log.Printf("FRR recevied %s %s\n", eventType, objectData.Name)
+		fmt.Printf("FRR recevied %s %s\n", eventType, objectData.Name)
 		handlesvi(objectData)
 	default:
-		log.Println("error: Unknown event type %s", eventType)
+		fmt.Println("error: Unknown event type %s", eventType)
 	}
 }
 
@@ -82,13 +85,13 @@ func handlesvi(objectData *event_bus.ObjectData) {
 	var comp common.Component
 	SVI, err := infradb.GetSvi(objectData.Name)
 	if err != nil {
-		log.Printf("GetSvi error: %s %s\n", err, objectData.Name)
+		fmt.Printf("GetSvi error: %s %s\n", err, objectData.Name)
 		return
 	} else {
-		log.Printf("FRR :GetSvi Name: %s\n", SVI.Name)
+		fmt.Printf("FRR :GetSvi Name: %s\n", SVI.Name)
 	}
 	if (objectData.ResourceVersion != SVI.ResourceVersion){
-		log.Printf("FRR: Mismatch in resoruce version %+v\n and SVI resource version %+v\n", objectData.ResourceVersion, SVI.ResourceVersion)
+		fmt.Printf("FRR: Mismatch in resoruce version %+v\n and SVI resource version %+v\n", objectData.ResourceVersion, SVI.ResourceVersion)
 		comp.Name = "frr"
 		comp.CompStatus= common.COMP_STATUS_ERROR
 		if comp.Timer ==0 {
@@ -121,7 +124,7 @@ func handlesvi(objectData *event_bus.ObjectData) {
 			}
 			comp.CompStatus = common.COMP_STATUS_ERROR
 		}
-		log.Printf("%+v\n", comp)
+		fmt.Printf("%+v\n", comp)
 		infradb.UpdateSviStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
 	} else {
 		status := tear_down_svi(SVI)
@@ -137,7 +140,7 @@ func handlesvi(objectData *event_bus.ObjectData) {
 			}
 			comp.CompStatus = common.COMP_STATUS_ERROR
 		}
-		log.Printf("%+v\n", comp)
+		fmt.Printf("%+v\n", comp)
 		infradb.UpdateSviStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
 	}
 }
@@ -146,13 +149,20 @@ func handlevrf(objectData *event_bus.ObjectData) {
 	var comp common.Component
 	VRF, err := infradb.GetVrf(objectData.Name)
 	if err != nil {
-		log.Printf("GetVRF error: %s %s\n", err, objectData.Name)
+		fmt.Printf("GetVRF error: %s %s\n", err, objectData.Name)
 		return
 	} else {
-		log.Printf("FRR :GetVRF Name: %s\n", VRF.Name)
+		fmt.Printf("FRR :GetVRF Name: %s\n", VRF.Name)
 	}
+	if len(VRF.Status.Components) != 0 {
+                for i := 0; i < len(VRF.Status.Components); i++ {
+                        if VRF.Status.Components[i].Name == "frr" {
+                                comp = VRF.Status.Components[i]
+                        }
+                }
+        }
 	if objectData.ResourceVersion != VRF.ResourceVersion {
-		log.Printf("FRR: Mismatch in resoruce version %+v\n and VRF resource version %+v\n", objectData.ResourceVersion, VRF.ResourceVersion)
+		fmt.Printf("FRR: Mismatch in resoruce version %+v\n and VRF resource version %+v\n", objectData.ResourceVersion, VRF.ResourceVersion)
 		comp.Name = "frr"
 		comp.CompStatus = common.COMP_STATUS_ERROR
 		if comp.Timer == 0 { // wait timer is 2 powerof natural numbers ex : 1,2,3...
@@ -162,13 +172,6 @@ func handlevrf(objectData *event_bus.ObjectData) {
 		}
 		infradb.UpdateVrfStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
 		return
-	}
-	if len(VRF.Status.Components) != 0 {
-		for i := 0; i < len(VRF.Status.Components); i++ {
-			if VRF.Status.Components[i].Name == "frr" {
-				comp = VRF.Status.Components[i]
-			}
-		}
 	}
 	if VRF.Status.VrfOperStatus != infradb.VRF_OPER_STATUS_TO_BE_DELETED {
 		detail, status := set_up_vrf(VRF)
@@ -185,7 +188,7 @@ func handlevrf(objectData *event_bus.ObjectData) {
 			}
 			comp.CompStatus = common.COMP_STATUS_ERROR
 		}
-		log.Printf("%+v\n", comp)
+		fmt.Printf("%+v\n", comp)
 		infradb.UpdateVrfStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
 	} else {
 		status := tear_down_vrf(VRF)
@@ -201,13 +204,13 @@ func handlevrf(objectData *event_bus.ObjectData) {
 			}
 			comp.CompStatus = common.COMP_STATUS_ERROR
 		}
-		log.Printf("%+v\n", comp)
+		fmt.Printf("%+v\n", comp)
 		infradb.UpdateVrfStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
 	}
 }
 
 func run(cmd []string, flag bool) (string, int) {
-	//  log.Println("FRR: Executing command", cmd)
+	//  fmt.Println("FRR: Executing command", cmd)
 	var out []byte
 	var err error
 	//  out, err = exec.Command("sudo",cmd...).Output()
@@ -216,7 +219,7 @@ func run(cmd []string, flag bool) (string, int) {
 		if flag == true {
 			panic(fmt.Sprintf("FRR: Command %s': exit code %s;", out, err.Error()))
 		}
-		log.Printf("FRR: Command %s': exit code %s;", out, err)
+		fmt.Printf("FRR: Command %s': exit code %s;", out, err)
 		return "Error", -1
 	}
 	output := string(out)
@@ -254,21 +257,25 @@ func subscribe_infradb(config *config.Config) {
 func set_up_tenant_bridge() {
 	//	run([]string{"ip","-br","l"},false)
 	run([]string{"ip", "link", "add" /*strconv.Itoa(br_tenant)*/, "br-tenant", "type", "bridge", "vlan_default_pvid", "0", "vlan_filtering", "1", "vlan_protocol", "802.1Q"}, false)
-	//	log.Println("Venky ",CP,err)
+	//	fmt.Println("Venky ",CP,err)
 	run([]string{"ip", "link", "set", "br-tenant" /*"strconv.Itoa(br_tenant)",*/, "up"}, false)
-	// log.Println("Venky1 ",CP,err)
+	// fmt.Println("Venky1 ",CP,err)
 }
+
+var ctx context.Context
+var Frr utils.Frr
 
 // func main(){
 func Init() {
 	/*config, err := readConfig("config.yaml")
 	if err != nil {
-		log.Fatal(err)
+		fmt.Fatal(err)
 		// os.Exit(0)
 	}*/
+//	fmt.SetOutput(os.Stdout)
 	frr_enabled := config.GlobalConfig.Linux_frr.Enabled
 	if frr_enabled != true {
-		log.Println("FRR Module disabled")
+		fmt.Println("FRR Module disabled")
 		return
 	}
 	default_vtep = config.GlobalConfig.Linux_frr.Default_vtep
@@ -279,6 +286,10 @@ func Init() {
 	subscribe_infradb(&config.GlobalConfig)
 	// Set up the static configuration parts
 	set_up_tenant_bridge()
+
+	ctx = context.Background()
+        Frr = utils.NewFrrWrapper()
+
 	// Make sure IPv4 forwarding is enabled.
 	run([]string{"sysctl", "-w", " net.ipv4.ip_forward=1"}, false)
 }
@@ -286,10 +297,10 @@ func Init() {
 func routing_table_busy(table uint32) bool {
 	CP, err := run([]string{"ip", "route", "show", "table", strconv.Itoa(int(table))}, false)
 	if err != 0 {
-		log.Println(CP)
+		fmt.Println(CP)
 		return false
 	}
-	// log.Printf("route table busy %s %s\n",CP,err)
+	// fmt.Printf("route table busy %s %s\n",CP,err)
 	// Table is busy if it exists and contains some routes
 	return true // reflect.ValueOf(CP).IsZero() && len(CP)!= 0
 }
@@ -336,70 +347,74 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
 	if VRF.Name == "GRD" {
 		return "", true
 	}
-	bgp_vrf_name := fmt.Sprintf("router bgp 65000 vrf %s", VRF.Name)
 	if !reflect.ValueOf(VRF.Spec.Vni).IsZero() {
 		// Configure the VRF in FRR and set up BGP EVPN for it
 		vrf_name := fmt.Sprintf("vrf %s", VRF.Name)
 		vni_id := fmt.Sprintf("vni %s", strconv.Itoa(int(*VRF.Spec.Vni)))
-		CP, err := run([]string{"vtysh", "-c", "conf", "t", "-c", vrf_name, "-c", vni_id, "-c", "exit-vrf", "-c", "exit"}, false)
-		if err != 0 || check_frr_result(CP, false) {
-			log.Printf("FRR: Error in conf VRF/VNI conf VRF/VNI %s %s command %s\n", vrf_name, vni_id, CP)
-			return "", false
-		}
-		log.Printf("FRR: Executed frr config t %s %s exit-vrf exit\n", vrf_name, vni_id)
-		var LbiP string
+		_, err := Frr.FrrZebraCmd(ctx, fmt.Sprintf("configure terminal\n %s\n %s\n exit-vrf\n exit", vrf_name, vni_id))
+		//fmt.Printf("FrrZebraCmd: %v:%v", data, err)
+                if err != nil {
+                        return "",false
+                }
+		fmt.Printf("FRR: Executed frr config t %s %s exit-vrf exit\n", vrf_name, vni_id)
+                var LbiP string
+
 		if reflect.ValueOf(VRF.Spec.LoopbackIP).IsZero() {
 			LbiP = "0.0.0.0"
 		} else {
 			LbiP = fmt.Sprintf("%+v", VRF.Spec.LoopbackIP.IP)
 		}
-		bgp_route_id := fmt.Sprintf("bgp router-id %s", LbiP) // VRF.Spec.LoopbackIP.String())
-		CP, err = run([]string{"vtysh", "-c", "conf", "t", "-c", bgp_vrf_name, "-c", bgp_route_id, "-c", "no bgp ebgp-requires-policy", "-c", "no bgp hard-administrative-reset", "-c", "no bgp graceful-restart notification", "-c", "address-family ipv4 unicast", "-c", "redistribute connected", "-c", "redistribute static", "-c", "exit-address-family", "-c", "address-family l2vpn evpn", "-c", "advertise ipv4 unicast", "-c", "exit-address-family", "-c", "exit"}, false)
-		if err != 0 || check_frr_result(CP, false) {
-			log.Printf("FRR: Error in conf bgp command %s\n", CP)
-			return "", false
-		}
-		log.Printf("FRR: Executed config t bgp_vrf_name %s bgp_route_id %s no bgp ebgp-requires-policy exit-vrf exit\n", bgp_vrf_name, bgp_route_id)
+                _,err = Frr.FrrBgpCmd(ctx,fmt.Sprintf("configure terminal\n router bgp 65000 vrf %s\n bgp router-id %s\n no bgp ebgp-requires-policy\n no bgp hard-administrative-reset\n no bgp graceful-restart notification\n address-family ipv4 unicast\n redistribute connected\n redistribute static\n exit-address-family\n address-family l2vpn evpn\n advertise ipv4 unicast\n exit-address-family\n exit",VRF.Name,LbiP))
+                if err != nil {
+                        return "",false
+                }
+	
+		fmt.Println("FRR: Executed config t bgp_vrf_name router bgp 65000 vrf",VRF.Name, "bgp_route_id",LbiP," no bgp ebgp-requires-policy exit-vrf exit")
 		// Update the VRF with attributes from FRR
-		cmd := fmt.Sprintf("show bgp l2vpn evpn vni %s json", strconv.Itoa(int(*VRF.Spec.Vni)))
-		CP, err = run([]string{"vtysh", "-c", cmd}, false)
-		if err != 0 || check_frr_result(CP, true) {
-			log.Printf("FRR: Error in evpn evpn command %s\n", cmd)
-			return "", false
-		}
-		log.Printf("FRR: Executed show bgp l2vpn evpn vni %s json\n", strconv.Itoa(int(*VRF.Spec.Vni)))
+		cmd := fmt.Sprintf("show bgp l2vpn evpn vni %d json", *VRF.Spec.Vni)
+		CP,err := Frr.FrrBgpCmd(ctx, cmd)
+                if err != nil {
+                        fmt.Println("error-", err)
+                }
+		hname,_ := os.Hostname()
+		L2vpn_cmd := strings.Split(CP, "json")
+		L2vpn_cmd = strings.Split(L2vpn_cmd[1], hname)
+		CP = L2vpn_cmd[0]
+		//fmt.Printf("FRR_L2vpn[0]: %s\n",CP)
 		if len(CP) != 7 {
-			CP = CP[2 : len(CP)-2]
+			CP = CP[3 : len(CP)-3]
 		} else {
-			log.Printf("FRR: unable to get the command %s\n", cmd)
+			fmt.Printf("FRR: unable to get the command %s\n", cmd)
 			return "", false
 		}
 		var bgp_l2vpn Bgp_l2vpn_cmd
 		err1 := json.Unmarshal([]byte(fmt.Sprintf("{%v}", CP)), &bgp_l2vpn)
 		if err1 != nil {
-			log.Println("error-", err)
+			fmt.Println("error-", err)
 		}
 		cmd = fmt.Sprintf("show bgp vrf %s json", VRF.Name)
-		CP, err = run([]string{"vtysh", "-c", cmd}, false)
-		if err != 0 || check_frr_result(CP, true) {
-			log.Printf("FRR: Error in show bgp command %s\n", cmd)
-			return "", false
-		}
-		// log.Printf("FRR CP4 %s \n",CP)
+		CP,err = Frr.FrrBgpCmd(ctx, cmd)
+		if err != nil {
+                        fmt.Println("error-", err)
+                }
+		Bgp_cmd := strings.Split(CP, "json")
+		Bgp_cmd = strings.Split(Bgp_cmd[1], hname)
+		CP = Bgp_cmd[0]
+
 		var bgp_vrf Bgp_vrf_cmd
 		if len(CP) != 7 {
-			CP = CP[1 : len(CP)-3]
+			CP = CP[5 : len(CP)-5]
 		} else {
-			log.Printf("FRR: unable to get the command \"%s\"\n", cmd)
+			fmt.Printf("FRR: unable to get the command \"%s\"\n", cmd)
 			return "", false
 		}
 		err1 = json.Unmarshal([]byte(fmt.Sprintf("{%v}", CP)), &bgp_vrf)
 		if err1 != nil {
-			log.Println("error-", err)
+			fmt.Println("error-", err)
 		}
-		log.Printf("FRR: Executed show bgp vrf %s json\n", VRF.Name)
+		fmt.Printf("FRR: Executed show bgp vrf %s json\n", VRF.Name)
 		details := fmt.Sprintf("{ \"rd\":\"%s\",\"rmac\":\"%s\",\"importRts\":[\"%s\"],\"exportRts\":[\"%s\"],\"localAS\":%d }", bgp_l2vpn.Rd, bgp_l2vpn.Rmac, bgp_l2vpn.ImportRts, bgp_l2vpn.ExportRts, bgp_vrf.LocalAS)
-		log.Printf("FRR Details %s\n", details)
+		fmt.Printf("FRR Details %s\n", details)
 		return details, true
 	}
 	return "", false
@@ -423,7 +438,7 @@ func set_up_svi(SVI *infradb.Svi) (string, bool) {
 		bgp_listen := fmt.Sprintf(" bgp listen range %s peer-group %s",SVI.Spec.GatewayIPs[0], link_svi)
 		CP, err := run([]string{"vtysh", "-c", "conf", "t", "-c", bgp_vrf_name, "-c", "bgp disable-ebgp-connected-route-check", "-c", neighlink, "-c", neighlink_Re, "-c", neighlink_gw, "-c", neighlink_ov, "-c", neighlink_sr, "-c", bgp_listen, "-c", "exit"}, false)
 		if err != 0 || check_frr_result(CP, false) {
-			log.Printf("FRR: Error in conf SVI %s %s command %s\n", SVI.Name, path.Base(SVI.Spec.Vrf), CP)
+			fmt.Printf("FRR: Error in conf SVI %s %s command %s\n", SVI.Name, path.Base(SVI.Spec.Vrf), CP)
 			return "", false
 		}
 		return "", true
@@ -438,10 +453,10 @@ func tear_down_svi(SVI *infradb.Svi) bool {
 		no_neigh := fmt.Sprintf("no neighbor %s peer-group", link_svi)
 		CP, err := run([]string{"vtysh", "-c", "conf", "t", "-c", bgp_vrf_name, "-c", no_neigh, "-c", "exit"}, false)
 		if err == -1 || check_frr_result(CP, false) {
-			log.Printf("FRR: Error in conf Delete VRF/VNI command %s\n", CP)
+			fmt.Printf("FRR: Error in conf Delete VRF/VNI command %s\n", CP)
 			return false
 		}
-		log.Printf("FRR: Executed vtysh -c conf t -c router bgp 65000 vrf %s -c no  neighbor %s peer-group -c exit\n", path.Base(SVI.Spec.Vrf), link_svi)
+		fmt.Printf("FRR: Executed vtysh -c conf t -c router bgp 65000 vrf %s -c no  neighbor %s peer-group -c exit\n", path.Base(SVI.Spec.Vrf), link_svi)
 		return true
 	}
 	return false
@@ -456,22 +471,26 @@ func tear_down_vrf(VRF *infradb.Vrf) bool { // interface{}){
 	if VRF.Name == "GRD" {
 		return true
 	}
-	CP, err := run([]string{"vtysh", "-c", "show vrf " + VRF.Name + " vni"}, false)
-	if check_frr_result(CP, true) {
-		log.Printf("CP FRR %s\n", CP)
-		return true
-	}
+
+	data, err := Frr.FrrZebraCmd(ctx, fmt.Sprintf("show vrf %s vni\n",VRF.Name))
+	if check_frr_result(data, true) {
+			fmt.Printf("CP FRR %s\n", data)
+			return true
+		}
 	// Clean up FRR last
-	if !reflect.ValueOf(VRF.Spec.Vni).IsZero() {
-		log.Printf("FRR %s\n", "Deleted event")
+	if !reflect.ValueOf(*VRF.Spec.Vni).IsZero() {
+		fmt.Println("FRR Deleted event")
 		del_cmd1 := fmt.Sprintf("no router bgp 65000 vrf %s", VRF.Name)
 		del_cmd2 := fmt.Sprintf("no vrf %s", VRF.Name)
-		CP, err = run([]string{"vtysh", "-c", "conf", "t", "-c", del_cmd1, "-c", del_cmd2, "-c", "exit"}, false)
-		if err == -1 || check_frr_result(CP, false) {
-			log.Printf("FRR: Error in conf Delete VRF/VNI command %s\n", CP)
-			return false
-		}
-		log.Printf("FRR: Executed vtysh -c conf t -c %s -c %s -c exit\n", del_cmd1, del_cmd2)
+		data, err = Frr.FrrBgpCmd(ctx, fmt.Sprintf("configure terminal\n%s\n exit\n",del_cmd1))
+	        if err != nil {
+        	     return false
+	        }
+		data, err = Frr.FrrZebraCmd(ctx, fmt.Sprintf("configure terminal\n%s\n exit\n", del_cmd2))
+	        if err != nil {
+        	     return false
+	        }
+		fmt.Printf("FRR: Executed vtysh -c conf t -c %s -c %s -c exit\n", del_cmd1, del_cmd2)
 	}
 	return true
 }
