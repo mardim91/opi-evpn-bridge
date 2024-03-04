@@ -27,10 +27,11 @@ import (
 	vn "github.com/vishvananda/netlink"
 
 	// "io/ioutil"
+	"path"
+
 	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	eb "github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/event_bus"
-	"path"
 	// "gopkg.in/yaml.v3"
 )
 
@@ -1358,7 +1359,7 @@ func notify_changes(new_db map[interface{}]interface{}, old_db map[interface{}]i
 						var Nv Nexthop_struct
 						if strings.Contains(event[1], "route") {
 							Rv = v1.(Route_struct)
-							if Rv.Vrf.Status.VrfOperStatus == infradb.VRF_OPER_STATUS_TO_BE_DELETED {
+							if Rv.Vrf.Status.VrfOperStatus == infradb.VrfOperStatusToBeDeleted {
 								notify_add_del(Rv, event[2])
 								delete(new_db, k1)
 								delete(old_db, k2)
@@ -1366,7 +1367,7 @@ func notify_changes(new_db map[interface{}]interface{}, old_db map[interface{}]i
 							}
 						} else {
 							Nv = v1.(Nexthop_struct)
-							if Nv.Vrf.Status.VrfOperStatus == infradb.VRF_OPER_STATUS_TO_BE_DELETED {
+							if Nv.Vrf.Status.VrfOperStatus == infradb.VrfOperStatusToBeDeleted {
 								notify_add_del(Nv, event[2])
 								delete(new_db, k1)
 								delete(old_db, k2)

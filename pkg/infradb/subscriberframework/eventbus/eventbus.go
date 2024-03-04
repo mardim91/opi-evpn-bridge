@@ -1,4 +1,4 @@
-package event_bus
+package eventbus
 
 import (
 	"log"
@@ -6,8 +6,10 @@ import (
 	"sync"
 )
 
+// EBus holds the EventBus object
 var EBus = NewEventBus()
 
+// EventBus holds the event bus info
 type EventBus struct {
 	subscribers   map[string][]*Subscriber
 	eventHandlers map[string]EventHandler
@@ -16,6 +18,7 @@ type EventBus struct {
 	mutex         sync.RWMutex
 }
 
+// Subscriber holds the info for each subscriber
 type Subscriber struct {
 	Name     string
 	Ch       chan interface{}
@@ -23,17 +26,19 @@ type Subscriber struct {
 	Priority int
 }
 
+// EventHandler handles the events that arrive
 type EventHandler interface {
 	HandleEvent(string, *ObjectData)
 }
 
+// ObjectData holds data related to the objects to be realized
 type ObjectData struct {
 	ResourceVersion string
 	Name            string
-	NotificationId  string
+	NotificationID  string
 }
 
-// Modules will call StartSubscriber to initialise and start listening for event eventType
+// StartSubscriber will be called by the modules to initialize and start listening for events
 func (e *EventBus) StartSubscriber(moduleName, eventType string, priority int, eventHandler EventHandler) {
 	subscriber := e.Subscribe(moduleName, eventType, priority, eventHandler)
 
@@ -62,6 +67,7 @@ func (e *EventBus) StartSubscriber(moduleName, eventType string, priority int, e
 	}()
 }
 
+// NewEventBus initializes ann EventBus object
 func NewEventBus() *EventBus {
 	return &EventBus{
 		subscribers:   make(map[string][]*Subscriber),
@@ -109,7 +115,7 @@ func (e *EventBus) Publish(objectData *ObjectData, subscriber *Subscriber) {
 	subscriber.Ch <- objectData
 }
 
-// Unsubscribex the subscriber, which delete the subscriber(all resourceses will be washed out)
+// Unsubscribe the subscriber, which delete the subscriber(all resources will be washed out)
 func (e *EventBus) Unsubscribe(subscriber *Subscriber) {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
@@ -117,11 +123,12 @@ func (e *EventBus) Unsubscribe(subscriber *Subscriber) {
 	log.Printf("\nSubscriber %s is unsubscribed for all events\n", subscriber.Name)
 }
 
+// Unsubscribe closes the event channel
 func (s *Subscriber) Unsubscribe() {
 	close(s.Ch)
 }
 
-// UnsubscribeEvent, will unsubscribe particular eventType of a subscriber
+// UnsubscribeEvent will unsubscribe particular eventType of a subscriber
 func (e *EventBus) UnsubscribeEvent(subscriber *Subscriber, eventType string) {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()

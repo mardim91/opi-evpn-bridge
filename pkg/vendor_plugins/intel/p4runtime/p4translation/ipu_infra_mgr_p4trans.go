@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+
 	// "io/ioutil"
 	"log"
 	"os/exec"
@@ -23,13 +24,15 @@ import (
 
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
-	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriberframework/eventbus"
 )
 
 var L3 L3Decoder
 var Vxlan VxlanDecoder
 var Pod PodDecoder
-const logfile string ="./ipu_vendor.log"
+
+const logfile string = "./ipu_vendor.log"
+
 // var decoders []interface{}
 // var decoders = []interface{}{L3, Vxlan, Pod}
 
@@ -485,7 +488,7 @@ func handleL2NexthopDeleted(l2NextHop interface{}) {
 }
 
 // InfraDB event Handler
-func (h *ModuleipuHandler) HandleEvent(eventType string, objectData *event_bus.ObjectData) {
+func (h *ModuleipuHandler) HandleEvent(eventType string, objectData *eventbus.ObjectData) {
 	switch eventType {
 	case "vrf":
 		log.Printf("IPU recevied %s %s\n", eventType, objectData.Name)
@@ -504,238 +507,239 @@ func (h *ModuleipuHandler) HandleEvent(eventType string, objectData *event_bus.O
 	}
 }
 
-func handlevrf(objectData *event_bus.ObjectData) {
-	        var comp common.Component
-                VRF, err := infradb.GetVrf(objectData.Name)
-                if err != nil {
-                        log.Printf("IPU: GetVRF error: %s %s\n", err, objectData.Name)
-                        return
-                } else {
-                        log.Printf("IPU : GetVRF Name: %s\n", VRF.Name)
-                }
-                if (objectData.ResourceVersion != VRF.ResourceVersion){
-                        log.Printf("IPU: Mismatch in resoruce version %+v\n and VRF resource version %+v\n", objectData.ResourceVersion, VRF.ResourceVersion)
-                        comp.Name= "ipu"
-                        comp.CompStatus= common.COMP_STATUS_ERROR
-                        if comp.Timer ==0 {  // wait timer is 2 powerof natural numbers ex : 1,2,3...
-                                comp.Timer=2 * time.Second
-                        } else {
-                                comp.Timer=comp.Timer*2
-                        }
-                        infradb.UpdateVrfStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
-                        return
-                }
+func handlevrf(objectData *eventbus.ObjectData) {
+	var comp common.Component
+	VRF, err := infradb.GetVrf(objectData.Name)
+	if err != nil {
+		log.Printf("IPU: GetVRF error: %s %s\n", err, objectData.Name)
+		return
+	} else {
+		log.Printf("IPU : GetVRF Name: %s\n", VRF.Name)
+	}
+	if objectData.ResourceVersion != VRF.ResourceVersion {
+		log.Printf("IPU: Mismatch in resoruce version %+v\n and VRF resource version %+v\n", objectData.ResourceVersion, VRF.ResourceVersion)
+		comp.Name = "ipu"
+		comp.CompStatus = common.ComponentStatusError
+		if comp.Timer == 0 { // wait timer is 2 powerof natural numbers ex : 1,2,3...
+			comp.Timer = 2 * time.Second
+		} else {
+			comp.Timer = comp.Timer * 2
+		}
+		infradb.UpdateVrfStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
+		return
+	}
 
-                if len(VRF.Status.Components) != 0 {
-                        for i := 0; i < len(VRF.Status.Components); i++ {
-                                if VRF.Status.Components[i].Name == "ipu" {
-                                        comp = VRF.Status.Components[i]
-                                }
-                        }
-                }
-                if VRF.Status.VrfOperStatus != infradb.VRF_OPER_STATUS_TO_BE_DELETED {
-                        details, status := offload_vrf(VRF)
-                        if status == true {
-                                comp.Details = details
-                                comp.CompStatus = common.COMP_STATUS_SUCCESS
-                                comp.Name = "ipu"
-                                comp.Timer = 0
-                        } else {
-                                if comp.Timer == 0 { // wait timer is 2 powerof natural numbers ex : 1,2,3...
-                                        comp.Timer = 2 * time.Second
-                                } else {
-                                        comp.Timer = comp.Timer * 2 * time.Second
-                                }
-                                comp.Name = "ipu"
-                                comp.CompStatus = common.COMP_STATUS_ERROR
-                        }
-                        log.Printf("ipu: %+v\n", comp)
-                        infradb.UpdateVrfStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, VRF.Metadata, comp)
-                } else {
-                        status := tear_down_vrf(VRF)
-                        if status == true {
-                                comp.CompStatus = common.COMP_STATUS_SUCCESS
-                                comp.Name = "ipu"
-                                comp.Timer = 0
-                        } else {
-                                comp.CompStatus = common.COMP_STATUS_ERROR
-                                comp.Name = "ipu"
-                                if comp.Timer == 0 { // wait timer is 2 powerof natural numbers ex : 1,2,3...
-                                        comp.Timer = 2
-                                } else {
-                                        comp.Timer = comp.Timer * 2
-                                }
-                        }
-                        log.Printf("ipu: %+v\n", comp)
-                        infradb.UpdateVrfStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
-                }
+	if len(VRF.Status.Components) != 0 {
+		for i := 0; i < len(VRF.Status.Components); i++ {
+			if VRF.Status.Components[i].Name == "ipu" {
+				comp = VRF.Status.Components[i]
+			}
+		}
+	}
+	if VRF.Status.VrfOperStatus != infradb.VrfOperStatusToBeDeleted {
+		details, status := offload_vrf(VRF)
+		if status == true {
+			comp.Details = details
+			comp.CompStatus = common.ComponentStatusSuccess
+			comp.Name = "ipu"
+			comp.Timer = 0
+		} else {
+			if comp.Timer == 0 { // wait timer is 2 powerof natural numbers ex : 1,2,3...
+				comp.Timer = 2 * time.Second
+			} else {
+				comp.Timer = comp.Timer * 2 * time.Second
+			}
+			comp.Name = "ipu"
+			comp.CompStatus = common.ComponentStatusError
+		}
+		log.Printf("ipu: %+v\n", comp)
+		infradb.UpdateVrfStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, VRF.Metadata, comp)
+	} else {
+		status := tear_down_vrf(VRF)
+		if status == true {
+			comp.CompStatus = common.ComponentStatusSuccess
+			comp.Name = "ipu"
+			comp.Timer = 0
+		} else {
+			comp.CompStatus = common.ComponentStatusError
+			comp.Name = "ipu"
+			if comp.Timer == 0 { // wait timer is 2 powerof natural numbers ex : 1,2,3...
+				comp.Timer = 2
+			} else {
+				comp.Timer = comp.Timer * 2
+			}
+		}
+		log.Printf("ipu: %+v\n", comp)
+		infradb.UpdateVrfStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
+	}
 }
+
 /*
-func handlelb(objectData *event_bus.ObjectData) {
-        var comp common.Component
-        LB, err := infradb.GetLB(objectData.Name)
-        if err != nil {
-                log.Printf("IPU: GetLB error: %s %s\n", err, objectData.Name)
-                return
-        } else {
-                log.Printf("IPU : GetLB Name: %s\n", LB.Name)
-        }
-        if len(LB.Status.Components) != 0 {
-                for i := 0; i < len(LB.Status.Components); i++ {
-                        if LB.Status.Components[i].Name == "ipu" {
-                                comp = LB.Status.Components[i]
-                        }
-                }
-        }
-        if LB.Status.LBOperStatus != infradb.LB_OPER_STATUS_TO_BE_DELETED {
-                status := set_up_lb(LB)
-                comp.Name = "ipu"
-                if status == true {
-                        comp.Details = ""
-                        comp.CompStatus = common.COMP_STATUS_SUCCESS
-                        comp.Timer = 0
-                } else {
-                        if comp.Timer == 0 {
-                                comp.Timer = 2 * time.Second
-                        } else {
-                                comp.Timer = comp.Timer * 2
-                        }
-                        comp.CompStatus = common.COMP_STATUS_ERROR
-                }
-                log.Printf("IPU: %+v \n", comp)
-                infradb.UpdateLBStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
-        } else {
-                status := tear_down_lb(LB)
-                comp.Name = "ipu"
-                if status == true {
-                        comp.CompStatus = common.COMP_STATUS_SUCCESS
-                        comp.Timer = 0
-                } else {
-                        comp.CompStatus = common.COMP_STATUS_ERROR
-                        if comp.Timer == 0 {
-                                comp.Timer = 2 * time.Second
-                        } else {
-                                comp.Timer = comp.Timer * 2
-                        }
-                }
-                log.Printf("IPU: %+v\n", comp)
-                infradb.UpdateLBStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
-        }
-}
+	func handlelb(objectData *event_bus.ObjectData) {
+	        var comp common.Component
+	        LB, err := infradb.GetLB(objectData.Name)
+	        if err != nil {
+	                log.Printf("IPU: GetLB error: %s %s\n", err, objectData.Name)
+	                return
+	        } else {
+	                log.Printf("IPU : GetLB Name: %s\n", LB.Name)
+	        }
+	        if len(LB.Status.Components) != 0 {
+	                for i := 0; i < len(LB.Status.Components); i++ {
+	                        if LB.Status.Components[i].Name == "ipu" {
+	                                comp = LB.Status.Components[i]
+	                        }
+	                }
+	        }
+	        if LB.Status.LBOperStatus != infradb.LB_OPER_STATUS_TO_BE_DELETED {
+	                status := set_up_lb(LB)
+	                comp.Name = "ipu"
+	                if status == true {
+	                        comp.Details = ""
+	                        comp.CompStatus = common.COMP_STATUS_SUCCESS
+	                        comp.Timer = 0
+	                } else {
+	                        if comp.Timer == 0 {
+	                                comp.Timer = 2 * time.Second
+	                        } else {
+	                                comp.Timer = comp.Timer * 2
+	                        }
+	                        comp.CompStatus = common.COMP_STATUS_ERROR
+	                }
+	                log.Printf("IPU: %+v \n", comp)
+	                infradb.UpdateLBStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
+	        } else {
+	                status := tear_down_lb(LB)
+	                comp.Name = "ipu"
+	                if status == true {
+	                        comp.CompStatus = common.COMP_STATUS_SUCCESS
+	                        comp.Timer = 0
+	                } else {
+	                        comp.CompStatus = common.COMP_STATUS_ERROR
+	                        if comp.Timer == 0 {
+	                                comp.Timer = 2 * time.Second
+	                        } else {
+	                                comp.Timer = comp.Timer * 2
+	                        }
+	                }
+	                log.Printf("IPU: %+v\n", comp)
+	                infradb.UpdateLBStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
+	        }
+	}
 
-func handlebp(objectData *event_bus.ObjectData){
-        var comp common.Component
-        BP, err := infradb.GetBP(objectData.Name)
-        if err != nil {
-                log.Printf("IPU : GetBP error: %s\n", err)
-                return
-        }
-        if (len(BP.Status.Components) != 0 ){
-                for i:=0;i<len(BP.Status.Components);i++ {
-                        if (BP.Status.Components[i].Name == "ipu") {
-                                comp = BP.Status.Components[i]
-                        }
-                }
-        }
-        if (BP.Status.BPOperStatus !=infradb.BP_OPER_STATUS_TO_BE_DELETED){
-                status := set_up_bp(BP)
-                comp.Name= "ipu"
-                if (status == true) {
-                        comp.Details = ""
-                        comp.CompStatus= common.COMP_STATUS_SUCCESS
-                        comp.Timer = 0
-                } else {
-                        if comp.Timer ==0 {
-                                comp.Timer=2 * time.Second
-                        } else {
-                                comp.Timer=comp.Timer*2
-                        }
-                        comp.CompStatus = common.COMP_STATUS_ERROR
-                }
-                log.Printf("IPU: %+v \n",comp)
-                infradb.UpdateBPStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,BP.Metadata,comp)
-        }else {
-                status := tear_down_bp(BP)
-                comp.Name= "ipu"
-                if (status == true) {
-                        comp.CompStatus= common.COMP_STATUS_SUCCESS
-                        comp.Timer = 0
-                } else {
-                        if comp.Timer ==0 {
-                                comp.Timer=2 * time.Second
-                        } else {
-                                comp.Timer=comp.Timer*2
-                        }
-                        comp.CompStatus = common.COMP_STATUS_ERROR
-                }
-                log.Printf("IPU: %+v \n",comp)
-                infradb.UpdateBPStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
-        }
-}
+	func handlebp(objectData *event_bus.ObjectData){
+	        var comp common.Component
+	        BP, err := infradb.GetBP(objectData.Name)
+	        if err != nil {
+	                log.Printf("IPU : GetBP error: %s\n", err)
+	                return
+	        }
+	        if (len(BP.Status.Components) != 0 ){
+	                for i:=0;i<len(BP.Status.Components);i++ {
+	                        if (BP.Status.Components[i].Name == "ipu") {
+	                                comp = BP.Status.Components[i]
+	                        }
+	                }
+	        }
+	        if (BP.Status.BPOperStatus !=infradb.BP_OPER_STATUS_TO_BE_DELETED){
+	                status := set_up_bp(BP)
+	                comp.Name= "ipu"
+	                if (status == true) {
+	                        comp.Details = ""
+	                        comp.CompStatus= common.COMP_STATUS_SUCCESS
+	                        comp.Timer = 0
+	                } else {
+	                        if comp.Timer ==0 {
+	                                comp.Timer=2 * time.Second
+	                        } else {
+	                                comp.Timer=comp.Timer*2
+	                        }
+	                        comp.CompStatus = common.COMP_STATUS_ERROR
+	                }
+	                log.Printf("IPU: %+v \n",comp)
+	                infradb.UpdateBPStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,BP.Metadata,comp)
+	        }else {
+	                status := tear_down_bp(BP)
+	                comp.Name= "ipu"
+	                if (status == true) {
+	                        comp.CompStatus= common.COMP_STATUS_SUCCESS
+	                        comp.Timer = 0
+	                } else {
+	                        if comp.Timer ==0 {
+	                                comp.Timer=2 * time.Second
+	                        } else {
+	                                comp.Timer=comp.Timer*2
+	                        }
+	                        comp.CompStatus = common.COMP_STATUS_ERROR
+	                }
+	                log.Printf("IPU: %+v \n",comp)
+	                infradb.UpdateBPStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
+	        }
+	}
 
-func handlesvi(objectData *event_bus.ObjectData) {
-        var comp common.Component
-        SVI, err := infradb.GetSvi(objectData.Name)
-        if err != nil {
-                log.Printf("IPU: GetSvi error: %s %s\n", err, objectData.Name)
-                return
-        } else {
-                log.Printf("IPU : GetSvi Name: %s\n", SVI.Name)
-        }
-        if (objectData.ResourceVersion != SVI.ResourceVersion){
-                log.Printf("IPU: Mismatch in resoruce version %+v\n and SVI resource version %+v\n", objectData.ResourceVersion, SVI.ResourceVersion)
-                comp.Name= "ipu"
-                comp.CompStatus= common.COMP_STATUS_ERROR
-                if comp.Timer ==0 {
-                        comp.Timer=2 * time.Second
-                } else {
-                        comp.Timer=comp.Timer*2
-                }
-                infradb.UpdateSviStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
-                return
-        }
-        if len(SVI.Status.Components) != 0 {
-                for i := 0; i < len(SVI.Status.Components); i++ {
-                        if SVI.Status.Components[i].Name == "ipu" {
-                                comp = SVI.Status.Components[i]
-                        }
-                }
-        }
-        if SVI.Status.SviOperStatus != infradb.SVI_OPER_STATUS_TO_BE_DELETED {
-                details, status := set_up_svi(SVI)
-                comp.Name = "ipu"
-                if status == true {
-                        comp.Details = details
-                        comp.CompStatus = common.COMP_STATUS_SUCCESS
-                        comp.Timer = 0
-                } else {
-                        if comp.Timer == 0 {
-                                comp.Timer = 2 * time.Second
-                        } else {
-                                comp.Timer = comp.Timer * 2
-                        }
-                        comp.CompStatus = common.COMP_STATUS_ERROR
-                }
-                log.Printf("IPU: %+v \n", comp)
-                infradb.UpdateSviStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
-        } else {
-                status := tear_down_svi(SVI)
-                comp.Name = "ipu"
-                if status == true {
-                        comp.CompStatus = common.COMP_STATUS_SUCCESS
-                        comp.Timer = 0
-                } else {
-                        comp.CompStatus = common.COMP_STATUS_ERROR
-                        if comp.Timer == 0 {
-                                 comp.Timer = 2 * time.Second
-                        } else {
-                                comp.Timer = comp.Timer * 2
-                        }
-                }
-                log.Printf("IPU: %+v \n", comp)
-                infradb.UpdateSviStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
-        }
-}
+	func handlesvi(objectData *event_bus.ObjectData) {
+	        var comp common.Component
+	        SVI, err := infradb.GetSvi(objectData.Name)
+	        if err != nil {
+	                log.Printf("IPU: GetSvi error: %s %s\n", err, objectData.Name)
+	                return
+	        } else {
+	                log.Printf("IPU : GetSvi Name: %s\n", SVI.Name)
+	        }
+	        if (objectData.ResourceVersion != SVI.ResourceVersion){
+	                log.Printf("IPU: Mismatch in resoruce version %+v\n and SVI resource version %+v\n", objectData.ResourceVersion, SVI.ResourceVersion)
+	                comp.Name= "ipu"
+	                comp.CompStatus= common.COMP_STATUS_ERROR
+	                if comp.Timer ==0 {
+	                        comp.Timer=2 * time.Second
+	                } else {
+	                        comp.Timer=comp.Timer*2
+	                }
+	                infradb.UpdateSviStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationId,nil,comp)
+	                return
+	        }
+	        if len(SVI.Status.Components) != 0 {
+	                for i := 0; i < len(SVI.Status.Components); i++ {
+	                        if SVI.Status.Components[i].Name == "ipu" {
+	                                comp = SVI.Status.Components[i]
+	                        }
+	                }
+	        }
+	        if SVI.Status.SviOperStatus != infradb.SVI_OPER_STATUS_TO_BE_DELETED {
+	                details, status := set_up_svi(SVI)
+	                comp.Name = "ipu"
+	                if status == true {
+	                        comp.Details = details
+	                        comp.CompStatus = common.COMP_STATUS_SUCCESS
+	                        comp.Timer = 0
+	                } else {
+	                        if comp.Timer == 0 {
+	                                comp.Timer = 2 * time.Second
+	                        } else {
+	                                comp.Timer = comp.Timer * 2
+	                        }
+	                        comp.CompStatus = common.COMP_STATUS_ERROR
+	                }
+	                log.Printf("IPU: %+v \n", comp)
+	                infradb.UpdateSviStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
+	        } else {
+	                status := tear_down_svi(SVI)
+	                comp.Name = "ipu"
+	                if status == true {
+	                        comp.CompStatus = common.COMP_STATUS_SUCCESS
+	                        comp.Timer = 0
+	                } else {
+	                        comp.CompStatus = common.COMP_STATUS_ERROR
+	                        if comp.Timer == 0 {
+	                                 comp.Timer = 2 * time.Second
+	                        } else {
+	                                comp.Timer = comp.Timer * 2
+	                        }
+	                }
+	                log.Printf("IPU: %+v \n", comp)
+	                infradb.UpdateSviStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationId, nil, comp)
+	        }
+	}
 */
 func offload_vrf(VRF *infradb.Vrf) (string, bool) {
 	if path.Base(VRF.Name) == "GRD" {
@@ -753,48 +757,46 @@ func offload_vrf(VRF *infradb.Vrf) (string, bool) {
 	}
 	return "", true
 }
+
 /*
-func set_up_lb(LB *infradb.LogicalBridge) (bool) {
-	var entries []interface{}
-	entries = Vxlan.translate_added_lb(LB)
-	for _, entry := range entries {
-		if e, ok := entry.(p4client.TableEntry); ok {
-			p4client.Add_entry(e)
-		} else {
-			log.Println("Entry is not of type p4client.TableEntry:-", e)
-			return false
+	func set_up_lb(LB *infradb.LogicalBridge) (bool) {
+		var entries []interface{}
+		entries = Vxlan.translate_added_lb(LB)
+		for _, entry := range entries {
+			if e, ok := entry.(p4client.TableEntry); ok {
+				p4client.Add_entry(e)
+			} else {
+				log.Println("Entry is not of type p4client.TableEntry:-", e)
+				return false
+			}
+			return true
 		}
-	}
-	return true
-}
 
-func set_up_bp(BP *infradb.BridgePort)(bool) {
-	var entries []interface{}
-	entries = Pod.translate_added_bp(BP)
-	for _, entry := range entries {
-		if e, ok := entry.(p4client.TableEntry); ok {
-			p4client.Add_entry(e)
-		} else {
-			log.Println("Entry is not of type p4client.TableEntry:-", e)
-			return false
+	func set_up_bp(BP *infradb.BridgePort)(bool) {
+		var entries []interface{}
+		entries = Pod.translate_added_bp(BP)
+		for _, entry := range entries {
+			if e, ok := entry.(p4client.TableEntry); ok {
+				p4client.Add_entry(e)
+			} else {
+				log.Println("Entry is not of type p4client.TableEntry:-", e)
+				return false
+			}
+			return true
 		}
-	}
-	return true
-}
 
-func set_up_svi(SVI *infradb.Svi) (string, bool) {
-	var entries []interface{}
-	entries = Pod.translate_added_svi(SVI)
-	for _, entry := range entries {
-		if e, ok := entry.(p4client.TableEntry); ok {
-			p4client.Add_entry(e)
-		} else {
-			log.Println("Entry is not of type p4client.TableEntry:-", e)
-			return "", false
+	func set_up_svi(SVI *infradb.Svi) (string, bool) {
+		var entries []interface{}
+		entries = Pod.translate_added_svi(SVI)
+		for _, entry := range entries {
+			if e, ok := entry.(p4client.TableEntry); ok {
+				p4client.Add_entry(e)
+			} else {
+				log.Println("Entry is not of type p4client.TableEntry:-", e)
+				return "", false
+			}
+			return "", true
 		}
-	}
-	return "", true
-}
 */
 func tear_down_vrf(VRF *infradb.Vrf) bool {
 	if path.Base(VRF.Name) == "GRD" {
@@ -812,58 +814,58 @@ func tear_down_vrf(VRF *infradb.Vrf) bool {
 	}
 	return true
 }
+
 /*
-func tear_down_lb(LB *infradb.LogicalBridge) bool {
-	var entries []interface{}
-	entries = Vxlan.translate_deleted_lb(LB)
-	for _, entry := range entries {
-		if e, ok := entry.(p4client.TableEntry); ok {
-			p4client.Del_entry(e)
-		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
-			return false
+	func tear_down_lb(LB *infradb.LogicalBridge) bool {
+		var entries []interface{}
+		entries = Vxlan.translate_deleted_lb(LB)
+		for _, entry := range entries {
+			if e, ok := entry.(p4client.TableEntry); ok {
+				p4client.Del_entry(e)
+			} else {
+				log.Println("Entry is not of type p4client.TableEntry")
+				return false
+			}
+			return true
 		}
+
+	func tear_down_bp(BP *infradb.BridgePort) bool {
+	        var entries []interface{}
+	        entries = Pod.translate_deleted_bp(BP)
+	        for _, entry := range entries {
+	                if e, ok := entry.(p4client.TableEntry); ok {
+	                        p4client.Del_entry(e)
+	                } else {
+	                        log.Println("Entry is not of type p4client.TableEntry")
+	                        return false
+	                }
+	        }
+	        return true
 	}
-	return true
-}
 
-func tear_down_bp(BP *infradb.BridgePort) bool {
-        var entries []interface{}
-        entries = Pod.translate_deleted_bp(BP)
-        for _, entry := range entries {
-                if e, ok := entry.(p4client.TableEntry); ok {
-                        p4client.Del_entry(e)
-                } else {
-                        log.Println("Entry is not of type p4client.TableEntry")
-                        return false
-                }
-        }
-        return true
-}
-
-func tear_down_svi(SVI *infradb.Svi) bool {
-        var entries []interface{}
-        entries = Pod.translate_deleted_svi(SVI)
-        for _, entry := range entries {
-                if e, ok := entry.(p4client.TableEntry); ok {
-                        p4client.Del_entry(e)
-                } else {
-                        log.Println("Entry is not of type p4client.TableEntry")
-                        return false
-                }
-        }
-        return true
-}
+	func tear_down_svi(SVI *infradb.Svi) bool {
+	        var entries []interface{}
+	        entries = Pod.translate_deleted_svi(SVI)
+	        for _, entry := range entries {
+	                if e, ok := entry.(p4client.TableEntry); ok {
+	                        p4client.Del_entry(e)
+	                } else {
+	                        log.Println("Entry is not of type p4client.TableEntry")
+	                        return false
+	                }
+	        }
+	        return true
+	}
 */
 func Init() {
 
 	logFile, err := os.OpenFile(logfile, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
-        if err != nil {
-                log.Panic(err)
-        }
-        defer logFile.Close()
-        log.SetOutput(logFile)
-        log.SetFlags(log.Lshortfile | log.LstdFlags)
+	if err != nil {
+		log.Panic(err)
+	}
+	defer logFile.Close()
+	log.SetOutput(logFile)
+	log.SetFlags(log.Lshortfile | log.LstdFlags)
 
 	// Netlink Listener
 	startSubscriber(nm.EventBus, "route_added")
@@ -886,7 +888,7 @@ func Init() {
 	if err != nil {
 		log.Println(err)
 	}*/
-	eb := event_bus.EBus
+	eb := eventbus.EBus
 	for _, subscriberConfig := range config.GlobalConfig.Subscribers {
 		if subscriberConfig.Name == "ipu" {
 			for _, eventType := range subscriberConfig.Events {

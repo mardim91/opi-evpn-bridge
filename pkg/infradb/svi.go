@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2022-2023 Dell Inc, or its subsidiaries.
 
-// Package models translates frontend protobuf messages to backend messages
 package infradb
 
 import (
@@ -14,26 +13,30 @@ import (
 	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	opinetcommon "github.com/opiproject/opi-api/network/opinetcommon/v1alpha1/gen/go"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
-	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriberframework/eventbus"
 )
 
-type SVI_OPER_STATUS int32
+// SviOperStatus operational Status for SVIs
+type SviOperStatus int32
 
 const (
-	// unknown
-	SVI_OPER_STATUS_UNSPECIFIED SVI_OPER_STATUS = iota
-	// svi is up
-	SVI_OPER_STATUS_UP = iota
-	// svi is down
-	SVI_OPER_STATUS_DOWN = iota
-	// svi is to be deleted
-	SVI_OPER_STATUS_TO_BE_DELETED = iota
+	// SviOperStatusUnspecified for SVI unknown state
+	SviOperStatusUnspecified SviOperStatus = iota
+	// SviOperStatusUp for SVI up state
+	SviOperStatusUp = iota
+	// SviOperStatusDown for SVI down state
+	SviOperStatusDown = iota
+	// SviOperStatusToBeDeleted for SVI to be deleted state
+	SviOperStatusToBeDeleted = iota
 )
 
+// SviStatus holds SVI Status
 type SviStatus struct {
-	SviOperStatus SVI_OPER_STATUS
+	SviOperStatus SviOperStatus
 	Components    []common.Component
 }
+
+// SviSpec holds SVI Spec
 type SviSpec struct {
 	Vrf           string
 	LogicalBridge string
@@ -44,10 +47,11 @@ type SviSpec struct {
 	RemoteAs   *uint32
 }
 
+// SviMetadata holds SVI Metadata
 type SviMetadata struct {
 }
 
-// Svi object, separate from protobuf for decoupling
+// Svi holds SVI info
 type Svi struct {
 	Name            string
 	Spec            *SviSpec
@@ -65,20 +69,20 @@ func NewSvi(in *pb.Svi) *Svi {
 	var gwIPs []*net.IPNet
 
 	// Parse Gateway IPs
-	for _, gwIpPrefix := range in.Spec.GwIpPrefix {
+	for _, gwIPPrefix := range in.Spec.GwIpPrefix {
 		gatewayIP := make(net.IP, 4)
-		binary.BigEndian.PutUint32(gatewayIP, gwIpPrefix.Addr.GetV4Addr())
-		gwIP := net.IPNet{IP: gatewayIP, Mask: net.CIDRMask(int(gwIpPrefix.Len), 32)}
+		binary.BigEndian.PutUint32(gatewayIP, gwIPPrefix.Addr.GetV4Addr())
+		gwIP := net.IPNet{IP: gatewayIP, Mask: net.CIDRMask(int(gwIPPrefix.Len), 32)}
 		gwIPs = append(gwIPs, &gwIP)
 	}
 
-	subscribers := event_bus.EBus.GetSubscribers("svi")
+	subscribers := eventbus.EBus.GetSubscribers("svi")
 	if subscribers == nil {
 		log.Println("NewSvi(): No subscribers for SVI objects")
 	}
 
 	for _, sub := range subscribers {
-		component := common.Component{Name: sub.Name, CompStatus: common.COMP_STATUS_PENDING, Details: ""}
+		component := common.Component{Name: sub.Name, CompStatus: common.ComponentStatusPending, Details: ""}
 		components = append(components, component)
 	}
 
@@ -93,7 +97,7 @@ func NewSvi(in *pb.Svi) *Svi {
 			RemoteAs:      &in.Spec.RemoteAs,
 		},
 		Status: &SviStatus{
-			SviOperStatus: SVI_OPER_STATUS(SVI_OPER_STATUS_DOWN),
+			SviOperStatus: SviOperStatus(SviOperStatusDown),
 			Components:    components,
 		},
 		Metadata:        &SviMetadata{},
@@ -101,6 +105,7 @@ func NewSvi(in *pb.Svi) *Svi {
 	}
 }
 
+// BytetoMac translates mac address from byte to HardwareAddr type
 func BytetoMac(Mac []byte) *net.HardwareAddr {
 	MacAddr, err := net.ParseMAC(string(Mac))
 	if err != nil {
@@ -130,21 +135,21 @@ func (in *Svi) ToPb() *pb.Svi {
 		},
 		Status: &pb.SviStatus{},
 	}
-	if in.Status.SviOperStatus == SVI_OPER_STATUS_DOWN {
+	if in.Status.SviOperStatus == SviOperStatusDown {
 		svi.Status.OperStatus = pb.SVIOperStatus_SVI_OPER_STATUS_DOWN
-	} else if in.Status.SviOperStatus == SVI_OPER_STATUS_UP {
+	} else if in.Status.SviOperStatus == SviOperStatusUp {
 		svi.Status.OperStatus = pb.SVIOperStatus_SVI_OPER_STATUS_UP
-	} else if in.Status.SviOperStatus == SVI_OPER_STATUS_UNSPECIFIED {
+	} else if in.Status.SviOperStatus == SviOperStatusUnspecified {
 		svi.Status.OperStatus = pb.SVIOperStatus_SVI_OPER_STATUS_UNSPECIFIED
 	}
 	for _, comp := range in.Status.Components {
 		component := &pb.Component{Name: comp.Name, Details: comp.Details}
 
-		if comp.CompStatus == common.COMP_STATUS_PENDING {
+		if comp.CompStatus == common.ComponentStatusPending {
 			component.Status = pb.CompStatus_COMP_STATUS_PENDING
-		} else if comp.CompStatus == common.COMP_STATUS_SUCCESS {
+		} else if comp.CompStatus == common.ComponentStatusSuccess {
 			component.Status = pb.CompStatus_COMP_STATUS_SUCCESS
-		} else if comp.CompStatus == common.COMP_STATUS_ERROR {
+		} else if comp.CompStatus == common.ComponentStatusError {
 			component.Status = pb.CompStatus_COMP_STATUS_ERROR
 		} else {
 			component.Status = pb.CompStatus_COMP_STATUS_UNSPECIFIED

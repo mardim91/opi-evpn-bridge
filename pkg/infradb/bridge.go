@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2022-2023 Dell Inc, or its subsidiaries.
 
-// Package models translates frontend protobuf messages to backend messages
 package infradb
 
 import (
@@ -14,35 +13,40 @@ import (
 	// pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
-	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriberframework/eventbus"
 )
 
-type LB_OPER_STATUS int32
+// LogicalBridgeOperStatus operational Status for Logical Bridges
+type LogicalBridgeOperStatus int32
 
 const (
-	// unknown
-	LB_OPER_STATUS_UNSPECIFIED LB_OPER_STATUS = iota
-	// Logical Bridge is up
-	LB_OPER_STATUS_UP = iota
-	// Logical Bridge is down
-	LB_OPER_STATUS_DOWN = iota
-	// Logical Bridge is to be deleted
-	LB_OPER_STATUS_TO_BE_DELETED = iota
+	// LogicalBridgeOperStatusUnspecified for Logical Bridge unknown state
+	LogicalBridgeOperStatusUnspecified LogicalBridgeOperStatus = iota
+	// LogicalBridgeOperStatusUp for Logical Bridge up state
+	LogicalBridgeOperStatusUp = iota
+	// LogicalBridgeOperStatusDown for Logical Bridge down state
+	LogicalBridgeOperStatusDown = iota
+	// LogicalBridgeOperStatusToBeDeleted for Logical Bridge to be deleted state
+	LogicalBridgeOperStatusToBeDeleted = iota
 )
 
+// LogicalBridgeStatus holds Logical Bridge Status
 type LogicalBridgeStatus struct {
-	LBOperStatus LB_OPER_STATUS
+	LBOperStatus LogicalBridgeOperStatus
 	Components   []common.Component
 }
 
+// LogicalBridgeSpec holds Logical Bridge Spec
 type LogicalBridgeSpec struct {
-	VlanId uint32
+	VlanID uint32
 	Vni    *uint32
 	VtepIP *net.IPNet
 }
 
+// LogicalBridgeMetadata holds Logical Bridge Metadata
 type LogicalBridgeMetadata struct{}
 
+// LogicalBridge holds Logical Bridge info
 type LogicalBridge struct {
 	Name            string
 	Spec            *LogicalBridgeSpec
@@ -66,25 +70,25 @@ func NewLogicalBridge(in *pb.LogicalBridge) *LogicalBridge {
 	binary.BigEndian.PutUint32(vtepip, in.Spec.VtepIpPrefix.Addr.GetV4Addr())
 	vip := net.IPNet{IP: vtepip, Mask: net.CIDRMask(int(in.Spec.VtepIpPrefix.Len), 32)}
 
-	subscribers := event_bus.EBus.GetSubscribers("logical-bridge")
+	subscribers := eventbus.EBus.GetSubscribers("logical-bridge")
 	if subscribers == nil {
 		log.Println("NewLogicalBridge(): No subscribers for Logical Bridge objects")
 	}
 
 	for _, sub := range subscribers {
-		component := common.Component{Name: sub.Name, CompStatus: common.COMP_STATUS_PENDING, Details: ""}
+		component := common.Component{Name: sub.Name, CompStatus: common.ComponentStatusPending, Details: ""}
 		components = append(components, component)
 	}
 
 	return &LogicalBridge{
 		Name: in.Name,
 		Spec: &LogicalBridgeSpec{
-			VlanId: in.Spec.VlanId,
+			VlanID: in.Spec.VlanId,
 			Vni:    in.Spec.Vni,
 			VtepIP: &vip,
 		},
 		Status: &LogicalBridgeStatus{
-			LBOperStatus: LB_OPER_STATUS(LB_OPER_STATUS_DOWN),
+			LBOperStatus: LogicalBridgeOperStatus(LogicalBridgeOperStatusDown),
 			Components:   components,
 		},
 		Metadata:        &LogicalBridgeMetadata{},
@@ -101,27 +105,27 @@ func (in *LogicalBridge) ToPb() *pb.LogicalBridge {
 	lb := &pb.LogicalBridge{
 		Name: in.Name,
 		Spec: &pb.LogicalBridgeSpec{
-			VlanId:       in.Spec.VlanId,
+			VlanId:       in.Spec.VlanID,
 			Vni:          in.Spec.Vni,
 			VtepIpPrefix: vtepip,
 		},
 		Status: &pb.LogicalBridgeStatus{},
 	}
-	if in.Status.LBOperStatus == LB_OPER_STATUS_DOWN {
+	if in.Status.LBOperStatus == LogicalBridgeOperStatusDown {
 		lb.Status.OperStatus = pb.LBOperStatus_LB_OPER_STATUS_DOWN
-	} else if in.Status.LBOperStatus == LB_OPER_STATUS_UP {
+	} else if in.Status.LBOperStatus == LogicalBridgeOperStatusUp {
 		lb.Status.OperStatus = pb.LBOperStatus_LB_OPER_STATUS_UP
-	} else if in.Status.LBOperStatus == LB_OPER_STATUS_UNSPECIFIED {
+	} else if in.Status.LBOperStatus == LogicalBridgeOperStatusUnspecified {
 		lb.Status.OperStatus = pb.LBOperStatus_LB_OPER_STATUS_UNSPECIFIED
 	}
 	for _, comp := range in.Status.Components {
 		component := &pb.Component{Name: comp.Name, Details: comp.Details}
 		switch comp.CompStatus {
-		case common.COMP_STATUS_PENDING:
+		case common.ComponentStatusPending:
 			component.Status = pb.CompStatus_COMP_STATUS_PENDING
-		case common.COMP_STATUS_SUCCESS:
+		case common.ComponentStatusSuccess:
 			component.Status = pb.CompStatus_COMP_STATUS_SUCCESS
-		case common.COMP_STATUS_ERROR:
+		case common.ComponentStatusError:
 			component.Status = pb.CompStatus_COMP_STATUS_ERROR
 
 		default:
@@ -134,33 +138,36 @@ func (in *LogicalBridge) ToPb() *pb.LogicalBridge {
 	return lb
 }
 
+// AddSvi adds a reference of SVI to the Logical Bridge object
 func (in *LogicalBridge) AddSvi(sviName string) error {
 	if in.Svi != "" {
-		return fmt.Errorf("AddSvi(): The Logical Bridge is already associated with an SVI interface: %+v\n", in.Svi)
+		return fmt.Errorf("AddSvi(): the logical bridge is already associated with an svi interface: %+v", in.Svi)
 	}
 
 	in.Svi = sviName
 	return nil
 }
 
+// DeleteSvi deletes a reference of SVI from the Logical Bridge object
 func (in *LogicalBridge) DeleteSvi(sviName string) error {
 	if in.Svi != sviName {
-		return fmt.Errorf("DeleteSvi(): The Logical Bridge is not associated with the SVI interface: %+v\n", sviName)
+		return fmt.Errorf("DeleteSvi(): the logical bridge is not associated with the svi interface: %+v", sviName)
 	}
 
 	in.Svi = ""
 	return nil
 }
 
+// AddBridgePort adds a reference of a Bridge Port to the Logical Bridge object
 func (in *LogicalBridge) AddBridgePort(bpName, bpMac string) error {
 	_, found := in.BridgePorts[bpName]
 	if found {
-		return fmt.Errorf("AddBridgePort(): The Logical Bridge %+v is already associated with the Bridge Port: %+v\n", in.Name, bpName)
+		return fmt.Errorf("AddBridgePort(): the logical bridge %+v is already associated with the bridge port: %+v", in.Name, bpName)
 	}
 
 	_, found = in.MacTable[bpMac]
 	if found {
-		return fmt.Errorf("AddBridgePort(): The Logical Bridge %+v is already associated with the Bridge Port MAC: %+v\n", in.Name, bpMac)
+		return fmt.Errorf("AddBridgePort(): the logical bridge %+v is already associated with the bridge port mac: %+v", in.Name, bpMac)
 	}
 	in.BridgePorts[bpName] = false
 	in.MacTable[bpMac] = bpName
@@ -168,15 +175,16 @@ func (in *LogicalBridge) AddBridgePort(bpName, bpMac string) error {
 	return nil
 }
 
+// DeleteBridgePort deletes a reference of a Bridge Port from the Logical Bridge object
 func (in *LogicalBridge) DeleteBridgePort(bpName, bpMac string) error {
 	_, found := in.BridgePorts[bpName]
 	if !found {
-		return fmt.Errorf("DeleteBridgePort(): The Logical Bridge %+v is not associated with the Bridge Port: %+v\n", in.Name, bpName)
+		return fmt.Errorf("DeleteBridgePort(): the logical bridge %+v is not associated with the bridge port: %+v", in.Name, bpName)
 	}
 
 	_, found = in.MacTable[bpMac]
 	if !found {
-		return fmt.Errorf("DeleteBridgePort(): The Logical Bridge %+v is not associated with the Bridge Port MAC: %+v\n", in.Name, bpMac)
+		return fmt.Errorf("DeleteBridgePort(): the logical bridge %+v is not associated with the bridge port mac: %+v", in.Name, bpMac)
 	}
 
 	delete(in.BridgePorts, bpName)

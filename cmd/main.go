@@ -9,13 +9,14 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
 	"os"
-	"io"
 	"strconv"
 	"time"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -25,7 +26,7 @@ import (
 	"github.com/opiproject/opi-evpn-bridge/pkg/bridge"
 	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
-	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/task_manager"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/taskmanager"
 	"github.com/opiproject/opi-evpn-bridge/pkg/port"
 	"github.com/opiproject/opi-evpn-bridge/pkg/svi"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
@@ -60,7 +61,7 @@ var rootCmd = &cobra.Command{
 	},
 	Run: func(_ *cobra.Command, _ []string) {
 
-		task_manager.TaskMan.StartTaskManager()
+		taskmanager.TaskMan.StartTaskManager()
 
 		err := infradb.NewInfraDB(config.GlobalConfig.DBAddress, config.GlobalConfig.Database)
 		if err != nil {
@@ -133,14 +134,15 @@ const logfile string = "opi-evpn-bridge.log"
 const logprefix string = "LOGTEST: "
 
 var logger *log.Logger
+
 func setupLogger(filename, prefix string) {
-    var err error
-    out, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-    if err != nil {
-        log.Fatal( err)
-    }
-    logger=log.New(io.MultiWriter(os.Stdout, out), prefix, log.LstdFlags)
-    log.SetOutput(logger.Writer())
+	var err error
+	out, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	logger = log.New(io.MultiWriter(os.Stdout, out), prefix, log.LstdFlags)
+	log.SetOutput(logger.Writer())
 
 }
 

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2022-2023 Dell Inc, or its subsidiaries.
 
-// Package models translates frontend protobuf messages to backend messages
 package infradb
 
 import (
@@ -14,32 +13,37 @@ import (
 	// pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
-	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriberframework/eventbus"
 )
 
-type VRF_OPER_STATUS int32
+// VrfOperStatus operational Status for VRFs
+type VrfOperStatus int32
 
 const (
-	// unknown
-	VRF_OPER_STATUS_UNSPECIFIED VRF_OPER_STATUS = iota
-	// vrf is up
-	VRF_OPER_STATUS_UP = iota
-	// vrf is down
-	VRF_OPER_STATUS_DOWN = iota
-	// vrf is to be deleted
-	VRF_OPER_STATUS_TO_BE_DELETED = iota
+	// VrfOperStatusUnspecified for VRF unknown state
+	VrfOperStatusUnspecified VrfOperStatus = iota
+	// VrfOperStatusUp for VRF up state
+	VrfOperStatusUp = iota
+	// VrfOperStatusDown for VRF down state
+	VrfOperStatusDown = iota
+	// VrfOperStatusToBeDeleted for VRF to be deleted state
+	VrfOperStatusToBeDeleted = iota
 )
 
+// VrfStatus holds VRF Status
 type VrfStatus struct {
-	VrfOperStatus VRF_OPER_STATUS
+	VrfOperStatus VrfOperStatus
 	Components    []common.Component
 }
+
+// VrfSpec holds VRF Spec
 type VrfSpec struct {
 	Vni        *uint32
 	LoopbackIP *net.IPNet
 	VtepIP     *net.IPNet
 }
 
+// VrfMetadata holds VRF Metadata
 type VrfMetadata struct {
 	// We add a pointer here because the default value of uint32 type is "0"
 	// and that can be considered a legit value. Using *uint32 the default value
@@ -47,6 +51,7 @@ type VrfMetadata struct {
 	RoutingTable []*uint32
 }
 
+// Vrf holds VRF info
 type Vrf struct {
 	Name            string
 	Spec            *VrfSpec
@@ -89,18 +94,18 @@ func NewVrfWithArgs(name string, vni *uint32, loopbackIP, vtepIP *net.IPNet) (*V
 		vrf.Spec.VtepIP = vtepIP
 	}
 
-	subscribers := event_bus.EBus.GetSubscribers("vrf")
+	subscribers := eventbus.EBus.GetSubscribers("vrf")
 	if subscribers == nil {
 		log.Println("NewVrfWithArgs(): No subscribers for Vrf objects")
 	}
 
 	for _, sub := range subscribers {
-		component := common.Component{Name: sub.Name, CompStatus: common.COMP_STATUS_PENDING, Details: ""}
+		component := common.Component{Name: sub.Name, CompStatus: common.ComponentStatusPending, Details: ""}
 		components = append(components, component)
 	}
 
 	vrf.Status = &VrfStatus{
-		VrfOperStatus: VRF_OPER_STATUS(VRF_OPER_STATUS_DOWN),
+		VrfOperStatus: VrfOperStatus(VrfOperStatusDown),
 		Components:    components,
 	}
 	// vrf.Metadata = &VrfMetadata{}
@@ -123,13 +128,13 @@ func NewVrf(in *pb.Vrf) *Vrf {
 	binary.BigEndian.PutUint32(vtepip, in.Spec.VtepIpPrefix.Addr.GetV4Addr())
 	vip := net.IPNet{IP: vtepip, Mask: net.CIDRMask(int(in.Spec.VtepIpPrefix.Len), 32)}
 
-	subscribers := event_bus.EBus.GetSubscribers("vrf")
+	subscribers := eventbus.EBus.GetSubscribers("vrf")
 	if subscribers == nil {
 		log.Println("NewVrf(): No subscribers for Vrf objects")
 	}
 
 	for _, sub := range subscribers {
-		component := common.Component{Name: sub.Name, CompStatus: common.COMP_STATUS_PENDING, Details: ""}
+		component := common.Component{Name: sub.Name, CompStatus: common.ComponentStatusPending, Details: ""}
 		components = append(components, component)
 	}
 
@@ -141,7 +146,7 @@ func NewVrf(in *pb.Vrf) *Vrf {
 			VtepIP:     &vip,
 		},
 		Status: &VrfStatus{
-			VrfOperStatus: VRF_OPER_STATUS(VRF_OPER_STATUS_DOWN),
+			VrfOperStatus: VrfOperStatus(VrfOperStatusDown),
 
 			Components: components,
 		},
@@ -165,22 +170,23 @@ func (in *Vrf) ToPb() *pb.Vrf {
 		},
 		Status: &pb.VrfStatus{},
 	}
-	if in.Status.VrfOperStatus == VRF_OPER_STATUS_DOWN {
+	// Dimitris: I think we need to add the To be deletes status too
+	if in.Status.VrfOperStatus == VrfOperStatusDown {
 		vrf.Status.OperStatus = pb.VRFOperStatus_VRF_OPER_STATUS_DOWN
-	} else if in.Status.VrfOperStatus == VRF_OPER_STATUS_UP {
+	} else if in.Status.VrfOperStatus == VrfOperStatusUp {
 		vrf.Status.OperStatus = pb.VRFOperStatus_VRF_OPER_STATUS_UP
-	} else if in.Status.VrfOperStatus == VRF_OPER_STATUS_UNSPECIFIED {
+	} else if in.Status.VrfOperStatus == VrfOperStatusUnspecified {
 		vrf.Status.OperStatus = pb.VRFOperStatus_VRF_OPER_STATUS_UNSPECIFIED
 	}
 	for _, comp := range in.Status.Components {
 		component := &pb.Component{Name: comp.Name, Details: comp.Details}
 
 		switch comp.CompStatus {
-		case common.COMP_STATUS_PENDING:
+		case common.ComponentStatusPending:
 			component.Status = pb.CompStatus_COMP_STATUS_PENDING
-		case common.COMP_STATUS_SUCCESS:
+		case common.ComponentStatusSuccess:
 			component.Status = pb.CompStatus_COMP_STATUS_SUCCESS
-		case common.COMP_STATUS_ERROR:
+		case common.ComponentStatusError:
 			component.Status = pb.CompStatus_COMP_STATUS_ERROR
 
 		default:
@@ -192,20 +198,22 @@ func (in *Vrf) ToPb() *pb.Vrf {
 	return vrf
 }
 
+// AddSvi adds a reference of SVI to the VRF object
 func (in *Vrf) AddSvi(sviName string) error {
 	_, ok := in.Svis[sviName]
 	if ok {
-		return fmt.Errorf("AddSvi(): The VRF %+v is already associated with this SVI interface: %+v\n", in.Name, sviName)
+		return fmt.Errorf("AddSvi(): The VRF %+v is already associated with this SVI interface: %+v", in.Name, sviName)
 	}
 
 	in.Svis[sviName] = false
 	return nil
 }
 
+// DeleteSvi deletes a reference of SVI from the VRF object
 func (in *Vrf) DeleteSvi(sviName string) error {
 	_, ok := in.Svis[sviName]
 	if !ok {
-		return fmt.Errorf("DeleteSvi(): The VRF %+v has no SVI interface: %+v\n", in.Name, sviName)
+		return fmt.Errorf("DeleteSvi(): The VRF %+v has no SVI interface: %+v", in.Name, sviName)
 	}
 	delete(in.Svis, sviName)
 	return nil

@@ -8,20 +8,24 @@ import (
 	pc "github.com/opiproject/opi-api/network/opinetcommon/v1alpha1/gen/go"
 )
 
-type COMP_STATUS int
+// ComponentStatus describes the status of each component
+type ComponentStatus int
 
 const (
-	COMP_STATUS_UNSPECIFIED COMP_STATUS = iota + 1
-	COMP_STATUS_PENDING
-	COMP_STATUS_SUCCESS
-	COMP_STATUS_ERROR
+	// ComponentStatusUnspecified for Component unknown state
+	ComponentStatusUnspecified ComponentStatus = iota + 1
+	// ComponentStatusPending for Component pending state
+	ComponentStatusPending
+	// ComponentStatusSuccess for Component success state
+	ComponentStatusSuccess
+	// ComponentStatusError for Component error state
+	ComponentStatusError
 )
 
-// Vrf object, separate from protobuf for decoupling
-
+// Component holds component data
 type Component struct {
 	Name       string
-	CompStatus COMP_STATUS
+	CompStatus ComponentStatus
 	// Free format json string
 	Details string
 	Timer   time.Duration
@@ -34,6 +38,7 @@ func ip4ToInt(ip net.IP) uint32 {
 	return 0
 }
 
+// ConvertToIPPrefix converts IPNet type to IPPrefix
 func ConvertToIPPrefix(ipNet *net.IPNet) *pc.IPPrefix {
 	return &pc.IPPrefix{
 		Addr: &pc.IPAddress{

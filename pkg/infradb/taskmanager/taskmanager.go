@@ -1,40 +1,44 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2023 Nordix Foundation.
 
-// Package taskmanager contains the task manager logic
-package task_manager
+package taskmanager
 
 import (
-	"github.com/google/uuid"
-	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
 	"log"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
+
 	// Typo
-	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriberframework/eventbus"
 )
 
+// TaskMan holds a TaskManager object
 var TaskMan = newTaskManager()
 
+// TaskManager holds fields crucial for task manager functionality
 type TaskManager struct {
 	taskQueue      *TaskQueue
 	taskStatusChan chan *TaskStatus
 }
 
+// Task corresponds to an onject to be realized
 type Task struct {
 	name            string
 	objectType      string
 	resourceVersion string
-	sub_index       int
+	subIndex        int
 	retryTimer      time.Duration
-	subs            []*event_bus.Subscriber
+	subs            []*eventbus.Subscriber
 }
 
+// TaskStatus holds info related to the status that has been received
 type TaskStatus struct {
 	name            string
 	objectType      string
 	resourceVersion string
-	notificationId  string
+	notificationID  string
 	dropTask        bool
 	component       *common.Component
 }
@@ -46,33 +50,35 @@ func newTaskManager() *TaskManager {
 	}
 }
 
-func newTask(name, objectType, resourceVersion string, subs []*event_bus.Subscriber) *Task {
+func newTask(name, objectType, resourceVersion string, subs []*eventbus.Subscriber) *Task {
 	return &Task{
 		name:            name,
 		objectType:      objectType,
 		resourceVersion: resourceVersion,
-		sub_index:       0,
+		subIndex:        0,
 		subs:            subs,
 	}
 }
 
-func newTaskStatus(name, objectType, resourceVersion, notificationId string, dropTask bool, component *common.Component) *TaskStatus {
+func newTaskStatus(name, objectType, resourceVersion, notificationID string, dropTask bool, component *common.Component) *TaskStatus {
 	return &TaskStatus{
 		name:            name,
 		objectType:      objectType,
 		resourceVersion: resourceVersion,
-		notificationId:  notificationId,
+		notificationID:  notificationID,
 		dropTask:        dropTask,
 		component:       component,
 	}
 }
 
+// StartTaskManager starts task manager
 func (t *TaskManager) StartTaskManager() {
 	go t.processTasks()
 	log.Println("Task Manager has started")
 }
 
-func (t *TaskManager) CreateTask(name, objectType, resourceVersion string, subs []*event_bus.Subscriber) {
+// CreateTask creates a task and adds it to the queue
+func (t *TaskManager) CreateTask(name, objectType, resourceVersion string, subs []*eventbus.Subscriber) {
 	task := newTask(name, objectType, resourceVersion, subs)
 	// The reason that we use a go routing to enqueue the task is because we do not want the main thread to block
 	// if the queue is full but only the go routine to block
@@ -80,8 +86,9 @@ func (t *TaskManager) CreateTask(name, objectType, resourceVersion string, subs 
 	log.Printf("CreateTask(): New Task has been created: %+v\n", task)
 }
 
-func (t *TaskManager) StatusUpdated(name, objectType, resourceVersion, notificationId string, dropTask bool, component *common.Component) {
-	taskStatus := newTaskStatus(name, objectType, resourceVersion, notificationId, dropTask, component)
+// StatusUpdated creates a task status and sends it for handling
+func (t *TaskManager) StatusUpdated(name, objectType, resourceVersion, notificationID string, dropTask bool, component *common.Component) {
+	taskStatus := newTaskStatus(name, objectType, resourceVersion, notificationID, dropTask, component)
 
 	// Do we need to make this call happen in a goroutine in order to not make the
 	// StatusUpdated function stuck in case that nobody reads what is written on the channel ?
@@ -98,42 +105,42 @@ func (t *TaskManager) processTasks() {
 		task := t.taskQueue.Dequeue()
 		log.Printf("processTasks(): Task has been dequeued for processing: %+v\n", task)
 
-		subsToIterate := task.subs[task.sub_index:]
+		subsToIterate := task.subs[task.subIndex:]
 	loopTwo:
 		for i, sub := range subsToIterate {
 			// TODO: We need a newObjectData function to create the ObjectData objects
-			objectData := &event_bus.ObjectData{
+			objectData := &eventbus.ObjectData{
 				Name:            task.name,
 				ResourceVersion: task.resourceVersion,
-				// We need this notificationId in order to tell if the status that we got
+				// We need this notificationID in order to tell if the status that we got
 				// in the taskStatusChan corresponds to the latest notificiation that we have sent or not.
 				// (e.g. Maybe you have a timeout on the subscribers and you got the notification after the timeout have passed)
-				NotificationId: uuid.NewString(),
+				NotificationID: uuid.NewString(),
 			}
-			event_bus.EBus.Publish(objectData, sub)
+			eventbus.EBus.Publish(objectData, sub)
 			log.Printf("processTasks(): Notification has been sent to subscriber %+v with data %+v\n", sub, objectData)
 
 		loopThree:
 			for {
 				// We have this for loop in order to assert that the taskStatus that received from the channel is related to the current task.
-				// We do that by checking the notificationId
+				// We do that by checking the notificationID
 				// If not we just ignore the taskStatus that we have received and loop again.
 				taskStatus = nil
 				select {
 				case taskStatus = <-t.taskStatusChan:
 
 					log.Printf("processTasks(): Task Status has been received from the channel %+v\n", taskStatus)
-					if taskStatus.notificationId == objectData.NotificationId {
-						log.Printf("processTasks(): received notification id %+v equals the sent notification id %+v\n", taskStatus.notificationId, objectData.NotificationId)
+					if taskStatus.notificationID == objectData.NotificationID {
+						log.Printf("processTasks(): received notification id %+v equals the sent notification id %+v\n", taskStatus.notificationID, objectData.NotificationID)
 						break loopThree
 					}
-					log.Printf("processTasks(): received notification id %+v doesn't equal the sent notification id %+v\n", taskStatus.notificationId, objectData.NotificationId)
+					log.Printf("processTasks(): received notification id %+v doesn't equal the sent notification id %+v\n", taskStatus.notificationID, objectData.NotificationID)
 
 				// We need a timeout in case that the subscriber doesn't update the status at all for whatever reason.
 				// If that occurs then we just take a note which subscriber need to revisit and we requeue the task without any timer
 				case <-time.After(30 * time.Second):
 					log.Printf("processTasks(): No task status has been received in the channel from subscriber %+v. The task %+v will be requeued immediately Task Status %+v\n", sub, task, taskStatus)
-					task.sub_index = task.sub_index + i
+					task.subIndex = task.subIndex + i
 					go t.taskQueue.Enqueue(task)
 					break loopThree
 				}
@@ -147,12 +154,12 @@ func (t *TaskManager) processTasks() {
 			}
 
 			switch taskStatus.component.CompStatus {
-			case common.COMP_STATUS_SUCCESS:
+			case common.ComponentStatusSuccess:
 				log.Printf("processTasks(): Subscriber %+v has processed the task %+v successfully\n", sub, task)
 				continue loopTwo
 			default:
 				log.Printf("processTasks(): Subscriber %+v has not processed the task %+v successfully\n", sub, task)
-				task.sub_index = task.sub_index + i
+				task.subIndex = task.subIndex + i
 				task.retryTimer = taskStatus.component.Timer
 				log.Printf("processTasks(): The Task will be requeued after %+v\n", task.retryTimer)
 				time.AfterFunc(task.retryTimer, func() {

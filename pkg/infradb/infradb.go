@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2023 Nordix Foundation.
 
+// Package infradb exposes the interface for the manipulation of the api objects
 package infradb
 
 import (
@@ -9,8 +10,8 @@ import (
 	"sync"
 
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
-	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
-	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/task_manager"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriberframework/eventbus"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/taskmanager"
 	"github.com/opiproject/opi-evpn-bridge/pkg/storage"
 	"github.com/philippgille/gokv"
 )
@@ -18,22 +19,32 @@ import (
 var infradb *InfraDB
 var globalLock sync.Mutex
 
+// InfraDB structure
 type InfraDB struct {
 	client gokv.Store
 }
 
 var (
-	ErrKeyNotFound           = errors.New("key not found")
-	ErrComponentNotFound     = errors.New("component not found")
-	ErrVrfNotFound           = errors.New("the referenced VRF has not been found")
+	// ErrKeyNotFound error for missing key
+	ErrKeyNotFound = errors.New("key not found")
+	// ErrComponentNotFound error for missing component
+	ErrComponentNotFound = errors.New("component not found")
+	// ErrVrfNotFound error for missing vrf
+	ErrVrfNotFound = errors.New("the referenced VRF has not been found")
+	// ErrLogicalBridgeNotFound error for missing logical bridge
 	ErrLogicalBridgeNotFound = errors.New("the referenced Logical Bridge has not been found")
-	ErrVrfNotEmpty           = errors.New("the VRF is not empty")
+	// ErrVrfNotEmpty vrf is not empty
+	ErrVrfNotEmpty = errors.New("the VRF is not empty")
+	// ErrLogicalBridgeNotEmpty logical bridge is not empty
 	ErrLogicalBridgeNotEmpty = errors.New("the LogicalBridge is not empty")
-	ErrRoutingTableInUse     = errors.New("the routing table is already in use")
-	ErrVniInUse              = errors.New("the VNI is already in use")
+	// ErrRoutingTableInUse routing table is in use
+	ErrRoutingTableInUse = errors.New("the routing table is allready in use")
+	// ErrVniInUse vni is in use
+	ErrVniInUse = errors.New("the VNI is allready in use")
 	// Add more error constants as needed
 )
 
+// NewInfraDB initializes an InfraDB object
 func NewInfraDB(address string, dbtype string) error {
 	store, err := storage.NewStore(dbtype, address)
 	if err != nil {
@@ -46,16 +57,20 @@ func NewInfraDB(address string, dbtype string) error {
 	}
 	return nil
 }
+
+// Close closes a infradb connection to the DB
 func Close() error {
 	return infradb.client.Close()
 }
+
+// CreateLB creates an infradb logical bridge object
 func CreateLB(lb *LogicalBridge) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
 	vpns := make(map[uint32]bool)
 
-	subscribers := event_bus.EBus.GetSubscribers("logical-bridge")
+	subscribers := eventbus.EBus.GetSubscribers("logical-bridge")
 	if subscribers == nil {
 		log.Println("CreateLB(): No subscribers for Logical Bridge objects")
 	}
@@ -115,15 +130,17 @@ func CreateLB(lb *LogicalBridge) error {
 		return err
 	}
 
-	task_manager.TaskMan.CreateTask(lb.Name, "logical-bridge", lb.ResourceVersion, subscribers)
+	taskmanager.TaskMan.CreateTask(lb.Name, "logical-bridge", lb.ResourceVersion, subscribers)
 
 	return nil
 }
+
+// DeleteLB deletes a logical bridge infradb object
 func DeleteLB(Name string) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
-	subscribers := event_bus.EBus.GetSubscribers("logical-bridge")
+	subscribers := eventbus.EBus.GetSubscribers("logical-bridge")
 	if subscribers == nil {
 		log.Println("DeleteLB(): No subscribers for Logical Bridge objects")
 	}
@@ -145,24 +162,26 @@ func DeleteLB(Name string) error {
 
 	if len(lb.BridgePorts) != 0 || len(lb.MacTable) != 0 {
 		log.Fatalf("DeleteLB(): Can not delete Logical Bridge %+v. Associated with Bridge Ports", lb.Name)
-		return ErrVrfNotEmpty
+		return ErrLogicalBridgeNotEmpty
 	}
 
 	for i := range subscribers {
-		lb.Status.Components[i].CompStatus = common.COMP_STATUS_PENDING
+		lb.Status.Components[i].CompStatus = common.ComponentStatusPending
 	}
 	lb.ResourceVersion = generateVersion()
-	lb.Status.LBOperStatus = LB_OPER_STATUS_TO_BE_DELETED
+	lb.Status.LBOperStatus = LogicalBridgeOperStatusToBeDeleted
 
 	err = infradb.client.Set(lb.Name, lb)
 	if err != nil {
 		return err
 	}
 
-	task_manager.TaskMan.CreateTask(lb.Name, "logical-bridge", lb.ResourceVersion, subscribers)
+	taskmanager.TaskMan.CreateTask(lb.Name, "logical-bridge", lb.ResourceVersion, subscribers)
 
 	return nil
 }
+
+// GetLB returns an infradb logical bridge object
 func GetLB(Name string) (*LogicalBridge, error) {
 	globalLock.Lock()
 	defer globalLock.Unlock()
@@ -176,7 +195,7 @@ func GetLB(Name string) (*LogicalBridge, error) {
 	return &lb, err
 }
 
-// GetAllLogicalBridges returns a map of Logical Bridges from the DB
+// GetAllLBs returns a list of logical bridges from the DB
 func GetAllLBs() ([]*LogicalBridge, error) {
 	globalLock.Lock()
 	defer globalLock.Unlock()
@@ -214,11 +233,12 @@ func GetAllLBs() ([]*LogicalBridge, error) {
 	return lbs, nil
 }
 
+// UpdateLB updates a logical bridge infradb object
 func UpdateLB(lb *LogicalBridge) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
-	subscribers := event_bus.EBus.GetSubscribers("logical-bridge")
+	subscribers := eventbus.EBus.GetSubscribers("logical-bridge")
 	if subscribers == nil {
 		log.Println("UpdateLB(): No subscribers for Logical Bridge objects")
 	}
@@ -229,13 +249,13 @@ func UpdateLB(lb *LogicalBridge) error {
 		return err
 	}
 
-	task_manager.TaskMan.CreateTask(lb.Name, "logical-bridge", lb.ResourceVersion, subscribers)
+	taskmanager.TaskMan.CreateTask(lb.Name, "logical-bridge", lb.ResourceVersion, subscribers)
 
 	return nil
 }
 
-// UpdateLBStatus updates the status of Logical Bridge object based on the component report
-func UpdateLBStatus(Name string, resourceVersion string, notificationId string, lbMeta *LogicalBridgeMetadata, component common.Component) error {
+// UpdateLBStatus updates the status of logical bridge object based on the component report
+func UpdateLBStatus(Name string, resourceVersion string, notificationID string, lbMeta *LogicalBridgeMetadata, component common.Component) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -252,14 +272,14 @@ func UpdateLBStatus(Name string, resourceVersion string, notificationId string, 
 
 	if !found {
 		// No Logical Bridge object has been found in the database so we will instruct TaskManager to drop the Task that is related with this status update.
-		task_manager.TaskMan.StatusUpdated(Name, "logical-bridge", lb.ResourceVersion, notificationId, true, &component)
+		taskmanager.TaskMan.StatusUpdated(Name, "logical-bridge", lb.ResourceVersion, notificationID, true, &component)
 		log.Printf("UpdateLBStatus(): No Logical Bridge object has been found in DB with Name %s\n", Name)
 		return nil
 	}
 
 	if lb.ResourceVersion != resourceVersion {
 		// Logical Bridge object in the database with different resourceVersion so we will instruct TaskManager to drop the Task that is related with this status update.
-		task_manager.TaskMan.StatusUpdated(lb.Name, "logical-bridge", lb.ResourceVersion, notificationId, true, &component)
+		taskmanager.TaskMan.StatusUpdated(lb.Name, "logical-bridge", lb.ResourceVersion, notificationID, true, &component)
 		log.Printf("UpdateLBStatus(): Invalid resourceVersion %s for Logical Bridge %+v\n", resourceVersion, lb)
 		return nil
 	}
@@ -270,7 +290,7 @@ func UpdateLBStatus(Name string, resourceVersion string, notificationId string, 
 		if comp.Name == component.Name {
 			lb.Status.Components[i] = component
 
-			if compCounter == len(lbComponents) && lb.Status.Components[i].CompStatus == common.COMP_STATUS_SUCCESS {
+			if compCounter == len(lbComponents) && lb.Status.Components[i].CompStatus == common.ComponentStatusSuccess {
 				lastCompSuccsess = true
 			}
 
@@ -285,7 +305,7 @@ func UpdateLBStatus(Name string, resourceVersion string, notificationId string, 
 
 	// Is it ok to delete an object before we update the last component status to success ?
 	if lastCompSuccsess {
-		if lb.Status.LBOperStatus == LB_OPER_STATUS_TO_BE_DELETED {
+		if lb.Status.LBOperStatus == LogicalBridgeOperStatusToBeDeleted {
 			err = infradb.client.Delete(lb.Name)
 			if err != nil {
 				log.Fatal(err)
@@ -331,7 +351,7 @@ func UpdateLBStatus(Name string, resourceVersion string, notificationId string, 
 
 			log.Printf("UpdateLBStatus(): Logical Bridge %s has been deleted\n", Name)
 		} else {
-			lb.Status.LBOperStatus = LB_OPER_STATUS_UP
+			lb.Status.LBOperStatus = LogicalBridgeOperStatusUp
 			err = infradb.client.Set(lb.Name, lb)
 			if err != nil {
 				log.Fatal(err)
@@ -348,16 +368,17 @@ func UpdateLBStatus(Name string, resourceVersion string, notificationId string, 
 		log.Printf("UpdateLBStatus(): Logical Bridge %s has been updated: %+v\n", Name, lb)
 	}
 
-	task_manager.TaskMan.StatusUpdated(lb.Name, "logical-bridge", lb.ResourceVersion, notificationId, false, &component)
+	taskmanager.TaskMan.StatusUpdated(lb.Name, "logical-bridge", lb.ResourceVersion, notificationID, false, &component)
 
 	return nil
 }
 
+// CreateBP creates an infradb bridge port object
 func CreateBP(bp *BridgePort) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
-	subscribers := event_bus.EBus.GetSubscribers("bridge-port")
+	subscribers := eventbus.EBus.GetSubscribers("bridge-port")
 	if subscribers == nil {
 		log.Println("CreateBP(): No subscribers for Bridge Port objects")
 	}
@@ -400,7 +421,7 @@ func CreateBP(bp *BridgePort) error {
 			log.Fatalf("CreateBP(): The Logical Bridge with name %+v has not been found\n", lbName)
 			return ErrLogicalBridgeNotFound
 		}
-		bp.Vlans = append(bp.Vlans, &lb.Spec.VlanId)
+		bp.Vlans = append(bp.Vlans, &lb.Spec.VlanID)
 
 		// Store Bridge Port reference to the Logical Bridge object
 		lb.AddBridgePort(bp.Name, bp.Spec.MacAddress.String())
@@ -438,16 +459,17 @@ func CreateBP(bp *BridgePort) error {
 		return err
 	}
 
-	task_manager.TaskMan.CreateTask(bp.Name, "bridge-port", bp.ResourceVersion, subscribers)
+	taskmanager.TaskMan.CreateTask(bp.Name, "bridge-port", bp.ResourceVersion, subscribers)
 
 	return nil
 }
 
+// DeleteBP deletes a bridge port infradb object
 func DeleteBP(Name string) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
-	subscribers := event_bus.EBus.GetSubscribers("bridge-port")
+	subscribers := eventbus.EBus.GetSubscribers("bridge-port")
 	if subscribers == nil {
 		log.Println("DeleteBP(): No subscribers for Bridge Port objects")
 	}
@@ -459,21 +481,22 @@ func DeleteBP(Name string) error {
 	}
 
 	for i := range subscribers {
-		bp.Status.Components[i].CompStatus = common.COMP_STATUS_PENDING
+		bp.Status.Components[i].CompStatus = common.ComponentStatusPending
 	}
 	bp.ResourceVersion = generateVersion()
-	bp.Status.BPOperStatus = BP_OPER_STATUS_TO_BE_DELETED
+	bp.Status.BPOperStatus = BridgePortOperStatusToBeDeleted
 
 	err = infradb.client.Set(bp.Name, bp)
 	if err != nil {
 		return err
 	}
 
-	task_manager.TaskMan.CreateTask(bp.Name, "bridge-port", bp.ResourceVersion, subscribers)
+	taskmanager.TaskMan.CreateTask(bp.Name, "bridge-port", bp.ResourceVersion, subscribers)
 
 	return nil
 }
 
+// GetBP returns an infradb bridge port object
 func GetBP(Name string) (*BridgePort, error) {
 	globalLock.Lock()
 	defer globalLock.Unlock()
@@ -487,7 +510,7 @@ func GetBP(Name string) (*BridgePort, error) {
 	return &bp, err
 }
 
-// GetAllBPs returns a map of Bridge Ports from the DB
+// GetAllBPs returns a list of bridge ports from the DB
 func GetAllBPs() ([]*BridgePort, error) {
 	globalLock.Lock()
 	defer globalLock.Unlock()
@@ -525,6 +548,7 @@ func GetAllBPs() ([]*BridgePort, error) {
 	return bps, nil
 }
 
+// UpdateBP updates a bridge port infradb object
 func UpdateBP(bp *BridgePort) error {
 	// Note: The update functions for all the objects need to be revisited
 	// The implementaation currently is not correct but due to low priority
@@ -532,7 +556,7 @@ func UpdateBP(bp *BridgePort) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
-	subscribers := event_bus.EBus.GetSubscribers("bridge-port")
+	subscribers := eventbus.EBus.GetSubscribers("bridge-port")
 	if subscribers == nil {
 		log.Println("UpdateBP(): No subscribers for Bridge Port objects")
 	}
@@ -543,13 +567,13 @@ func UpdateBP(bp *BridgePort) error {
 		return err
 	}
 
-	task_manager.TaskMan.CreateTask(bp.Name, "bridge-port", bp.ResourceVersion, subscribers)
+	taskmanager.TaskMan.CreateTask(bp.Name, "bridge-port", bp.ResourceVersion, subscribers)
 
 	return nil
 }
 
-// UpdateBPStatus updates the status of Bridge Port object based on the component report
-func UpdateBPStatus(Name string, resourceVersion string, notificationId string, bpMeta *BridgePortMetadata, component common.Component) error {
+// UpdateBPStatus updates the status of bridge port object based on the component report
+func UpdateBPStatus(Name string, resourceVersion string, notificationID string, bpMeta *BridgePortMetadata, component common.Component) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -566,14 +590,14 @@ func UpdateBPStatus(Name string, resourceVersion string, notificationId string, 
 
 	if !found {
 		// No Bridge Port object has been found in the database so we will instruct TaskManager to drop the Task that is related with this status update.
-		task_manager.TaskMan.StatusUpdated(Name, "bridge-port", bp.ResourceVersion, notificationId, true, &component)
+		taskmanager.TaskMan.StatusUpdated(Name, "bridge-port", bp.ResourceVersion, notificationID, true, &component)
 		log.Printf("UpdateBPStatus(): No Bridge Port object has been found in DB with Name %s\n", Name)
 		return nil
 	}
 
 	if bp.ResourceVersion != resourceVersion {
 		// Bridge Port object in the database with different resourceVersion so we will instruct TaskManager to drop the Task that is related with this status update.
-		task_manager.TaskMan.StatusUpdated(bp.Name, "bridge-port", bp.ResourceVersion, notificationId, true, &component)
+		taskmanager.TaskMan.StatusUpdated(bp.Name, "bridge-port", bp.ResourceVersion, notificationID, true, &component)
 		log.Printf("UpdateBPStatus(): Invalid resourceVersion %s for Bridge Port %+v\n", resourceVersion, bp)
 		return nil
 	}
@@ -584,7 +608,7 @@ func UpdateBPStatus(Name string, resourceVersion string, notificationId string, 
 		if comp.Name == component.Name {
 			bp.Status.Components[i] = component
 
-			if compCounter == len(bpComponents) && bp.Status.Components[i].CompStatus == common.COMP_STATUS_SUCCESS {
+			if compCounter == len(bpComponents) && bp.Status.Components[i].CompStatus == common.ComponentStatusSuccess {
 				lastCompSuccsess = true
 			}
 
@@ -602,7 +626,7 @@ func UpdateBPStatus(Name string, resourceVersion string, notificationId string, 
 	// Is it ok to delete an object before we update the last component status to success ?
 	// Take care of deleting the references to the LB  objects after the BP has been successfully deleted
 	if lastCompSuccsess {
-		if bp.Status.BPOperStatus == SVI_OPER_STATUS_TO_BE_DELETED {
+		if bp.Status.BPOperStatus == SviOperStatusToBeDeleted {
 			// Delete the references from Logical Bridge objects
 			for _, lbName := range bp.Spec.LogicalBridges {
 				lb := LogicalBridge{}
@@ -651,7 +675,7 @@ func UpdateBPStatus(Name string, resourceVersion string, notificationId string, 
 
 			log.Printf("UpdateBPStatus(): Bridge Port %s has been deleted\n", Name)
 		} else {
-			bp.Status.BPOperStatus = BP_OPER_STATUS_UP
+			bp.Status.BPOperStatus = BridgePortOperStatusUp
 			err = infradb.client.Set(bp.Name, bp)
 			if err != nil {
 				log.Fatal(err)
@@ -668,18 +692,19 @@ func UpdateBPStatus(Name string, resourceVersion string, notificationId string, 
 		log.Printf("UpdateBPStatus(): Bridge Port %s has been updated: %+v\n", Name, bp)
 	}
 
-	task_manager.TaskMan.StatusUpdated(bp.Name, "bridge-port", bp.ResourceVersion, notificationId, false, &component)
+	taskmanager.TaskMan.StatusUpdated(bp.Name, "bridge-port", bp.ResourceVersion, notificationID, false, &component)
 
 	return nil
 }
 
+// CreateVrf creates an infradb vrf object
 func CreateVrf(vrf *Vrf) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
 	vpns := make(map[uint32]bool)
 
-	subscribers := event_bus.EBus.GetSubscribers("vrf")
+	subscribers := eventbus.EBus.GetSubscribers("vrf")
 	if subscribers == nil {
 		log.Println("CreateVrf(): No subscribers for Vrf objects")
 	}
@@ -741,16 +766,17 @@ func CreateVrf(vrf *Vrf) error {
 		return err
 	}
 
-	task_manager.TaskMan.CreateTask(vrf.Name, "vrf", vrf.ResourceVersion, subscribers)
+	taskmanager.TaskMan.CreateTask(vrf.Name, "vrf", vrf.ResourceVersion, subscribers)
 
 	return nil
 }
 
+// DeleteVrf deletes a vrf infradb object
 func DeleteVrf(Name string) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
-	subscribers := event_bus.EBus.GetSubscribers("vrf")
+	subscribers := eventbus.EBus.GetSubscribers("vrf")
 	if subscribers == nil {
 		log.Println("DeleteVrf(): No subscribers for Vrf objects")
 	}
@@ -767,20 +793,22 @@ func DeleteVrf(Name string) error {
 	}
 
 	for i := range subscribers {
-		vrf.Status.Components[i].CompStatus = common.COMP_STATUS_PENDING
+		vrf.Status.Components[i].CompStatus = common.ComponentStatusPending
 	}
 	vrf.ResourceVersion = generateVersion()
-	vrf.Status.VrfOperStatus = VRF_OPER_STATUS_TO_BE_DELETED
+	vrf.Status.VrfOperStatus = VrfOperStatusToBeDeleted
 
 	err = infradb.client.Set(vrf.Name, vrf)
 	if err != nil {
 		return err
 	}
 
-	task_manager.TaskMan.CreateTask(vrf.Name, "vrf", vrf.ResourceVersion, subscribers)
+	taskmanager.TaskMan.CreateTask(vrf.Name, "vrf", vrf.ResourceVersion, subscribers)
 
 	return nil
 }
+
+// GetVrf returns an infradb vrf object
 func GetVrf(Name string) (*Vrf, error) {
 	globalLock.Lock()
 	defer globalLock.Unlock()
@@ -794,7 +822,7 @@ func GetVrf(Name string) (*Vrf, error) {
 	return &vrf, err
 }
 
-// GetAllVrfs returns a map of VRFs from the DB
+// GetAllVrfs returns a list of svis from the DB
 func GetAllVrfs() ([]*Vrf, error) {
 	globalLock.Lock()
 	defer globalLock.Unlock()
@@ -832,11 +860,12 @@ func GetAllVrfs() ([]*Vrf, error) {
 	return vrfs, nil
 }
 
+// UpdateVrf updates a vrf infradb object
 func UpdateVrf(vrf *Vrf) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
-	subscribers := event_bus.EBus.GetSubscribers("vrf")
+	subscribers := eventbus.EBus.GetSubscribers("vrf")
 	if subscribers == nil {
 		log.Println("CreateVrf(): No subscribers for Vrf objects")
 	}
@@ -847,13 +876,13 @@ func UpdateVrf(vrf *Vrf) error {
 		return err
 	}
 
-	task_manager.TaskMan.CreateTask(vrf.Name, "vrf", vrf.ResourceVersion, subscribers)
+	taskmanager.TaskMan.CreateTask(vrf.Name, "vrf", vrf.ResourceVersion, subscribers)
 
 	return nil
 }
 
-// UpdateVrfStatus updates the status of VRF object based on the component report
-func UpdateVrfStatus(Name string, resourceVersion string, notificationId string, vrfMeta *VrfMetadata, component common.Component) error {
+// UpdateVrfStatus updates the status of vrf object based on the component report
+func UpdateVrfStatus(Name string, resourceVersion string, notificationID string, vrfMeta *VrfMetadata, component common.Component) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -870,14 +899,14 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationId string,
 
 	if !found {
 		// No VRF object has been found in the database so we will instruct TaskManager to drop the Task that is related with this status update.
-		task_manager.TaskMan.StatusUpdated(Name, "vrf", vrf.ResourceVersion, notificationId, true, &component)
+		taskmanager.TaskMan.StatusUpdated(Name, "vrf", vrf.ResourceVersion, notificationID, true, &component)
 		log.Printf("UpdateVrfStatus(): No VRF object has been found in DB with Name %s\n", Name)
 		return nil
 	}
 
 	if vrf.ResourceVersion != resourceVersion {
 		// VRF object in the database with different resourceVersion so we will instruct TaskManager to drop the Task that is related with this status update.
-		task_manager.TaskMan.StatusUpdated(vrf.Name, "vrf", vrf.ResourceVersion, notificationId, true, &component)
+		taskmanager.TaskMan.StatusUpdated(vrf.Name, "vrf", vrf.ResourceVersion, notificationID, true, &component)
 		log.Printf("UpdateVrfStatus(): Invalid resourceVersion %s for VRF %+v\n", resourceVersion, vrf)
 		return nil
 	}
@@ -888,7 +917,7 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationId string,
 		if comp.Name == component.Name {
 			vrf.Status.Components[i] = component
 
-			if compCounter == len(vrfComponents) && vrf.Status.Components[i].CompStatus == common.COMP_STATUS_SUCCESS {
+			if compCounter == len(vrfComponents) && vrf.Status.Components[i].CompStatus == common.ComponentStatusSuccess {
 				lastCompSuccsess = true
 			}
 
@@ -905,7 +934,7 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationId string,
 
 	// Is it ok to delete an object before we update the last component status to success ?
 	if lastCompSuccsess {
-		if vrf.Status.VrfOperStatus == VRF_OPER_STATUS_TO_BE_DELETED {
+		if vrf.Status.VrfOperStatus == VrfOperStatusToBeDeleted {
 			err = infradb.client.Delete(vrf.Name)
 			if err != nil {
 				log.Fatal(err)
@@ -952,7 +981,7 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationId string,
 
 			log.Printf("UpdateVrfStatus(): VRF %s has been deleted\n", Name)
 		} else {
-			vrf.Status.VrfOperStatus = VRF_OPER_STATUS_UP
+			vrf.Status.VrfOperStatus = VrfOperStatusUp
 			err = infradb.client.Set(vrf.Name, vrf)
 			if err != nil {
 				log.Fatal(err)
@@ -969,16 +998,17 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationId string,
 		log.Printf("UpdateVrfStatus(): VRF %s has been updated: %+v\n", Name, vrf)
 	}
 
-	task_manager.TaskMan.StatusUpdated(vrf.Name, "vrf", vrf.ResourceVersion, notificationId, false, &component)
+	taskmanager.TaskMan.StatusUpdated(vrf.Name, "vrf", vrf.ResourceVersion, notificationID, false, &component)
 
 	return nil
 }
 
+// CreateSvi creates an infradb svi object
 func CreateSvi(svi *Svi) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
-	subscribers := event_bus.EBus.GetSubscribers("svi")
+	subscribers := eventbus.EBus.GetSubscribers("svi")
 	if subscribers == nil {
 		log.Println("CreateSvi(): No subscribers for SVI objects")
 	}
@@ -1058,15 +1088,17 @@ func CreateSvi(svi *Svi) error {
 		return err
 	}
 
-	task_manager.TaskMan.CreateTask(svi.Name, "svi", svi.ResourceVersion, subscribers)
+	taskmanager.TaskMan.CreateTask(svi.Name, "svi", svi.ResourceVersion, subscribers)
 
 	return nil
 }
+
+// DeleteSvi deletes a svi infradb object
 func DeleteSvi(Name string) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
-	subscribers := event_bus.EBus.GetSubscribers("svi")
+	subscribers := eventbus.EBus.GetSubscribers("svi")
 	if subscribers == nil {
 		log.Println("DeleteSvi(): No subscribers for SVI objects")
 	}
@@ -1078,21 +1110,22 @@ func DeleteSvi(Name string) error {
 	}
 
 	for i := range subscribers {
-		svi.Status.Components[i].CompStatus = common.COMP_STATUS_PENDING
+		svi.Status.Components[i].CompStatus = common.ComponentStatusPending
 	}
 	svi.ResourceVersion = generateVersion()
-	svi.Status.SviOperStatus = SVI_OPER_STATUS_TO_BE_DELETED
+	svi.Status.SviOperStatus = SviOperStatusToBeDeleted
 
 	err = infradb.client.Set(svi.Name, svi)
 	if err != nil {
 		return err
 	}
 
-	task_manager.TaskMan.CreateTask(svi.Name, "svi", svi.ResourceVersion, subscribers)
+	taskmanager.TaskMan.CreateTask(svi.Name, "svi", svi.ResourceVersion, subscribers)
 
 	return nil
 }
 
+// GetSvi returns an infradb svi object
 func GetSvi(Name string) (*Svi, error) {
 	globalLock.Lock()
 	defer globalLock.Unlock()
@@ -1106,7 +1139,7 @@ func GetSvi(Name string) (*Svi, error) {
 	return &svi, err
 }
 
-// GetAllSvis returns a map of Svis from the DB
+// GetAllSvis returns a list of svis from the DB
 func GetAllSvis() ([]*Svi, error) {
 	globalLock.Lock()
 	defer globalLock.Unlock()
@@ -1144,11 +1177,12 @@ func GetAllSvis() ([]*Svi, error) {
 	return svis, nil
 }
 
+// UpdateSvi updates a svi infradb object
 func UpdateSvi(svi *Svi) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
-	subscribers := event_bus.EBus.GetSubscribers("svi")
+	subscribers := eventbus.EBus.GetSubscribers("svi")
 	if subscribers == nil {
 		log.Println("UpdateSvi(): No subscribers for SVI objects")
 	}
@@ -1159,13 +1193,13 @@ func UpdateSvi(svi *Svi) error {
 		return err
 	}
 
-	task_manager.TaskMan.CreateTask(svi.Name, "svi", svi.ResourceVersion, subscribers)
+	taskmanager.TaskMan.CreateTask(svi.Name, "svi", svi.ResourceVersion, subscribers)
 
 	return nil
 }
 
-// UpdateSviStatus updates the status of SVI object based on the component report
-func UpdateSviStatus(Name string, resourceVersion string, notificationId string, sviMeta *SviMetadata, component common.Component) error {
+// UpdateSviStatus updates the status of svi object based on the component report
+func UpdateSviStatus(Name string, resourceVersion string, notificationID string, sviMeta *SviMetadata, component common.Component) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -1182,14 +1216,14 @@ func UpdateSviStatus(Name string, resourceVersion string, notificationId string,
 
 	if !found {
 		// No Svi object has been found in the database so we will instruct TaskManager to drop the Task that is related with this status update.
-		task_manager.TaskMan.StatusUpdated(Name, "svi", svi.ResourceVersion, notificationId, true, &component)
+		taskmanager.TaskMan.StatusUpdated(Name, "svi", svi.ResourceVersion, notificationID, true, &component)
 		log.Printf("UpdateSviStatus(): No SVI object has been found in DB with Name %s\n", Name)
 		return nil
 	}
 
 	if svi.ResourceVersion != resourceVersion {
 		// Svi object in the database with different resourceVersion so we will instruct TaskManager to drop the Task that is related with this status update.
-		task_manager.TaskMan.StatusUpdated(svi.Name, "svi", svi.ResourceVersion, notificationId, true, &component)
+		taskmanager.TaskMan.StatusUpdated(svi.Name, "svi", svi.ResourceVersion, notificationID, true, &component)
 		log.Printf("UpdateSviStatus(): Invalid resourceVersion %s for SVI %+v\n", resourceVersion, svi)
 		return nil
 	}
@@ -1200,7 +1234,7 @@ func UpdateSviStatus(Name string, resourceVersion string, notificationId string,
 		if comp.Name == component.Name {
 			svi.Status.Components[i] = component
 
-			if compCounter == len(sviComponents) && svi.Status.Components[i].CompStatus == common.COMP_STATUS_SUCCESS {
+			if compCounter == len(sviComponents) && svi.Status.Components[i].CompStatus == common.ComponentStatusSuccess {
 				lastCompSuccsess = true
 			}
 
@@ -1216,7 +1250,7 @@ func UpdateSviStatus(Name string, resourceVersion string, notificationId string,
 	// Is it ok to delete an object before we update the last component status to success ?
 	// Take care of deleting the references to the LB and VRF objects after the SVI has been successfully deleted
 	if lastCompSuccsess {
-		if svi.Status.SviOperStatus == SVI_OPER_STATUS_TO_BE_DELETED {
+		if svi.Status.SviOperStatus == SviOperStatusToBeDeleted {
 			// Delete the references from VRF and Logical Bridge objects
 
 			// Get the dependent VRF object
@@ -1287,7 +1321,7 @@ func UpdateSviStatus(Name string, resourceVersion string, notificationId string,
 
 			log.Printf("UpdateSviStatus(): Svi %s has been deleted\n", Name)
 		} else {
-			svi.Status.SviOperStatus = SVI_OPER_STATUS_UP
+			svi.Status.SviOperStatus = SviOperStatusUp
 			err = infradb.client.Set(svi.Name, svi)
 			if err != nil {
 				log.Fatal(err)
@@ -1304,11 +1338,12 @@ func UpdateSviStatus(Name string, resourceVersion string, notificationId string,
 		log.Printf("UpdateSviStatus(): SVI %s has been updated: %+v\n", Name, svi)
 	}
 
-	task_manager.TaskMan.StatusUpdated(svi.Name, "svi", svi.ResourceVersion, notificationId, false, &component)
+	taskmanager.TaskMan.StatusUpdated(svi.Name, "svi", svi.ResourceVersion, notificationID, false, &component)
 
 	return nil
 }
 
+// SaveRoutingTable saves a routing table number to DB
 func SaveRoutingTable(rtNum uint32) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
@@ -1345,6 +1380,7 @@ func SaveRoutingTable(rtNum uint32) error {
 	return nil
 }
 
+// DeleteRoutingTable deletes a routing table number from the DB
 func DeleteRoutingTable(rtNum uint32) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
