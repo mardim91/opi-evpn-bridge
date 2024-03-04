@@ -436,16 +436,18 @@ func set_up_svi(SVI *infradb.Svi) (string, bool) {
 	if SVI.Spec.EnableBgp && !reflect.ValueOf(SVI.Spec.GatewayIPs).IsZero() {
 		gw_ip := fmt.Sprintf("%s", SVI.Spec.GatewayIPs[0].IP.To4())
 		RemoteAs := fmt.Sprintf("%d", *SVI.Spec.RemoteAs)
-		bgp_vrf_name := fmt.Sprintf("router bgp 65000 vrf %s", path.Base(SVI.Spec.Vrf))
-		neighlink := fmt.Sprintf("neighbor %s peer-group", link_svi)
-		neighlink_Re := fmt.Sprintf("neighbor %s remote-as %s",link_svi, RemoteAs)
-		neighlink_gw := fmt.Sprintf("neighbor %s update-source %s",link_svi, gw_ip)
-		neighlink_ov := fmt.Sprintf("neighbor %s as-override", link_svi)
-		neighlink_sr := fmt.Sprintf("neighbor %s soft-reconfiguration inbound", link_svi)
-		bgp_listen := fmt.Sprintf(" bgp listen range %s peer-group %s",SVI.Spec.GatewayIPs[0], link_svi)
-		CP, err := run([]string{"vtysh", "-c", "conf", "t", "-c", bgp_vrf_name, "-c", "bgp disable-ebgp-connected-route-check", "-c", neighlink, "-c", neighlink_Re, "-c", neighlink_gw, "-c", neighlink_ov, "-c", neighlink_sr, "-c", bgp_listen, "-c", "exit"}, false)
-		if err != 0 || check_frr_result(CP, false) {
-			fmt.Printf("FRR: Error in conf SVI %s %s command %s\n", SVI.Name, path.Base(SVI.Spec.Vrf), CP)
+		bgp_vrf_name := fmt.Sprintf("router bgp 65000 vrf %s\n", path.Base(SVI.Spec.Vrf))
+		neighlink := fmt.Sprintf("neighbor %s peer-group\n", link_svi)
+		neighlink_Re := fmt.Sprintf("neighbor %s remote-as %s\n",link_svi, RemoteAs)
+		neighlink_gw := fmt.Sprintf("neighbor %s update-source %s\n",link_svi, gw_ip)
+		neighlink_ov := fmt.Sprintf("neighbor %s as-override\n", link_svi)
+		neighlink_sr := fmt.Sprintf("neighbor %s soft-reconfiguration inbound\n", link_svi)
+		bgp_listen := fmt.Sprintf(" bgp listen range %s peer-group %s\n",SVI.Spec.GatewayIPs[0], link_svi)
+	
+		data, err := Frr.FrrBgpCmd(ctx, fmt.Sprintf("configure terminal %s bgp disable-ebgp-connected-route-check\n %s %s %s %s %s %s exit",bgp_vrf_name,neighlink,neighlink_Re,neighlink_gw,neighlink_ov,neighlink_sr,bgp_listen))
+
+		if err != nil || check_frr_result(data, false) {
+			fmt.Printf("FRR: Error in conf SVI %s %s command %s\n", SVI.Name, path.Base(SVI.Spec.Vrf), data)
 			return "", false
 		}
 		return "", true
@@ -458,9 +460,9 @@ func tear_down_svi(SVI *infradb.Svi) bool {
 	if SVI.Spec.EnableBgp && !reflect.ValueOf(SVI.Spec.GatewayIPs).IsZero() {
 		bgp_vrf_name := fmt.Sprintf("router bgp 65000 vrf %s", path.Base(SVI.Spec.Vrf))
 		no_neigh := fmt.Sprintf("no neighbor %s peer-group", link_svi)
-		CP, err := run([]string{"vtysh", "-c", "conf", "t", "-c", bgp_vrf_name, "-c", no_neigh, "-c", "exit"}, false)
-		if err == -1 || check_frr_result(CP, false) {
-			fmt.Printf("FRR: Error in conf Delete VRF/VNI command %s\n", CP)
+		data, err := Frr.FrrBgpCmd(ctx, fmt.Sprintf("configure terminal\n %s\n %s\n exit",bgp_vrf_name,no_neigh))
+		if err != nil || check_frr_result(data, false) {
+			fmt.Printf("FRR: Error in conf Delete VRF/VNI command %s\n", data)
 			return false
 		}
 		fmt.Printf("FRR: Executed vtysh -c conf t -c router bgp 65000 vrf %s -c no  neighbor %s peer-group -c exit\n", path.Base(SVI.Spec.Vrf), link_svi)
@@ -489,11 +491,11 @@ func tear_down_vrf(VRF *infradb.Vrf) bool { // interface{}){
 		fmt.Println("FRR Deleted event")
 		del_cmd1 := fmt.Sprintf("no router bgp 65000 vrf %s", VRF.Name)
 		del_cmd2 := fmt.Sprintf("no vrf %s", VRF.Name)
-		data, err = Frr.FrrBgpCmd(ctx, fmt.Sprintf("configure terminal\n%s\n exit\n",del_cmd1))
+		data, err = Frr.FrrBgpCmd(ctx, fmt.Sprintf("configure terminal\n %s\n exit\n",del_cmd1))
 	        if err != nil {
         	     return false
 	        }
-		data, err = Frr.FrrZebraCmd(ctx, fmt.Sprintf("configure terminal\n%s\n exit\n", del_cmd2))
+		data, err = Frr.FrrZebraCmd(ctx, fmt.Sprintf("configure terminal\n %s\n exit\n", del_cmd2))
 	        if err != nil {
         	     return false
 	        }
