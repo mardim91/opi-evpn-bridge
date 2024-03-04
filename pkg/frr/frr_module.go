@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	//log
+	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -264,7 +264,7 @@ func set_up_tenant_bridge() {
 
 var ctx context.Context
 var Frr utils.Frr
-
+const logfile string ="./frr.log"
 // func main(){
 func Init() {
 	/*config, err := readConfig("config.yaml")
@@ -273,6 +273,13 @@ func Init() {
 		// os.Exit(0)
 	}*/
 //	fmt.SetOutput(os.Stdout)
+        logFile, err := os.OpenFile(logfile, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
+        if err != nil {
+                log.Panic(err)
+        }
+        defer logFile.Close()
+        log.SetOutput(logFile)
+        log.SetFlags(log.Lshortfile | log.LstdFlags)
 	frr_enabled := config.GlobalConfig.Linux_frr.Enabled
 	if frr_enabled != true {
 		fmt.Println("FRR Module disabled")
@@ -368,7 +375,7 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
                 if err != nil {
                         return "",false
                 }
-	
+
 		fmt.Println("FRR: Executed config t bgp_vrf_name router bgp 65000 vrf",VRF.Name, "bgp_route_id",LbiP," no bgp ebgp-requires-policy exit-vrf exit")
 		// Update the VRF with attributes from FRR
 		cmd := fmt.Sprintf("show bgp l2vpn evpn vni %d json", *VRF.Spec.Vni)

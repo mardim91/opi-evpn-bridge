@@ -6,9 +6,10 @@ package infradb
 
 import (
 	"encoding/binary"
-//	"fmt"
-	"net"
+	//	"fmt"
 	"log"
+	"net"
+
 	// pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	opinetcommon "github.com/opiproject/opi-api/network/opinetcommon/v1alpha1/gen/go"

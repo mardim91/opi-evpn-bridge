@@ -13,9 +13,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"io"
 	"strconv"
 	"time"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -39,12 +39,12 @@ import (
 	// "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	// "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	ci_linux "github.com/opiproject/opi-evpn-bridge/pkg/LinuxCIModule"
 	gen_linux "github.com/opiproject/opi-evpn-bridge/pkg/LinuxGeneralModule"
 	ipu_linux "github.com/opiproject/opi-evpn-bridge/pkg/LinuxVendorModule/ipu"
 	frr "github.com/opiproject/opi-evpn-bridge/pkg/frr"
 	netlink "github.com/opiproject/opi-evpn-bridge/pkg/netlink"
 	ipu_vendor "github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/intel/p4runtime/p4translation"
-	ci_linux "github.com/opiproject/opi-evpn-bridge/pkg/LinuxCIModule"
 )
 
 const (
@@ -55,52 +55,16 @@ var rootCmd = &cobra.Command{
 	Use:   "opi-evpn-bridge",
 	Short: "evpn bridge",
 	Long:  "evpn bridge application",
-	PreRunE: func(cmd *cobra.Command, args []string) error {
+	PreRunE: func(_ *cobra.Command, _ []string) error {
 		return validateConfigs()
 	},
 	Run: func(_ *cobra.Command, _ []string) {
 
-		/*log.Printf("GRPCPort: %d\n", viper.GetInt("grpc_port"))
-		log.Printf("HTTPPort: %d\n", viper.GetInt("http_port"))
-		log.Printf("TLSFiles: %s\n", viper.GetString("tls"))
-		log.Printf("DBAddress: %s\n", viper.GetString("db_addr"))
-		log.Printf("FRRAddress: %s\n", viper.GetString("frr_addr"))
-		log.Printf("Database: %s\n", viper.GetString("database"))
-		config.GRPCPort = viper.GetInt("grpc_port")
-		config.HTTPPort = viper.GetInt("http_port")
-		config.TLSFiles = viper.GetString("tls")
-		config.Database = viper.GetString("database")
-		config.DBAddress = viper.GetString("db_addr")
-		config.FRRAddress = viper.GetString("frr_addr")*/
-
-		log.Printf("enabled: %d\n", viper.GetBool("p4.enabled"))
-
-		//  log.Println("%+v",config)
-		/*var econfig evpnConfig
-		err := yaml.Unmarshal([]byte(config.evpn), &econfig)
-		if err != nil {
-			log.Println("Error:", err)
-			return
-		}
-		for _, sub := range econfig.Subs {
-			log.Printf("Name: %s, Priority: %d, Events: %v\n", sub.Name, sub.Priority, sub.Events)
-		}*/
-
-		/*var cfg config.Config
-		if err := viper.Unmarshal(&cfg); err != nil {
-			log.Println(err)
-			return
-		    }
-		config.SetConfig(cfg)
-		log.Println("config %+v",config.GlobalConfig)
-		log.Printf("enabled from init config: %d\n", config.GlobalConfig.P4.Enable)*/
-
-		// Starting Task Manager process
 		task_manager.TaskMan.StartTaskManager()
 
 		err := infradb.NewInfraDB(config.GlobalConfig.DBAddress, config.GlobalConfig.Database)
 		if err != nil {
-			log.Printf("\n error in creating db %s", err)
+			log.Println("error in creating db", err)
 		}
 		go runGatewayServer(config.GlobalConfig.GRPCPort, config.GlobalConfig.HTTPPort)
 
@@ -109,69 +73,7 @@ var rootCmd = &cobra.Command{
 				log.Fatal(err)
 			}
 		}()
-		/*br := infradb.Bridge{
-			Name: "abc",
-		}
-		infradb.CreateLB(&br)
-		br1, err :=infradb.GetLB("abc")
-		log.Printf("GetLB Bridge Name: %+=v\n", br1)
-		err = infradb.DeleteLB("abc")
-		if err != nil {
-			log.Printf("GetLB error: %s\n", err)
-		}
 
-		br2,err := infradb.GetLB("abc")
-		if err != nil {
-			log.Printf("GetLB error: %s\n", err)
-		} else {
-			log.Printf("GetLB Bridge Name: %s\n", br2.Name)
-		}
-		vrf := infradb.Vrf{
-			Name: "green3",
-			Spec: infradb.VrfSpec{
-				Name:         "green3",
-				Vni:          4010,
-				VtepIP:       net.IPNet{
-					IP: net.ParseIP("10.3.3.5"),
-					Mask: net.IPv4Mask(0,0,0,0),
-				},
-				LocalAs:      0,
-				RoutingTable: 1,
-			},
-			Status: infradb.VrfStatus{
-				VrfOperStatus: infradb.VRF_OPER_STATUS_UNSPECIFIED,
-				Components: []infradb.Component{
-					{Name: "FRR", CompStatus: infradb.COMP_STATUS_PENDING},
-					{Name: "Linux", CompStatus: infradb.COMP_STATUS_PENDING},
-			},
-			},
-
-		}
-		err = infradb.CreateVrf(&vrf)
-		if err != nil {
-			log.Printf("GetVRF error: %s\n", err)
-		} else {
-			log.Printf("GetVRF VRF Name: %+v\n", err)
-		}
-		br3,err := infradb.GetVrf("green3")
-		if err != nil {
-			log.Printf("GetVRF error: %s\n", err)
-		} else {
-			log.Printf("GetVRF VRF Name: %+v\n", br3)
-		}
-		comp := infradb.Component{Name: "FRR", CompStatus: infradb.COMP_STATUS_ERROR}
-		err =	infradb.UpdateVrfStatus("green3","1234325", comp)
-
-		br4,err := infradb.GetVrf("green3")
-		if err != nil {
-			log.Printf("GetVRF error: %s\n", err)
-		} else {
-			log.Printf("GetVRF VRF Name: %+v\n", br4)
-		}*/
-
-		// TODO: We need to initialize the modules that exist in the configuration
-		// and not all of them as in the case where we have only slowpath then there is no netlink or
-		// ipu module.
 		switch config.GlobalConfig.Buildenv {
 		case "ipu":
 			gen_linux.Init()
@@ -196,6 +98,7 @@ var rootCmd = &cobra.Command{
 	},
 }
 
+// initialize the cobra configuration and bind the flags
 func initialize() {
 	cobra.OnInitialize(initConfig)
 
@@ -213,6 +116,7 @@ func initialize() {
 	}
 }
 
+// initConfig read the config from file
 func initConfig() {
 	if config.GlobalConfig.CfgFile != "" {
 		viper.SetConfigFile(config.GlobalConfig.CfgFile)
@@ -222,20 +126,25 @@ func initConfig() {
 		viper.SetConfigType("yaml")
 		viper.SetConfigName("config.yaml")
 	}
-
-	/*if err := viper.ReadInConfig(); err == nil {
-		log.Println("Using config file:", viper.ConfigFileUsed())
-	}
-	*/
 	config.LoadConfig()
-	/*if err := viper.Unmarshal(&config); err != nil {
-		log.Println(err)
-		return
-	    }
-	log.Println("config %+v",config)
-	log.Printf("enabled from init config: %d\n", config.P4.Enable)*/
 }
 
+const logfile string = "opi-evpn-bridge.log"
+const logprefix string = "LOGTEST: "
+
+var logger *log.Logger
+func setupLogger(filename, prefix string) {
+    var err error
+    out, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+    if err != nil {
+        log.Fatal( err)
+    }
+    logger=log.New(io.MultiWriter(os.Stdout, out), prefix, log.LstdFlags)
+    log.SetOutput(logger.Writer())
+
+}
+
+// validateConfigs validates the config parameters
 func validateConfigs() error {
 	var err error
 
@@ -273,14 +182,20 @@ func validateConfigs() error {
 	return nil
 }
 
+// main function
 func main() {
+	//setup file and console logger
+	setupLogger(logfile, logprefix)
+	//initialize  cobra config
 	initialize()
+	// start the main cmd
 	if err := rootCmd.Execute(); err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
 }
 
+// runGrpcServer start the grpc server for all the components
 func runGrpcServer(grpcPort int, tlsFiles string) {
 	tp := utils.InitTracerProvider("opi-evpn-bridge")
 	defer func() {
@@ -341,6 +256,7 @@ func runGrpcServer(grpcPort int, tlsFiles string) {
 	}
 }
 
+// runGatewayServer
 func runGatewayServer(grpcPort int, httpPort int) {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
@@ -371,6 +287,7 @@ func runGatewayServer(grpcPort int, httpPort int) {
 	}
 }
 
+// createGrdVrf creates the grd vrf with vni 0
 func createGrdVrf() error {
 	grdVrf, err := infradb.NewVrfWithArgs("//network.opiproject.org/vrfs/GRD", nil, nil, nil)
 	if err != nil {

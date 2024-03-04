@@ -1881,7 +1881,7 @@ func monitor_netlink(p4_enabled bool) {
 }
 
 func Init() {
-	LOG_FILE = "./ipu_infra_manager.log"
+	LOG_FILE = "./netlink.log"
 	// open log file
 	logFile, err := os.OpenFile(LOG_FILE, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {

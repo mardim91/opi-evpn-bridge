@@ -4,7 +4,7 @@ import (
 	//"encoding/binary"
 	//"encoding/json"
 	"fmt"
-
+	"os"
 	// "io/ioutil"
 	"log"
 	"math/rand"
@@ -266,6 +266,7 @@ var ip_mtu int
 var br_tenant string
 var ctx context.Context
 var nlink utils.Netlink
+const logfile string ="./gen_linux.log"
 
 
 func Init() {
@@ -273,6 +274,14 @@ func Init() {
 	if err != nil {
 		log.Fatal(err)
 	}*/
+        // open log file
+        logFile, err := os.OpenFile(logfile, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
+        if err != nil {
+                log.Panic(err)
+        }
+        defer logFile.Close()
+        log.SetOutput(logFile)
+        log.SetFlags(log.Lshortfile | log.LstdFlags)
 	eb := event_bus.EBus
 	for _, subscriberConfig := range config.GlobalConfig.Subscribers {
 		if subscriberConfig.Name == "lgm" {
@@ -290,7 +299,7 @@ func Init() {
 
 func routing_table_busy(table uint32) bool {
 	_,err := nlink.RouteListFiltered(ctx,netlink.FAMILY_V4,&netlink.Route{Table: int(table),},netlink.RT_FILTER_TABLE)
-	return err == nil 
+	return err == nil
 }
 
 func set_up_bridge(LB *infradb.LogicalBridge) bool {
@@ -383,8 +392,8 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
 	if !reflect.ValueOf(VRF.Spec.VtepIP).IsZero() {
 		vtip = fmt.Sprintf("%+v", VRF.Spec.VtepIP.IP)
 		// Verify that the specified VTEP IP exists as local IP
-		err := nlink.RouteListIpTable(ctx,vtip) 
-		// Not found similar API in viswananda library so retain the linux commands as it is .. not able to get the route list exact vtip table local 
+		err := nlink.RouteListIpTable(ctx,vtip)
+		// Not found similar API in viswananda library so retain the linux commands as it is .. not able to get the route list exact vtip table local
 		if err != true {
 			log.Println(" LGM: VTEP IP not found: %+v\n", VRF.Spec.VtepIP)
 			return "", false
@@ -398,7 +407,7 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
 	log.Println("set_up_vrf: %s %d %d\n", vtip, *VRF.Spec.Vni, routing_table)
 	// Create the VRF interface for the specified routing table and add loopback address
 
-	link_adderr := nlink.LinkAdd(ctx,&netlink.Vrf{                       
+	link_adderr := nlink.LinkAdd(ctx,&netlink.Vrf{
                 LinkAttrs: netlink.LinkAttrs{Name: VRF.Name,},
                 Table: routing_table,
                 })
@@ -427,7 +436,7 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
                 return "", false
         }
 	Lbip := fmt.Sprintf("%+v", VRF.Spec.LoopbackIP.IP)
-	
+
 	var address = VRF.Spec.LoopbackIP
 	var Addrs = &netlink.Addr{
 			IPNet: address,
@@ -437,9 +446,9 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
 		log.Println("LGM: Unable to set the loopback ip to VRF link %s \n",VRF.Name)
 		return "", false
 	}
-	
+
 	log.Println("LGM: Added Address %s dev %s\n", Lbip, VRF.Name)
-	
+
 	Src1 := net.IPv4(0,0,0,0)
         route :=netlink.Route{
                         Table:     int(routing_table),
@@ -464,7 +473,7 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
 		// name. We need to assign a true random MAC address to avoid collisions when pairing two
 		// IPU servers.
 
-		br_err := nlink.LinkAdd(ctx,&netlink.Bridge{                       
+		br_err := nlink.LinkAdd(ctx,&netlink.Bridge{
                 		 LinkAttrs: netlink.LinkAttrs{Name: "br-"+VRF.Name},
                 	})
 	        if br_err != nil {
@@ -475,7 +484,7 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
 
 		rmac := fmt.Sprintf("%+v", GenerateMac()) // str(macaddress.MAC(b'\x00'+random.randbytes(5))).replace("-", ":")
 		hw,_ := net.ParseMAC(rmac)
-			
+
 		link_br,br_err := nlink.LinkByName(ctx,"br-"+VRF.Name)
 		if br_err != nil {
 			log.Println("LGM : Error in getting the br-%s\n",VRF.Name)
@@ -486,13 +495,13 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
 			log.Println("LGM: Failed in the setting Hardware Address\n")
 			return "", false
 		}
-		
+
 		linkmtu_err := nlink.LinkSetMTU(ctx,link_br,ip_mtu)
        		if (linkmtu_err != nil){
 			log.Println("LGM : Unable to set MTU to link br-%s \n",VRF.Name)
 	                return "", false
 	        }
-		
+
 		link_master, err_master := nlink.LinkByName(ctx,VRF.Name)
 	        if err_master != nil {
 			log.Println("LGM : Error in getting the %s\n",VRF.Name)
@@ -505,16 +514,16 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
                 	return "", false
 	        }
 
-		
+
 		linksetup_err = nlink.LinkSetUp(ctx,link_br)
         	if (linksetup_err != nil){
 			log.Println("LGM : Unable to set link %s UP \n",VRF.Name)
 	                return "", false
         	}
 		log.Println("LGM: link set  br-%s master  %s up mtu \n", VRF.Name, Ip_Mtu)
-		
+
 		// Create the VXLAN link in the external bridge
-		
+
 		Src_vtep := VRF.Spec.VtepIP.IP
 		vxlan_err := nlink.LinkAdd(ctx,&netlink.Vxlan{
 			LinkAttrs: netlink.LinkAttrs{Name: "vxlan-"+VRF.Name,MTU :ip_mtu,},VxlanId: int(*VRF.Spec.Vni),SrcAddr : Src_vtep, Learning : false, Proxy : true,Port : 4789,})
@@ -524,7 +533,7 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
                 }
 
 		log.Println("LGM : link added vxlan-%s type vxlan id %d local %s dstport 4789 nolearning proxy\n", VRF.Name, *VRF.Spec.Vni, vtip)
-	
+
 		link_vxlan, vxlan_err  := nlink.LinkByName(ctx,"vxlan-"+VRF.Name)
                 if vxlan_err != nil {
 			log.Println("LGM : Error in getting the %s\n","vxlan-"+VRF.Name)
@@ -539,7 +548,7 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
                 }
 
 		log.Println("LGM: VRF Link vxlan setup master\n")
-		
+
 		linksetup_err = nlink.LinkSetUp(ctx,link_vxlan)
                 if (linksetup_err != nil){
 			log.Println("LGM : Unable to set link %s UP \n",VRF.Name)
@@ -699,7 +708,7 @@ type valid_ip struct {
 }
 
 func get_ip_address(dev string) net.IPNet {
-	link, err := nlink.LinkByName(ctx,dev)  
+	link, err := nlink.LinkByName(ctx,dev)
         if err != nil {
 	       log.Println("LGM: Error in LinkByName %+v\n",err)
                return net.IPNet{
@@ -721,7 +730,7 @@ func get_ip_address(dev string) net.IPNet {
 	var valid_ips []netlink.Addr
 	for index:=0; index < len(addrs); index++ {
 		if !addr.Equal(addrs[index]){
-			valid_ips = append(valid_ips,addrs[index])	
+			valid_ips = append(valid_ips,addrs[index])
 		}
 	}
 	return *valid_ips[0].IPNet
@@ -743,7 +752,7 @@ func tear_down_vrf(VRF *infradb.Vrf) bool {
 	routing_table := *VRF.Metadata.RoutingTable[0]
 	// Delete the Linux networking artefacts in reverse order
 	if !reflect.ValueOf(VRF.Spec.Vni).IsZero() {
-		
+
 		link_vxlan,link_err := nlink.LinkByName(ctx,"vxlan-"+VRF.Name)
         	if (link_err != nil){
 			log.Println("LGM : Link vxlan-%s not found %+v\n",VRF.Name,link_err)
@@ -755,7 +764,7 @@ func tear_down_vrf(VRF *infradb.Vrf) bool {
 			return false
 		}
 		log.Println("LGM : Delete vxlan-%s\n", VRF.Name)
-		
+
 		link_br,linkbr_err := nlink.LinkByName(ctx,"br-"+VRF.Name)
                 if (linkbr_err != nil){
 			log.Println("LGM : Link br-%s not found %+v\n",VRF.Name,linkbr_err)
@@ -767,8 +776,8 @@ func tear_down_vrf(VRF *infradb.Vrf) bool {
                         return false
                 }
                 log.Println("LGM : Delete br-%s\n", VRF.Name)
-		
-	
+
+
 		route_table := fmt.Sprintf("%+v",routing_table)
 	        flusherr := nlink.RouteFlushTable(ctx,route_table)
                 if (flusherr !=nil){
@@ -776,8 +785,8 @@ func tear_down_vrf(VRF *infradb.Vrf) bool {
                         return false
                 }
 		log.Println("LGM Executed : ip route flush table %s\n", route_table)
-		
-                
+
+
 		delerr = nlink.LinkDel(ctx,link)
                 if (delerr !=nil){
                         log.Println("LGM: Error in delete br %+v\n", delerr)
@@ -814,7 +823,7 @@ func tear_down_svi(SVI *infradb.Svi) bool {
 	}*/
 	return true
 }
-		
+
 
 func tear_down_bridge(LB *infradb.LogicalBridge) bool {
 	link := fmt.Sprintf("vxlan-%+v", LB.Spec.VlanId)

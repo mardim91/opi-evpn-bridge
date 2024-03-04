@@ -3,7 +3,7 @@ package p4translation
 import (
 	"encoding/json"
 	"fmt"
-
+	"os"
 	// "io/ioutil"
 	"log"
 	"os/exec"
@@ -29,7 +29,7 @@ import (
 var L3 L3Decoder
 var Vxlan VxlanDecoder
 var Pod PodDecoder
-
+const logfile string ="./ipu_vendor.log"
 // var decoders []interface{}
 // var decoders = []interface{}{L3, Vxlan, Pod}
 
@@ -856,6 +856,15 @@ func tear_down_svi(SVI *infradb.Svi) bool {
 }
 */
 func Init() {
+
+	logFile, err := os.OpenFile(logfile, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
+        if err != nil {
+                log.Panic(err)
+        }
+        defer logFile.Close()
+        log.SetOutput(logFile)
+        log.SetFlags(log.Lshortfile | log.LstdFlags)
+
 	// Netlink Listener
 	startSubscriber(nm.EventBus, "route_added")
 

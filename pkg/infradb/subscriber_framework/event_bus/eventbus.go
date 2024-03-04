@@ -1,9 +1,9 @@
 package event_bus
 
 import (
+	"log"
 	"sort"
 	"sync"
-	"log"
 )
 
 var EBus = NewEventBus()

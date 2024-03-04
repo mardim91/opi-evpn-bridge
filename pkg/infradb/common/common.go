@@ -1,10 +1,11 @@
 package common
 
 import (
-	pc "github.com/opiproject/opi-api/network/opinetcommon/v1alpha1/gen/go"
 	"net"
 	"reflect"
 	"time"
+
+	pc "github.com/opiproject/opi-api/network/opinetcommon/v1alpha1/gen/go"
 )
 
 type COMP_STATUS int

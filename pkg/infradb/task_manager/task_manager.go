@@ -5,10 +5,10 @@
 package task_manager
 
 import (
-	"time"
-	"log"
 	"github.com/google/uuid"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
+	"log"
+	"time"
 
 	// Typo
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"

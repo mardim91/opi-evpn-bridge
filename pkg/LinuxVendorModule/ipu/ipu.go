@@ -3,7 +3,7 @@ package ipu
 import (
 	"fmt"
 	"io/ioutil"
-
+	"os"
 	 "log"
 	"os/exec"
 	"strconv"
@@ -340,7 +340,18 @@ var ip_mtu int
 var br_tenant string
 var ctx context.Context
 var nlink utils.Netlink
+const logfile string ="./ipu_linux.log"
 func Init() {
+
+        // open log file
+        logFile, err := os.OpenFile(logfile, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
+        if err != nil {
+                log.Panic(err)
+        }
+        defer logFile.Close()
+        log.SetOutput(logFile)
+        log.SetFlags(log.Lshortfile | log.LstdFlags)
+
 	eb := event_bus.EBus
 	for _, subscriberConfig := range config.GlobalConfig.Subscribers {
 		if subscriberConfig.Name == "lvm" {
@@ -355,6 +366,7 @@ func Init() {
 	br_tenant = "br-tenant"
 	ctx = context.Background()
 	nlink = utils.NewNetlinkWrapper()
+
 }
 
 func readConfig(filename string) (*Config, error) {

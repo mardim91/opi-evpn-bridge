@@ -3,6 +3,7 @@ import (
         "fmt"
         "log"
         "time"
+	"os"
         "github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriber_framework/event_bus"
         "github.com/opiproject/opi-evpn-bridge/pkg/infradb"
         "github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
@@ -164,11 +165,21 @@ func tear_down_bp(BP *infradb.BridgePort)(bool){
 }
 var ctx context.Context
 var nlink utils.Netlink
+
+const logfile string ="./ci_linux.log"
+
 func Init() {
         config, err := readConfig("config.yaml")
         if err != nil {
                 log.Fatal(err)
         }
+        logFile, err := os.OpenFile(logfile, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
+        if err != nil {
+                log.Panic(err)
+        }
+        defer logFile.Close()
+        log.SetOutput(logFile)
+        log.SetFlags(log.Lshortfile | log.LstdFlags)
         eb := event_bus.EBus
         for _, subscriberConfig := range config.Subscribers {
                 if subscriberConfig.Name == "lci" {

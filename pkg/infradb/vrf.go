@@ -7,8 +7,9 @@ package infradb
 import (
 	"encoding/binary"
 	"fmt"
-	"net"
 	"log"
+	"net"
+
 	// "time"
 	// pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
@@ -62,11 +63,11 @@ var _ EvpnObject[*pb.Vrf] = (*Vrf)(nil)
 func NewVrfWithArgs(name string, vni *uint32, loopbackIP, vtepIP *net.IPNet) (*Vrf, error) {
 	var components []common.Component
 	vrf := &Vrf{
-                Spec: &VrfSpec{},
-                Status: &VrfStatus{},
-                Metadata:        &VrfMetadata{},
-                Svis:            make(map[string]bool),
-                ResourceVersion: generateVersion(),
+		Spec:            &VrfSpec{},
+		Status:          &VrfStatus{},
+		Metadata:        &VrfMetadata{},
+		Svis:            make(map[string]bool),
+		ResourceVersion: generateVersion(),
 	}
 
 	if name == "" {
@@ -78,7 +79,7 @@ func NewVrfWithArgs(name string, vni *uint32, loopbackIP, vtepIP *net.IPNet) (*V
 
 	if vni != nil {
 		vrf.Spec.Vni = vni
-	} 
+	}
 
 	if loopbackIP != nil {
 		vrf.Spec.LoopbackIP = loopbackIP
@@ -102,11 +103,11 @@ func NewVrfWithArgs(name string, vni *uint32, loopbackIP, vtepIP *net.IPNet) (*V
 		VrfOperStatus: VRF_OPER_STATUS(VRF_OPER_STATUS_DOWN),
 		Components:    components,
 	}
-	//vrf.Metadata = &VrfMetadata{}
+	// vrf.Metadata = &VrfMetadata{}
 
-	//vrf.Svis = make(map[string]bool)
+	// vrf.Svis = make(map[string]bool)
 
-	//vrf.ResourceVersion = generateVersion()
+	// vrf.ResourceVersion = generateVersion()
 
 	return vrf, nil
 }

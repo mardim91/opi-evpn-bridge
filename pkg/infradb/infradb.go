@@ -29,8 +29,8 @@ var (
 	ErrLogicalBridgeNotFound = errors.New("the referenced Logical Bridge has not been found")
 	ErrVrfNotEmpty           = errors.New("the VRF is not empty")
 	ErrLogicalBridgeNotEmpty = errors.New("the LogicalBridge is not empty")
-	ErrRoutingTableInUse     = errors.New("the routing table is allready in use")
-	ErrVniInUse              = errors.New("the VNI is allready in use")
+	ErrRoutingTableInUse     = errors.New("the routing table is already in use")
+	ErrVniInUse              = errors.New("the VNI is already in use")
 	// Add more error constants as needed
 )
 
@@ -62,7 +62,7 @@ func CreateLB(lb *LogicalBridge) error {
 
 	log.Printf("CreateLB(): Create Logical Bridge: %+v\n", lb)
 
-	// Check if VNI is allready used
+	// Check if VNI is already used
 	if lb.Spec.Vni != nil {
 		found, err := infradb.client.Get("vpns", &vpns)
 		if err != nil {
@@ -75,7 +75,7 @@ func CreateLB(lb *LogicalBridge) error {
 		} else {
 			_, ok := vpns[*lb.Spec.Vni]
 			if ok {
-				log.Printf("CreateLB(): VNI allready in use: %+v\n", lb.Spec.Vni)
+				log.Printf("CreateLB(): VNI already in use: %+v\n", lb.Spec.Vni)
 				return ErrVniInUse
 			}
 			vpns[*lb.Spec.Vni] = false
@@ -660,7 +660,6 @@ func UpdateBPStatus(Name string, resourceVersion string, notificationId string, 
 			log.Printf("UpdateBPStatus(): Bridge Port %s has been updated: %+v\n", Name, bp)
 		}
 	} else {
-
 		err = infradb.client.Set(bp.Name, bp)
 		if err != nil {
 			log.Fatal(err)
@@ -689,7 +688,7 @@ func CreateVrf(vrf *Vrf) error {
 
 	// TODO: Move the check for VNI in a common place
 	// and use that comomn code also for checking the LB vni
-	// Check if VNI is allready used
+	// Check if VNI is already used
 	if vrf.Spec.Vni != nil {
 		found, err := infradb.client.Get("vpns", &vpns)
 		if err != nil {
@@ -702,7 +701,7 @@ func CreateVrf(vrf *Vrf) error {
 		} else {
 			_, ok := vpns[*vrf.Spec.Vni]
 			if ok {
-				log.Printf("CreateVrf(): VNI allready in use: %+v\n", *vrf.Spec.Vni)
+				log.Printf("CreateVrf(): VNI already in use: %+v\n", *vrf.Spec.Vni)
 				return ErrVniInUse
 			}
 			vpns[*vrf.Spec.Vni] = false
@@ -1297,7 +1296,6 @@ func UpdateSviStatus(Name string, resourceVersion string, notificationId string,
 			log.Printf("UpdateSviStatus(): SVI %s has been updated: %+v\n", Name, svi)
 		}
 	} else {
-
 		err = infradb.client.Set(svi.Name, svi)
 		if err != nil {
 			log.Fatal(err)
