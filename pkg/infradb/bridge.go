@@ -63,7 +63,7 @@ var _ EvpnObject[*pb.LogicalBridge] = (*LogicalBridge)(nil)
 
 // NewLogicalBridge creates new Logica Bridge object from protobuf message
 func NewLogicalBridge(in *pb.LogicalBridge) *LogicalBridge {
-	var components []common.Component
+	components := make([]common.Component, 0)
 
 	// Parse vtep IP
 	vtepip := make(net.IP, 4)
@@ -111,13 +111,18 @@ func (in *LogicalBridge) ToPb() *pb.LogicalBridge {
 		},
 		Status: &pb.LogicalBridgeStatus{},
 	}
-	if in.Status.LBOperStatus == LogicalBridgeOperStatusDown {
+
+	switch in.Status.LBOperStatus {
+	case LogicalBridgeOperStatusDown:
 		lb.Status.OperStatus = pb.LBOperStatus_LB_OPER_STATUS_DOWN
-	} else if in.Status.LBOperStatus == LogicalBridgeOperStatusUp {
+	case LogicalBridgeOperStatusUp:
 		lb.Status.OperStatus = pb.LBOperStatus_LB_OPER_STATUS_UP
-	} else if in.Status.LBOperStatus == LogicalBridgeOperStatusUnspecified {
+	case LogicalBridgeOperStatusToBeDeleted:
+		lb.Status.OperStatus = pb.LBOperStatus_LB_OPER_STATUS_TO_BE_DELETED
+	default:
 		lb.Status.OperStatus = pb.LBOperStatus_LB_OPER_STATUS_UNSPECIFIED
 	}
+
 	for _, comp := range in.Status.Components {
 		component := &pb.Component{Name: comp.Name, Details: comp.Details}
 		switch comp.CompStatus {
@@ -127,11 +132,9 @@ func (in *LogicalBridge) ToPb() *pb.LogicalBridge {
 			component.Status = pb.CompStatus_COMP_STATUS_SUCCESS
 		case common.ComponentStatusError:
 			component.Status = pb.CompStatus_COMP_STATUS_ERROR
-
 		default:
 			component.Status = pb.CompStatus_COMP_STATUS_UNSPECIFIED
 		}
-
 		lb.Status.Components = append(lb.Status.Components, component)
 	}
 

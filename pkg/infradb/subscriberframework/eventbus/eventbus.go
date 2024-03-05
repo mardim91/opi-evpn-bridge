@@ -1,3 +1,4 @@
+// Package eventbus holds implementation for subscribing and receiving events
 package eventbus
 
 import (

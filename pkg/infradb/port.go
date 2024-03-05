@@ -77,9 +77,9 @@ var _ EvpnObject[*pb.BridgePort] = (*BridgePort)(nil)
 
 // NewBridgePort creates new Bridge Port object from protobuf message
 func NewBridgePort(in *pb.BridgePort) *BridgePort {
-	var components []common.Component
 	var bpType BridgePortType
 	var transTrunk bool
+	components := make([]common.Component, 0)
 
 	subscribers := eventbus.EBus.GetSubscribers("bridge-port")
 	if subscribers == nil {
@@ -144,23 +144,27 @@ func (in *BridgePort) ToPb() *pb.BridgePort {
 		bp.Spec.LogicalBridges = in.Spec.LogicalBridges
 	}
 
-	if in.Status.BPOperStatus == BridgePortOperStatusDown {
+	switch in.Status.BPOperStatus {
+	case BridgePortOperStatusDown:
 		bp.Status.OperStatus = pb.BPOperStatus_BP_OPER_STATUS_DOWN
-	} else if in.Status.BPOperStatus == BridgePortOperStatusUp {
+	case BridgePortOperStatusUp:
 		bp.Status.OperStatus = pb.BPOperStatus_BP_OPER_STATUS_UP
-	} else if in.Status.BPOperStatus == BridgePortOperStatusUnspecified {
+	case BridgePortOperStatusToBeDeleted:
+		bp.Status.OperStatus = pb.BPOperStatus_BP_OPER_STATUS_TO_BE_DELETED
+	default:
 		bp.Status.OperStatus = pb.BPOperStatus_BP_OPER_STATUS_UNSPECIFIED
 	}
+
 	for _, comp := range in.Status.Components {
 		component := &pb.Component{Name: comp.Name, Details: comp.Details}
-
-		if comp.CompStatus == common.ComponentStatusPending {
+		switch comp.CompStatus {
+		case common.ComponentStatusPending:
 			component.Status = pb.CompStatus_COMP_STATUS_PENDING
-		} else if comp.CompStatus == common.ComponentStatusSuccess {
+		case common.ComponentStatusSuccess:
 			component.Status = pb.CompStatus_COMP_STATUS_SUCCESS
-		} else if comp.CompStatus == common.ComponentStatusError {
+		case common.ComponentStatusError:
 			component.Status = pb.CompStatus_COMP_STATUS_ERROR
-		} else {
+		default:
 			component.Status = pb.CompStatus_COMP_STATUS_UNSPECIFIED
 		}
 		bp.Status.Components = append(bp.Status.Components, component)

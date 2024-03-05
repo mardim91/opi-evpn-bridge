@@ -66,7 +66,7 @@ var _ EvpnObject[*pb.Vrf] = (*Vrf)(nil)
 
 // NewVrfWithArgs creates a vrf object by passing arguments
 func NewVrfWithArgs(name string, vni *uint32, loopbackIP, vtepIP *net.IPNet) (*Vrf, error) {
-	var components []common.Component
+	components := make([]common.Component, 0)
 	vrf := &Vrf{
 		Spec:            &VrfSpec{},
 		Status:          &VrfStatus{},
@@ -119,7 +119,7 @@ func NewVrfWithArgs(name string, vni *uint32, loopbackIP, vtepIP *net.IPNet) (*V
 
 // NewVrf creates new VRF object from protobuf message
 func NewVrf(in *pb.Vrf) *Vrf {
-	var components []common.Component
+	components := make([]common.Component, 0)
 
 	loopip := make(net.IP, 4)
 	binary.BigEndian.PutUint32(loopip, in.Spec.LoopbackIpPrefix.Addr.GetV4Addr())
@@ -170,14 +170,18 @@ func (in *Vrf) ToPb() *pb.Vrf {
 		},
 		Status: &pb.VrfStatus{},
 	}
-	// Dimitris: I think we need to add the To be deletes status too
-	if in.Status.VrfOperStatus == VrfOperStatusDown {
+
+	switch in.Status.VrfOperStatus {
+	case VrfOperStatusDown:
 		vrf.Status.OperStatus = pb.VRFOperStatus_VRF_OPER_STATUS_DOWN
-	} else if in.Status.VrfOperStatus == VrfOperStatusUp {
+	case VrfOperStatusUp:
 		vrf.Status.OperStatus = pb.VRFOperStatus_VRF_OPER_STATUS_UP
-	} else if in.Status.VrfOperStatus == VrfOperStatusUnspecified {
+	case VrfOperStatusToBeDeleted:
+		vrf.Status.OperStatus = pb.VRFOperStatus_VRF_OPER_STATUS_TO_BE_DELETED
+	default:
 		vrf.Status.OperStatus = pb.VRFOperStatus_VRF_OPER_STATUS_UNSPECIFIED
 	}
+
 	for _, comp := range in.Status.Components {
 		component := &pb.Component{Name: comp.Name, Details: comp.Details}
 
@@ -188,11 +192,9 @@ func (in *Vrf) ToPb() *pb.Vrf {
 			component.Status = pb.CompStatus_COMP_STATUS_SUCCESS
 		case common.ComponentStatusError:
 			component.Status = pb.CompStatus_COMP_STATUS_ERROR
-
 		default:
 			component.Status = pb.CompStatus_COMP_STATUS_UNSPECIFIED
 		}
-
 		vrf.Status.Components = append(vrf.Status.Components, component)
 	}
 	return vrf

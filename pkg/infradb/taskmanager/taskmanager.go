@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2023 Nordix Foundation.
 
+// Package taskmanager manages the tasks that are created for realization of intents
 package taskmanager
 
 import (
@@ -140,7 +141,7 @@ func (t *TaskManager) processTasks() {
 				// If that occurs then we just take a note which subscriber need to revisit and we requeue the task without any timer
 				case <-time.After(30 * time.Second):
 					log.Printf("processTasks(): No task status has been received in the channel from subscriber %+v. The task %+v will be requeued immediately Task Status %+v\n", sub, task, taskStatus)
-					task.subIndex = task.subIndex + i
+					task.subIndex += i
 					go t.taskQueue.Enqueue(task)
 					break loopThree
 				}
@@ -159,7 +160,7 @@ func (t *TaskManager) processTasks() {
 				continue loopTwo
 			default:
 				log.Printf("processTasks(): Subscriber %+v has not processed the task %+v successfully\n", sub, task)
-				task.subIndex = task.subIndex + i
+				task.subIndex += i
 				task.retryTimer = taskStatus.component.Timer
 				log.Printf("processTasks(): The Task will be requeued after %+v\n", task.retryTimer)
 				time.AfterFunc(task.retryTimer, func() {

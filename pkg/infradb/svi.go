@@ -65,8 +65,8 @@ var _ EvpnObject[*pb.Svi] = (*Svi)(nil)
 
 // NewSvi creates new SVI object from protobuf message
 func NewSvi(in *pb.Svi) *Svi {
-	var components []common.Component
-	var gwIPs []*net.IPNet
+	components := make([]common.Component, 0)
+	gwIPs := make([]*net.IPNet, 0)
 
 	// Parse Gateway IPs
 	for _, gwIPPrefix := range in.Spec.GwIpPrefix {
@@ -106,8 +106,8 @@ func NewSvi(in *pb.Svi) *Svi {
 }
 
 // BytetoMac translates mac address from byte to HardwareAddr type
-func BytetoMac(Mac []byte) *net.HardwareAddr {
-	MacAddr, err := net.ParseMAC(string(Mac))
+func BytetoMac(mac []byte) *net.HardwareAddr {
+	MacAddr, err := net.ParseMAC(string(mac))
 	if err != nil {
 		return nil
 	}
@@ -116,7 +116,7 @@ func BytetoMac(Mac []byte) *net.HardwareAddr {
 
 // ToPb transforms Svi object to protobuf message
 func (in *Svi) ToPb() *pb.Svi {
-	var gatewayIPs []*opinetcommon.IPPrefix
+	gatewayIPs := make([]*opinetcommon.IPPrefix, 0)
 
 	for _, gwIP := range in.Spec.GatewayIPs {
 		gatewayIP := common.ConvertToIPPrefix(gwIP)
@@ -135,23 +135,29 @@ func (in *Svi) ToPb() *pb.Svi {
 		},
 		Status: &pb.SviStatus{},
 	}
-	if in.Status.SviOperStatus == SviOperStatusDown {
+
+	switch in.Status.SviOperStatus {
+	case SviOperStatusDown:
 		svi.Status.OperStatus = pb.SVIOperStatus_SVI_OPER_STATUS_DOWN
-	} else if in.Status.SviOperStatus == SviOperStatusUp {
+	case SviOperStatusUp:
 		svi.Status.OperStatus = pb.SVIOperStatus_SVI_OPER_STATUS_UP
-	} else if in.Status.SviOperStatus == SviOperStatusUnspecified {
+	case SviOperStatusToBeDeleted:
+		svi.Status.OperStatus = pb.SVIOperStatus_SVI_OPER_STATUS_TO_BE_DELETED
+	default:
 		svi.Status.OperStatus = pb.SVIOperStatus_SVI_OPER_STATUS_UNSPECIFIED
 	}
+
 	for _, comp := range in.Status.Components {
 		component := &pb.Component{Name: comp.Name, Details: comp.Details}
 
-		if comp.CompStatus == common.ComponentStatusPending {
+		switch comp.CompStatus {
+		case common.ComponentStatusPending:
 			component.Status = pb.CompStatus_COMP_STATUS_PENDING
-		} else if comp.CompStatus == common.ComponentStatusSuccess {
+		case common.ComponentStatusSuccess:
 			component.Status = pb.CompStatus_COMP_STATUS_SUCCESS
-		} else if comp.CompStatus == common.ComponentStatusError {
+		case common.ComponentStatusError:
 			component.Status = pb.CompStatus_COMP_STATUS_ERROR
-		} else {
+		default:
 			component.Status = pb.CompStatus_COMP_STATUS_UNSPECIFIED
 		}
 		svi.Status.Components = append(svi.Status.Components, component)

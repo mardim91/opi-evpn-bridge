@@ -48,7 +48,7 @@ var (
 func NewInfraDB(address string, dbtype string) error {
 	store, err := storage.NewStore(dbtype, address)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
@@ -81,7 +81,7 @@ func CreateLB(lb *LogicalBridge) error {
 	if lb.Spec.Vni != nil {
 		found, err := infradb.client.Get("vpns", &vpns)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 			return err
 		}
 
@@ -99,7 +99,7 @@ func CreateLB(lb *LogicalBridge) error {
 
 	err := infradb.client.Set(lb.Name, lb)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
@@ -107,7 +107,7 @@ func CreateLB(lb *LogicalBridge) error {
 	if lb.Spec.Vni != nil {
 		err = infradb.client.Set("vpns", &vpns)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 			return err
 		}
 	}
@@ -116,7 +116,7 @@ func CreateLB(lb *LogicalBridge) error {
 	lbs := make(map[string]bool)
 	_, err = infradb.client.Get("lbs", &lbs)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 	// The reason that we use a map and not a list is
@@ -126,7 +126,7 @@ func CreateLB(lb *LogicalBridge) error {
 	lbs[lb.Name] = false
 	err = infradb.client.Set("lbs", &lbs)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
@@ -136,7 +136,7 @@ func CreateLB(lb *LogicalBridge) error {
 }
 
 // DeleteLB deletes a logical bridge infradb object
-func DeleteLB(Name string) error {
+func DeleteLB(name string) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -146,9 +146,9 @@ func DeleteLB(Name string) error {
 	}
 
 	lb := LogicalBridge{}
-	found, err := infradb.client.Get(Name, &lb)
+	found, err := infradb.client.Get(name, &lb)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 	if !found {
@@ -156,12 +156,12 @@ func DeleteLB(Name string) error {
 	}
 
 	if lb.Svi != "" {
-		log.Fatalf("DeleteLB(): Can not delete Logical Bridge %+v. Associated with SVI interfaces", lb.Name)
+		log.Printf("DeleteLB(): Can not delete Logical Bridge %+v. Associated with SVI interfaces", lb.Name)
 		return ErrLogicalBridgeNotEmpty
 	}
 
 	if len(lb.BridgePorts) != 0 || len(lb.MacTable) != 0 {
-		log.Fatalf("DeleteLB(): Can not delete Logical Bridge %+v. Associated with Bridge Ports", lb.Name)
+		log.Printf("DeleteLB(): Can not delete Logical Bridge %+v. Associated with Bridge Ports", lb.Name)
 		return ErrLogicalBridgeNotEmpty
 	}
 
@@ -182,12 +182,12 @@ func DeleteLB(Name string) error {
 }
 
 // GetLB returns an infradb logical bridge object
-func GetLB(Name string) (*LogicalBridge, error) {
+func GetLB(name string) (*LogicalBridge, error) {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
 	lb := LogicalBridge{}
-	found, err := infradb.client.Get(Name, &lb)
+	found, err := infradb.client.Get(name, &lb)
 
 	if !found {
 		return &lb, ErrKeyNotFound
@@ -205,7 +205,7 @@ func GetAllLBs() ([]*LogicalBridge, error) {
 	found, err := infradb.client.Get("lbs", &lbsMap)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return nil, err
 	}
 
@@ -245,7 +245,7 @@ func UpdateLB(lb *LogicalBridge) error {
 
 	err := infradb.client.Set(lb.Name, lb)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
@@ -255,7 +255,7 @@ func UpdateLB(lb *LogicalBridge) error {
 }
 
 // UpdateLBStatus updates the status of logical bridge object based on the component report
-func UpdateLBStatus(Name string, resourceVersion string, notificationID string, lbMeta *LogicalBridgeMetadata, component common.Component) error {
+func UpdateLBStatus(name string, resourceVersion string, notificationID string, lbMeta *LogicalBridgeMetadata, component common.Component) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -264,16 +264,16 @@ func UpdateLBStatus(Name string, resourceVersion string, notificationID string, 
 	// When we get an error from an operation to the Database then we just return it. The
 	// Task manager will just expire the task and retry.
 	lb := LogicalBridge{}
-	found, err := infradb.client.Get(Name, &lb)
+	found, err := infradb.client.Get(name, &lb)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
 	if !found {
 		// No Logical Bridge object has been found in the database so we will instruct TaskManager to drop the Task that is related with this status update.
-		taskmanager.TaskMan.StatusUpdated(Name, "logical-bridge", lb.ResourceVersion, notificationID, true, &component)
-		log.Printf("UpdateLBStatus(): No Logical Bridge object has been found in DB with Name %s\n", Name)
+		taskmanager.TaskMan.StatusUpdated(name, "logical-bridge", lb.ResourceVersion, notificationID, true, &component)
+		log.Printf("UpdateLBStatus(): No Logical Bridge object has been found in DB with Name %s\n", name)
 		return nil
 	}
 
@@ -308,7 +308,7 @@ func UpdateLBStatus(Name string, resourceVersion string, notificationID string, 
 		if lb.Status.LBOperStatus == LogicalBridgeOperStatusToBeDeleted {
 			err = infradb.client.Delete(lb.Name)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
 
@@ -316,7 +316,7 @@ func UpdateLBStatus(Name string, resourceVersion string, notificationID string, 
 			vpns := make(map[uint32]bool)
 			found, err = infradb.client.Get("vpns", &vpns)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
 			if !found {
@@ -327,14 +327,14 @@ func UpdateLBStatus(Name string, resourceVersion string, notificationID string, 
 			delete(vpns, *lb.Spec.Vni)
 			err = infradb.client.Set("vpns", &vpns)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
 
 			lbs := make(map[string]bool)
 			found, err = infradb.client.Get("lbs", &lbs)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
 			if !found {
@@ -345,27 +345,27 @@ func UpdateLBStatus(Name string, resourceVersion string, notificationID string, 
 			delete(lbs, lb.Name)
 			err = infradb.client.Set("lbs", &lbs)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
 
-			log.Printf("UpdateLBStatus(): Logical Bridge %s has been deleted\n", Name)
+			log.Printf("UpdateLBStatus(): Logical Bridge %s has been deleted\n", name)
 		} else {
 			lb.Status.LBOperStatus = LogicalBridgeOperStatusUp
 			err = infradb.client.Set(lb.Name, lb)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
-			log.Printf("UpdateLBStatus(): Logical Bridge %s has been updated: %+v\n", Name, lb)
+			log.Printf("UpdateLBStatus(): Logical Bridge %s has been updated: %+v\n", name, lb)
 		}
 	} else {
 		err = infradb.client.Set(lb.Name, lb)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 			return err
 		}
-		log.Printf("UpdateLBStatus(): Logical Bridge %s has been updated: %+v\n", Name, lb)
+		log.Printf("UpdateLBStatus(): Logical Bridge %s has been updated: %+v\n", name, lb)
 	}
 
 	taskmanager.TaskMan.StatusUpdated(lb.Name, "logical-bridge", lb.ResourceVersion, notificationID, false, &component)
@@ -394,7 +394,7 @@ func CreateBP(bp *BridgePort) error {
 		lbs := make(map[string]bool)
 		found, err := infradb.client.Get("lbs", &lbs)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 			return err
 		}
 		if !found {
@@ -414,22 +414,26 @@ func CreateBP(bp *BridgePort) error {
 		lb := LogicalBridge{}
 		found, err := infradb.client.Get(lbName, &lb)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 			return err
 		}
 		if !found {
-			log.Fatalf("CreateBP(): The Logical Bridge with name %+v has not been found\n", lbName)
+			log.Printf("CreateBP(): The Logical Bridge with name %+v has not been found\n", lbName)
 			return ErrLogicalBridgeNotFound
 		}
 		bp.Vlans = append(bp.Vlans, &lb.Spec.VlanID)
 
 		// Store Bridge Port reference to the Logical Bridge object
-		lb.AddBridgePort(bp.Name, bp.Spec.MacAddress.String())
+		err = lb.AddBridgePort(bp.Name, bp.Spec.MacAddress.String())
+		if err != nil {
+			log.Printf("CreateBP(): Error: %+v", err)
+			return err
+		}
 
 		// Save Logical Bridge object back to DB
 		err = infradb.client.Set(lb.Name, lb)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 			return err
 		}
 	}
@@ -437,7 +441,7 @@ func CreateBP(bp *BridgePort) error {
 	// Store Bridge Port object to Database
 	err := infradb.client.Set(bp.Name, bp)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
@@ -445,7 +449,7 @@ func CreateBP(bp *BridgePort) error {
 	bps := make(map[string]bool)
 	_, err = infradb.client.Get("bps", &bps)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 	// The reason that we use a map and not a list is
@@ -455,7 +459,7 @@ func CreateBP(bp *BridgePort) error {
 	bps[bp.Name] = false
 	err = infradb.client.Set("bps", &bps)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
@@ -465,7 +469,7 @@ func CreateBP(bp *BridgePort) error {
 }
 
 // DeleteBP deletes a bridge port infradb object
-func DeleteBP(Name string) error {
+func DeleteBP(name string) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -475,8 +479,11 @@ func DeleteBP(Name string) error {
 	}
 
 	bp := BridgePort{}
-	found, err := infradb.client.Get(Name, &bp)
-	if found != true {
+	found, err := infradb.client.Get(name, &bp)
+	if err != nil {
+		return err
+	}
+	if !found {
 		return ErrKeyNotFound
 	}
 
@@ -497,12 +504,12 @@ func DeleteBP(Name string) error {
 }
 
 // GetBP returns an infradb bridge port object
-func GetBP(Name string) (*BridgePort, error) {
+func GetBP(name string) (*BridgePort, error) {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
 	bp := BridgePort{}
-	found, err := infradb.client.Get(Name, &bp)
+	found, err := infradb.client.Get(name, &bp)
 
 	if !found {
 		return &bp, ErrKeyNotFound
@@ -520,7 +527,7 @@ func GetAllBPs() ([]*BridgePort, error) {
 	found, err := infradb.client.Get("bps", &bpsMap)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return nil, err
 	}
 
@@ -563,7 +570,7 @@ func UpdateBP(bp *BridgePort) error {
 
 	err := infradb.client.Set(bp.Name, bp)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
@@ -573,7 +580,7 @@ func UpdateBP(bp *BridgePort) error {
 }
 
 // UpdateBPStatus updates the status of bridge port object based on the component report
-func UpdateBPStatus(Name string, resourceVersion string, notificationID string, bpMeta *BridgePortMetadata, component common.Component) error {
+func UpdateBPStatus(name string, resourceVersion string, notificationID string, bpMeta *BridgePortMetadata, component common.Component) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -582,16 +589,16 @@ func UpdateBPStatus(Name string, resourceVersion string, notificationID string, 
 	// When we get an error from an operation to the Database then we just return it. The
 	// Task manager will just expire the task and retry.
 	bp := BridgePort{}
-	found, err := infradb.client.Get(Name, &bp)
+	found, err := infradb.client.Get(name, &bp)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
 	if !found {
 		// No Bridge Port object has been found in the database so we will instruct TaskManager to drop the Task that is related with this status update.
-		taskmanager.TaskMan.StatusUpdated(Name, "bridge-port", bp.ResourceVersion, notificationID, true, &component)
-		log.Printf("UpdateBPStatus(): No Bridge Port object has been found in DB with Name %s\n", Name)
+		taskmanager.TaskMan.StatusUpdated(name, "bridge-port", bp.ResourceVersion, notificationID, true, &component)
+		log.Printf("UpdateBPStatus(): No Bridge Port object has been found in DB with Name %s\n", name)
 		return nil
 	}
 
@@ -632,17 +639,21 @@ func UpdateBPStatus(Name string, resourceVersion string, notificationID string, 
 				lb := LogicalBridge{}
 				_, err := infradb.client.Get(lbName, &lb)
 				if err != nil {
-					log.Fatal(err)
+					log.Println(err)
 					return err
 				}
 
 				// Store Bridge Port reference to the Logical Bridge object
-				lb.DeleteBridgePort(bp.Name, bp.Spec.MacAddress.String())
+				err = lb.DeleteBridgePort(bp.Name, bp.Spec.MacAddress.String())
+				if err != nil {
+					log.Printf("UpdateBPStatus(): Error: %+v", err)
+					return err
+				}
 
 				// Save Logical Bridge object back to DB
 				err = infradb.client.Set(lb.Name, lb)
 				if err != nil {
-					log.Fatal(err)
+					log.Println(err)
 					return err
 				}
 			}
@@ -650,7 +661,7 @@ func UpdateBPStatus(Name string, resourceVersion string, notificationID string, 
 			// Delete the Bridge Port object from the DB
 			err = infradb.client.Delete(bp.Name)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
 
@@ -658,7 +669,7 @@ func UpdateBPStatus(Name string, resourceVersion string, notificationID string, 
 			bps := make(map[string]bool)
 			found, err = infradb.client.Get("bps", &bps)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
 			if !found {
@@ -669,27 +680,27 @@ func UpdateBPStatus(Name string, resourceVersion string, notificationID string, 
 			delete(bps, bp.Name)
 			err = infradb.client.Set("bps", &bps)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
 
-			log.Printf("UpdateBPStatus(): Bridge Port %s has been deleted\n", Name)
+			log.Printf("UpdateBPStatus(): Bridge Port %s has been deleted\n", name)
 		} else {
 			bp.Status.BPOperStatus = BridgePortOperStatusUp
 			err = infradb.client.Set(bp.Name, bp)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
-			log.Printf("UpdateBPStatus(): Bridge Port %s has been updated: %+v\n", Name, bp)
+			log.Printf("UpdateBPStatus(): Bridge Port %s has been updated: %+v\n", name, bp)
 		}
 	} else {
 		err = infradb.client.Set(bp.Name, bp)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 			return err
 		}
-		log.Printf("UpdateBPStatus(): Bridge Port %s has been updated: %+v\n", Name, bp)
+		log.Printf("UpdateBPStatus(): Bridge Port %s has been updated: %+v\n", name, bp)
 	}
 
 	taskmanager.TaskMan.StatusUpdated(bp.Name, "bridge-port", bp.ResourceVersion, notificationID, false, &component)
@@ -717,7 +728,7 @@ func CreateVrf(vrf *Vrf) error {
 	if vrf.Spec.Vni != nil {
 		found, err := infradb.client.Get("vpns", &vpns)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 			return err
 		}
 
@@ -735,7 +746,7 @@ func CreateVrf(vrf *Vrf) error {
 
 	err := infradb.client.Set(vrf.Name, vrf)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
@@ -743,7 +754,7 @@ func CreateVrf(vrf *Vrf) error {
 	if vrf.Spec.Vni != nil {
 		err = infradb.client.Set("vpns", &vpns)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 			return err
 		}
 	}
@@ -752,7 +763,7 @@ func CreateVrf(vrf *Vrf) error {
 	vrfs := make(map[string]bool)
 	_, err = infradb.client.Get("vrfs", &vrfs)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 	// The reason that we use a map and not a list is
@@ -762,7 +773,7 @@ func CreateVrf(vrf *Vrf) error {
 	vrfs[vrf.Name] = false
 	err = infradb.client.Set("vrfs", &vrfs)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
@@ -772,7 +783,7 @@ func CreateVrf(vrf *Vrf) error {
 }
 
 // DeleteVrf deletes a vrf infradb object
-func DeleteVrf(Name string) error {
+func DeleteVrf(name string) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -782,13 +793,16 @@ func DeleteVrf(Name string) error {
 	}
 
 	vrf := Vrf{}
-	found, err := infradb.client.Get(Name, &vrf)
-	if found != true {
+	found, err := infradb.client.Get(name, &vrf)
+	if err != nil {
+		return err
+	}
+	if !found {
 		return ErrKeyNotFound
 	}
 
 	if len(vrf.Svis) != 0 {
-		log.Fatalf("DeleteVrf(): Can not delete VRF %+v. Associated with SVI interfaces", vrf.Name)
+		log.Printf("DeleteVrf(): Can not delete VRF %+v. Associated with SVI interfaces", vrf.Name)
 		return ErrVrfNotEmpty
 	}
 
@@ -809,12 +823,12 @@ func DeleteVrf(Name string) error {
 }
 
 // GetVrf returns an infradb vrf object
-func GetVrf(Name string) (*Vrf, error) {
+func GetVrf(name string) (*Vrf, error) {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
 	vrf := Vrf{}
-	found, err := infradb.client.Get(Name, &vrf)
+	found, err := infradb.client.Get(name, &vrf)
 
 	if !found {
 		return &vrf, ErrKeyNotFound
@@ -832,7 +846,7 @@ func GetAllVrfs() ([]*Vrf, error) {
 	found, err := infradb.client.Get("vrfs", &vrfsMap)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return nil, err
 	}
 
@@ -872,7 +886,7 @@ func UpdateVrf(vrf *Vrf) error {
 
 	err := infradb.client.Set(vrf.Name, vrf)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
@@ -882,7 +896,7 @@ func UpdateVrf(vrf *Vrf) error {
 }
 
 // UpdateVrfStatus updates the status of vrf object based on the component report
-func UpdateVrfStatus(Name string, resourceVersion string, notificationID string, vrfMeta *VrfMetadata, component common.Component) error {
+func UpdateVrfStatus(name string, resourceVersion string, notificationID string, vrfMeta *VrfMetadata, component common.Component) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -891,16 +905,16 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationID string,
 	// When we get an error from an operation to the Database then we just return it. The
 	// Task manager will just expire the task and retry.
 	vrf := Vrf{}
-	found, err := infradb.client.Get(Name, &vrf)
+	found, err := infradb.client.Get(name, &vrf)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
 	if !found {
 		// No VRF object has been found in the database so we will instruct TaskManager to drop the Task that is related with this status update.
-		taskmanager.TaskMan.StatusUpdated(Name, "vrf", vrf.ResourceVersion, notificationID, true, &component)
-		log.Printf("UpdateVrfStatus(): No VRF object has been found in DB with Name %s\n", Name)
+		taskmanager.TaskMan.StatusUpdated(name, "vrf", vrf.ResourceVersion, notificationID, true, &component)
+		log.Printf("UpdateVrfStatus(): No VRF object has been found in DB with Name %s\n", name)
 		return nil
 	}
 
@@ -937,7 +951,7 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationID string,
 		if vrf.Status.VrfOperStatus == VrfOperStatusToBeDeleted {
 			err = infradb.client.Delete(vrf.Name)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
 
@@ -945,7 +959,7 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationID string,
 			vpns := make(map[uint32]bool)
 			found, err = infradb.client.Get("vpns", &vpns)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
 			if !found {
@@ -956,7 +970,7 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationID string,
 			delete(vpns, *vrf.Spec.Vni)
 			err = infradb.client.Set("vpns", &vpns)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
 
@@ -964,7 +978,7 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationID string,
 			vrfs := make(map[string]bool)
 			found, err = infradb.client.Get("vrfs", &vrfs)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
 			if !found {
@@ -975,27 +989,27 @@ func UpdateVrfStatus(Name string, resourceVersion string, notificationID string,
 			delete(vrfs, vrf.Name)
 			err = infradb.client.Set("vrfs", &vrfs)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
 
-			log.Printf("UpdateVrfStatus(): VRF %s has been deleted\n", Name)
+			log.Printf("UpdateVrfStatus(): VRF %s has been deleted\n", name)
 		} else {
 			vrf.Status.VrfOperStatus = VrfOperStatusUp
 			err = infradb.client.Set(vrf.Name, vrf)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
-			log.Printf("UpdateVrfStatus(): VRF %s has been updated: %+v\n", Name, vrf)
+			log.Printf("UpdateVrfStatus(): VRF %s has been updated: %+v\n", name, vrf)
 		}
 	} else {
 		err = infradb.client.Set(vrf.Name, vrf)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 			return err
 		}
-		log.Printf("UpdateVrfStatus(): VRF %s has been updated: %+v\n", Name, vrf)
+		log.Printf("UpdateVrfStatus(): VRF %s has been updated: %+v\n", name, vrf)
 	}
 
 	taskmanager.TaskMan.StatusUpdated(vrf.Name, "vrf", vrf.ResourceVersion, notificationID, false, &component)
@@ -1019,11 +1033,11 @@ func CreateSvi(svi *Svi) error {
 	vrf := Vrf{}
 	found, err := infradb.client.Get(svi.Spec.Vrf, &vrf)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 	if !found {
-		log.Fatalf("CreateSvi(): The VRF with name %+v has not been found\n", svi.Spec.Vrf)
+		log.Printf("CreateSvi(): The VRF with name %+v has not been found\n", svi.Spec.Vrf)
 		return ErrVrfNotFound
 	}
 
@@ -1031,42 +1045,42 @@ func CreateSvi(svi *Svi) error {
 	lb := LogicalBridge{}
 	found, err = infradb.client.Get(svi.Spec.LogicalBridge, &lb)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 	if !found {
-		log.Fatalf("CreateSvi(): The Logical Bridge with name %+v has not been found\n", svi.Spec.LogicalBridge)
+		log.Printf("CreateSvi(): The Logical Bridge with name %+v has not been found\n", svi.Spec.LogicalBridge)
 		return ErrVrfNotFound
 	}
 
 	// Store svi reference to the VRF object
 	if err := vrf.AddSvi(svi.Name); err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
 	err = infradb.client.Set(vrf.Name, vrf)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
 	// Store svi reference to the Logical Bridge object
 	if err := lb.AddSvi(svi.Name); err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
 	err = infradb.client.Set(lb.Name, lb)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
 	// Store SVI object to Database
 	err = infradb.client.Set(svi.Name, svi)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
@@ -1074,7 +1088,7 @@ func CreateSvi(svi *Svi) error {
 	svis := make(map[string]bool)
 	_, err = infradb.client.Get("svis", &svis)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 	// The reason that we use a map and not a list is
@@ -1084,7 +1098,7 @@ func CreateSvi(svi *Svi) error {
 	svis[svi.Name] = false
 	err = infradb.client.Set("svis", &svis)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
@@ -1094,7 +1108,7 @@ func CreateSvi(svi *Svi) error {
 }
 
 // DeleteSvi deletes a svi infradb object
-func DeleteSvi(Name string) error {
+func DeleteSvi(name string) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -1104,8 +1118,11 @@ func DeleteSvi(Name string) error {
 	}
 
 	svi := Svi{}
-	found, err := infradb.client.Get(Name, &svi)
-	if found != true {
+	found, err := infradb.client.Get(name, &svi)
+	if err != nil {
+		return err
+	}
+	if !found {
 		return ErrKeyNotFound
 	}
 
@@ -1126,12 +1143,12 @@ func DeleteSvi(Name string) error {
 }
 
 // GetSvi returns an infradb svi object
-func GetSvi(Name string) (*Svi, error) {
+func GetSvi(name string) (*Svi, error) {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
 	svi := Svi{}
-	found, err := infradb.client.Get(Name, &svi)
+	found, err := infradb.client.Get(name, &svi)
 
 	if !found {
 		return &svi, ErrKeyNotFound
@@ -1149,7 +1166,7 @@ func GetAllSvis() ([]*Svi, error) {
 	found, err := infradb.client.Get("svis", &svisMap)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return nil, err
 	}
 
@@ -1189,7 +1206,7 @@ func UpdateSvi(svi *Svi) error {
 
 	err := infradb.client.Set(svi.Name, svi)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
@@ -1199,7 +1216,7 @@ func UpdateSvi(svi *Svi) error {
 }
 
 // UpdateSviStatus updates the status of svi object based on the component report
-func UpdateSviStatus(Name string, resourceVersion string, notificationID string, sviMeta *SviMetadata, component common.Component) error {
+func UpdateSviStatus(name string, resourceVersion string, notificationID string, sviMeta *SviMetadata, component common.Component) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
 
@@ -1208,16 +1225,16 @@ func UpdateSviStatus(Name string, resourceVersion string, notificationID string,
 	// When we get an error from an operation to the Database then we just return it. The
 	// Task manager will just expire the task and retry.
 	svi := Svi{}
-	found, err := infradb.client.Get(Name, &svi)
+	found, err := infradb.client.Get(name, &svi)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
 	if !found {
 		// No Svi object has been found in the database so we will instruct TaskManager to drop the Task that is related with this status update.
-		taskmanager.TaskMan.StatusUpdated(Name, "svi", svi.ResourceVersion, notificationID, true, &component)
-		log.Printf("UpdateSviStatus(): No SVI object has been found in DB with Name %s\n", Name)
+		taskmanager.TaskMan.StatusUpdated(name, "svi", svi.ResourceVersion, notificationID, true, &component)
+		log.Printf("UpdateSviStatus(): No SVI object has been found in DB with Name %s\n", name)
 		return nil
 	}
 
@@ -1257,7 +1274,7 @@ func UpdateSviStatus(Name string, resourceVersion string, notificationID string,
 			vrf := Vrf{}
 			_, err := infradb.client.Get(svi.Spec.Vrf, &vrf)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
 
@@ -1265,38 +1282,38 @@ func UpdateSviStatus(Name string, resourceVersion string, notificationID string,
 			lb := LogicalBridge{}
 			_, err = infradb.client.Get(svi.Spec.LogicalBridge, &lb)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
 
 			// Delete the referenced SVI from the VRF and store the VRF to the DB
 			if err := vrf.DeleteSvi(svi.Name); err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
 
 			err = infradb.client.Set(vrf.Name, vrf)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
 
 			// Delete the referenced SVI from the Logical Bridge and store the Logical Bridge to the DB
 			if err := lb.DeleteSvi(svi.Name); err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
 
 			err = infradb.client.Set(lb.Name, lb)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
 
 			// Delete the SVI object from the DB
 			err = infradb.client.Delete(svi.Name)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
 
@@ -1304,7 +1321,7 @@ func UpdateSviStatus(Name string, resourceVersion string, notificationID string,
 			svis := make(map[string]bool)
 			found, err = infradb.client.Get("svis", &svis)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
 			if !found {
@@ -1315,27 +1332,27 @@ func UpdateSviStatus(Name string, resourceVersion string, notificationID string,
 			delete(svis, svi.Name)
 			err = infradb.client.Set("svis", &svis)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
 
-			log.Printf("UpdateSviStatus(): Svi %s has been deleted\n", Name)
+			log.Printf("UpdateSviStatus(): Svi %s has been deleted\n", name)
 		} else {
 			svi.Status.SviOperStatus = SviOperStatusUp
 			err = infradb.client.Set(svi.Name, svi)
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 				return err
 			}
-			log.Printf("UpdateSviStatus(): SVI %s has been updated: %+v\n", Name, svi)
+			log.Printf("UpdateSviStatus(): SVI %s has been updated: %+v\n", name, svi)
 		}
 	} else {
 		err = infradb.client.Set(svi.Name, svi)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 			return err
 		}
-		log.Printf("UpdateSviStatus(): SVI %s has been updated: %+v\n", Name, svi)
+		log.Printf("UpdateSviStatus(): SVI %s has been updated: %+v\n", name, svi)
 	}
 
 	taskmanager.TaskMan.StatusUpdated(svi.Name, "svi", svi.ResourceVersion, notificationID, false, &component)
@@ -1351,7 +1368,7 @@ func SaveRoutingTable(rtNum uint32) error {
 	rts := make(map[uint32]bool)
 	found, err := infradb.client.Get("rts", &rts)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
@@ -1359,7 +1376,7 @@ func SaveRoutingTable(rtNum uint32) error {
 		rts[rtNum] = false
 		err = infradb.client.Set("rts", &rts)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 			return err
 		}
 		return nil
@@ -1374,7 +1391,7 @@ func SaveRoutingTable(rtNum uint32) error {
 	rts[rtNum] = false
 	err = infradb.client.Set("rts", &rts)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 	return nil
@@ -1388,7 +1405,7 @@ func DeleteRoutingTable(rtNum uint32) error {
 	rts := make(map[uint32]bool)
 	found, err := infradb.client.Get("rts", &rts)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 
@@ -1406,7 +1423,7 @@ func DeleteRoutingTable(rtNum uint32) error {
 	delete(rts, rtNum)
 	err = infradb.client.Set("rts", &rts)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return err
 	}
 	return nil
