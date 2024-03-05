@@ -1907,7 +1907,7 @@ func Init() {
 	//TODO:fix this
 
 	// br_tenant = config.Linux_frr.Br_tenant
-	//log.Println(br_tenant)
+	// log.Println(br_tenant)
 	nl_enabled := config.GlobalConfig.Netlink.Enabled
 	if nl_enabled != true {
 		log.Println("netlink_monitor disabled")

@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -137,13 +138,13 @@ var logger *log.Logger
 
 func setupLogger(filename, prefix string) {
 	var err error
-	out, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	filename = filepath.Clean(filename)
+	out, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		log.Fatal(err)
 	}
 	logger = log.New(io.MultiWriter(os.Stdout, out), prefix, log.LstdFlags)
 	log.SetOutput(logger.Writer())
-
 }
 
 // validateConfigs validates the config parameters
@@ -186,9 +187,9 @@ func validateConfigs() error {
 
 // main function
 func main() {
-	//setup file and console logger
+	// setup file and console logger
 	setupLogger(logfile, logprefix)
-	//initialize  cobra config
+	// initialize  cobra config
 	initialize()
 	// start the main cmd
 	if err := rootCmd.Execute(); err != nil {

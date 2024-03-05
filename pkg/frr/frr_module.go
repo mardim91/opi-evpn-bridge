@@ -368,7 +368,7 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
 		vrf_name := fmt.Sprintf("vrf %s", VRF.Name)
 		vni_id := fmt.Sprintf("vni %s", strconv.Itoa(int(*VRF.Spec.Vni)))
 		_, err := Frr.FrrZebraCmd(ctx, fmt.Sprintf("configure terminal\n %s\n %s\n exit-vrf\n exit", vrf_name, vni_id))
-		//fmt.Printf("FrrZebraCmd: %v:%v", data, err)
+		// fmt.Printf("FrrZebraCmd: %v:%v", data, err)
 		if err != nil {
 			return "", false
 		}
@@ -396,7 +396,7 @@ func set_up_vrf(VRF *infradb.Vrf) (string, bool) {
 		L2vpn_cmd := strings.Split(CP, "json")
 		L2vpn_cmd = strings.Split(L2vpn_cmd[1], hname)
 		CP = L2vpn_cmd[0]
-		//fmt.Printf("FRR_L2vpn[0]: %s\n",CP)
+		// fmt.Printf("FRR_L2vpn[0]: %s\n",CP)
 		if len(CP) != 7 {
 			CP = CP[3 : len(CP)-3]
 		} else {

@@ -38,9 +38,9 @@ var (
 	// ErrLogicalBridgeNotEmpty logical bridge is not empty
 	ErrLogicalBridgeNotEmpty = errors.New("the LogicalBridge is not empty")
 	// ErrRoutingTableInUse routing table is in use
-	ErrRoutingTableInUse = errors.New("the routing table is allready in use")
+	ErrRoutingTableInUse = errors.New("the routing table is already in use")
 	// ErrVniInUse vni is in use
-	ErrVniInUse = errors.New("the VNI is allready in use")
+	ErrVniInUse = errors.New("the VNI is already in use")
 	// Add more error constants as needed
 )
 

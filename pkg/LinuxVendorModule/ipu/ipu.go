@@ -345,7 +345,6 @@ var nlink utils.Netlink
 const logfile string = "./ipu_linux.log"
 
 func Init() {
-
 	// open log file
 	logFile, err := os.OpenFile(logfile, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
@@ -369,7 +368,6 @@ func Init() {
 	br_tenant = "br-tenant"
 	ctx = context.Background()
 	nlink = utils.NewNetlinkWrapper()
-
 }
 
 func readConfig(filename string) (*Config, error) {

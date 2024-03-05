@@ -858,7 +858,6 @@ func tear_down_vrf(VRF *infradb.Vrf) bool {
 	}
 */
 func Init() {
-
 	logFile, err := os.OpenFile(logfile, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		log.Panic(err)

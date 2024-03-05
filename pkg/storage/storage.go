@@ -1,3 +1,4 @@
+// Package storage for string the db
 package storage
 
 import (
@@ -43,7 +44,7 @@ func NewStore(backend, address string) (*Storage, error) {
 	return st, nil
 }
 
-// GetClient returns the underlying database client.
+// GetStore returns the underlying database client.
 func GetStore() gokv.Store {
 	if st.store == nil {
 		log.Fatal(" Store not present ")
@@ -56,7 +57,7 @@ func (s *Storage) GetClient() gokv.Store {
 	return s.store
 }
 
-// Put stores the key-value pair in the store.
+// Set stores the key-value pair in the store.
 func (s *Storage) Set(key string, value interface{}) error {
 	return s.store.Set(key, value)
 }
