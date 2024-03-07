@@ -40,20 +40,21 @@ type Netlink interface {
 	RouteAdd(context.Context, *netlink.Route) error
 	RouteListFiltered(context.Context, int, *netlink.Route, uint64) ([]netlink.Route, error)
 	RouteFlushTable(context.Context, string) error
-	RouteListIpTable(context.Context, string) bool
+	RouteListIPTable(context.Context, string) bool
 	LinkSetBrNeighSuppress(context.Context, netlink.Link, bool) error
 }
 
-func run(cmd []string, flag bool) (string, int) {
+// run function run the commands
+func run(cmd []string, _ bool) (string, int) {
 	var out []byte
 	var err error
 	out, err = exec.Command(cmd[0], cmd[1:]...).CombinedOutput()
 	if err != nil {
-		if flag {
+		/*if flag {
 			// panic(fmt.Sprintf("Command %s': exit code %s;", out, err.Error()))
 		}
-		// fmt.Printf("Command %s': exit code %s;\n", out, err)
-		return "Error", -1
+		// fmt.Printf("Command %s': exit code %s;\n", out, err)*/
+		return "Error in running command", -1
 	}
 	output := string(out)
 	return output, 0
@@ -197,7 +198,7 @@ func (n *NetlinkWrapper) BridgeVlanDel(ctx context.Context, link netlink.Link, v
 func (n *NetlinkWrapper) RouteListFiltered(ctx context.Context, family int, route *netlink.Route, filter uint64) ([]netlink.Route, error) {
 	_, childSpan := n.tracer.Start(ctx, "netlink.RouteListFiltered")
 	//	link,_:=netlink.LinkByIndex(route.LinkIndex)
-	childSpan.SetAttributes(attribute.String("route.LinkIndex", string(route.LinkIndex)))
+	childSpan.SetAttributes(attribute.String("route.LinkIndex", string(rune(route.LinkIndex))))
 	defer childSpan.End()
 	return netlink.RouteListFiltered(family, route, filter)
 }
@@ -206,39 +207,39 @@ func (n *NetlinkWrapper) RouteListFiltered(ctx context.Context, family int, rout
 func (n *NetlinkWrapper) RouteAdd(ctx context.Context, route *netlink.Route) error {
 	_, childSpan := n.tracer.Start(ctx, "netlink.RouteAdd")
 	netlink.LinkByIndex(route.LinkIndex)
-	childSpan.SetAttributes(attribute.String("route.LinkIndex", string(route.LinkIndex)))
+	childSpan.SetAttributes(attribute.String("route.LinkIndex", string(rune(route.LinkIndex))))
 	defer childSpan.End()
 	return netlink.RouteAdd(route)
 }
 
 // RouteFlushTable is a wrapper for netlink.RouteFlushTable
-func (n *NetlinkWrapper) RouteFlushTable(ctx context.Context, routing_table string) error {
-	CP, err := run([]string{"ip", "route", "flush", "table", routing_table}, false)
+func (n *NetlinkWrapper) RouteFlushTable(_ context.Context, routingTable string) error {
+	_, err := run([]string{"ip", "route", "flush", "table", routingTable}, false)
 	if err != 0 {
-		return fmt.Errorf("lgm: Error in executing command ip route flush table %s\n", routing_table, CP)
+		return fmt.Errorf("lgm: Error in executing command ip route flush table %s", routingTable)
 	}
 	return nil
 }
 
-// RouteListIpTable is a wrapper for netlink.RouteListIpTable
-func (n *NetlinkWrapper) RouteListIpTable(ctx context.Context, vtip string) bool {
+// RouteListIPTable is a wrapper for netlink.RouteListIPTable
+func (n *NetlinkWrapper) RouteListIPTable(_ context.Context, vtip string) bool {
 	_, err := run([]string{"ip", "route", "list", "exact", vtip, "table", "local"}, false)
 	return err == 0
 }
 
 // BridgeFdbAdd is a wrapper for netlink.BridgeFdbAdd
-func (n *NetlinkWrapper) BridgeFdbAdd(ctx context.Context, link string, macAddress string) error {
+func (n *NetlinkWrapper) BridgeFdbAdd(_ context.Context, link string, macAddress string) error {
 	_, err := run([]string{"bridge", "fdb", "add", macAddress, "dev", link, "master", "static", "extern_learn"}, false)
 	if err != 0 {
-		return errors.New("Failed to add fdb entry")
+		return errors.New("failed to add fdb entry")
 	}
 	return nil
 }
 
 // LinkSetBrNeighSuppress is a wrapper for netlink.LinkSetBrNeighSuppress
-func (n *NetlinkWrapper) LinkSetBrNeighSuppress(ctx context.Context, link netlink.Link, neigh_suppress bool) error {
+func (n *NetlinkWrapper) LinkSetBrNeighSuppress(ctx context.Context, link netlink.Link, neighSuppress bool) error {
 	_, childSpan := n.tracer.Start(ctx, "netlink.LinkSetBrNeighSuppress")
 	childSpan.SetAttributes(attribute.String("link.name", link.Attrs().Name))
 	defer childSpan.End()
-	return netlink.LinkSetBrNeighSuppress(link, neigh_suppress)
+	return netlink.LinkSetBrNeighSuppress(link, neighSuppress)
 }
