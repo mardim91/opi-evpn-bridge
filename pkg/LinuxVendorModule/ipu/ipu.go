@@ -35,9 +35,9 @@ type SubscriberConfig struct {
 type LinuxFrrConfig struct {
 	Enable      bool   `yaml:"enabled"`
 	DefaultVtep string `yaml:"default_vtep"`
-	PortMux     string `yaml:"portMux"`
-	VrfMux      string `yaml:"vrfMux"`
-	IPMtu       int    `yaml:"ipMtu"`
+	PortMux     string `yaml:"port_mux"`
+	VrfMux      string `yaml:"vrf_mux"`
+	IPMtu       int    `yaml:"ip_mtu"`
 }
 
 // Config array of subscribers, linux_frr
