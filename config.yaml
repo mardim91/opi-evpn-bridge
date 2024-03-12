@@ -8,7 +8,7 @@ buildenv: ci
 subscribers:
  - name: "lvm"
    priority: 2
-   events: []
+   events: ["vrf", "bridge-port"]
  - name: "lgm"
    priority: 1
    events: ["vrf", "svi", "logical-bridge"]
@@ -17,10 +17,10 @@ subscribers:
    events: ["vrf", "svi"]
  - name: "ipu"
    priority: 4
-   events: []
+   events: ["vrf"]
  - name: "lci"
-   events: ["bridge-port"]
    priority: 2
+   events: ["bridge-port"]
 grpc:
     server_addresses:
       - 0.0.0.0

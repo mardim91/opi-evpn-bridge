@@ -3,7 +3,6 @@ package linuxcimodule
 
 import (
 	"context"
-	"fmt"
 
 	// "io/ioutil"
 	"log"
@@ -39,7 +38,7 @@ type Config struct {
 // HandleEvent handle the registered events
 func (h *ModulelciHandler) HandleEvent(eventType string, objectData *eventbus.ObjectData) {
 	switch eventType {
-	case "bp":
+	case "bridge-port":
 		log.Printf("LCI recevied %s %s\n", eventType, objectData.Name)
 		handlebp(objectData)
 	default:
@@ -77,7 +76,7 @@ func handlebp(objectData *eventbus.ObjectData) {
 			}
 			comp.CompStatus = common.ComponentStatusError
 		}
-		fmt.Printf("LCI: %+v \n", comp)
+		log.Printf("LCI: %+v \n", comp)
 		err := infradb.UpdateBPStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, BP.Metadata, comp)
 		if err != nil {
 			log.Printf("error in updating bp status: %s\n", err)
@@ -137,11 +136,11 @@ func setUpBp(bp *infradb.BridgePort) bool {
 		case infradb.Trunk:
 			// Example: bridge vlan add dev eth2 vid 20
 			if err := nlink.BridgeVlanAdd(ctx, iface, vid, false, false, false, false); err != nil {
-				fmt.Printf("Failed to add vlan to bridge: %v", err)
+				log.Printf("Failed to add vlan to bridge: %v", err)
 				return false
 			}
 		default:
-			fmt.Printf("Only ACCESS or TRUNK supported and not (%d)", bp.Spec.Ptype)
+			log.Printf("Only ACCESS or TRUNK supported and not (%d)", bp.Spec.Ptype)
 			return false
 		}
 	}
