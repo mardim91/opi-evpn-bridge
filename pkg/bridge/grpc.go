@@ -11,7 +11,6 @@ import (
 	"log"
 	"reflect"
 
-	"github.com/dgraph-io/badger"
 	"github.com/google/uuid"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 
@@ -102,7 +101,7 @@ func (s *Server) UpdateLogicalBridge(ctx context.Context, in *pb.UpdateLogicalBr
 	// fetch object from the database
 	lbObj, err := s.getLogicalBridge(in.LogicalBridge.Name)
 	if err != nil {
-		if err != badger.ErrKeyNotFound {
+		if err != infradb.ErrKeyNotFound {
 			log.Printf("UpdateLogicalBridge(): Failed to interact with store: %v", err)
 			return nil, err
 		}
@@ -161,7 +160,7 @@ func (s *Server) GetLogicalBridge(ctx context.Context, in *pb.GetLogicalBridgeRe
 	// fetch object from the database
 	lbObj, err := s.getLogicalBridge(in.Name)
 	if err != nil {
-		if err != badger.ErrKeyNotFound {
+		if err != infradb.ErrKeyNotFound {
 			log.Printf("Failed to interact with store: %v", err)
 			return nil, err
 		}

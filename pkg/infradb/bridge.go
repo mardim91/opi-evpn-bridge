@@ -63,12 +63,15 @@ var _ EvpnObject[*pb.LogicalBridge] = (*LogicalBridge)(nil)
 
 // NewLogicalBridge creates new Logica Bridge object from protobuf message
 func NewLogicalBridge(in *pb.LogicalBridge) *LogicalBridge {
+	var vip *net.IPNet
 	components := make([]common.Component, 0)
 
 	// Parse vtep IP
-	vtepip := make(net.IP, 4)
-	binary.BigEndian.PutUint32(vtepip, in.Spec.VtepIpPrefix.Addr.GetV4Addr())
-	vip := net.IPNet{IP: vtepip, Mask: net.CIDRMask(int(in.Spec.VtepIpPrefix.Len), 32)}
+	if in.Spec.VtepIpPrefix != nil {
+		vtepip := make(net.IP, 4)
+		binary.BigEndian.PutUint32(vtepip, in.Spec.VtepIpPrefix.Addr.GetV4Addr())
+		vip = &net.IPNet{IP: vtepip, Mask: net.CIDRMask(int(in.Spec.VtepIpPrefix.Len), 32)}
+	}
 
 	subscribers := eventbus.EBus.GetSubscribers("logical-bridge")
 	if subscribers == nil {
@@ -85,7 +88,7 @@ func NewLogicalBridge(in *pb.LogicalBridge) *LogicalBridge {
 		Spec: &LogicalBridgeSpec{
 			VlanID: in.Spec.VlanId,
 			Vni:    in.Spec.Vni,
-			VtepIP: &vip,
+			VtepIP: vip,
 		},
 		Status: &LogicalBridgeStatus{
 			LBOperStatus: LogicalBridgeOperStatus(LogicalBridgeOperStatusDown),
@@ -100,6 +103,7 @@ func NewLogicalBridge(in *pb.LogicalBridge) *LogicalBridge {
 
 // ToPb transforms Logical Bridge object to protobuf message
 func (in *LogicalBridge) ToPb() *pb.LogicalBridge {
+
 	vtepip := common.ConvertToIPPrefix(in.Spec.VtepIP)
 
 	lb := &pb.LogicalBridge{

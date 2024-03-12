@@ -20,6 +20,7 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 
 	//pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
+
 	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	//"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
@@ -130,12 +131,11 @@ func (e *testEnv) Close() {
 }
 
 func newTestEnv(ctx context.Context, t *testing.T) *testEnv {
-	//store := gomap.NewStore(gomap.Options{Codec: utils.ProtoCodec{}})
 	env := &testEnv{}
 	env.mockNetlink = mocks.NewNetlink(t)
 	env.mockFrr = mocks.NewFrr(t)
-	//env.opi = NewServerWithArgs(env.mockNetlink, env.mockFrr, store)
 	env.opi = NewServer()
+	infradb.NewInfraDB("", "gomap")
 	conn, err := grpc.DialContext(ctx,
 		"",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),

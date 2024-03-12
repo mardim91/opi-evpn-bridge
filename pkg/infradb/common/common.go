@@ -41,12 +41,19 @@ func ip4ToInt(ip net.IP) uint32 {
 
 // ConvertToIPPrefix converts IPNet type to IPPrefix
 func ConvertToIPPrefix(ipNet *net.IPNet) *pc.IPPrefix {
+
+	if ipNet == nil {
+		return nil
+	}
+
+	maskLen, _ := ipNet.Mask.Size()
 	return &pc.IPPrefix{
 		Addr: &pc.IPAddress{
+			Af: pc.IpAf_IP_AF_INET,
 			V4OrV6: &pc.IPAddress_V4Addr{
 				V4Addr: ip4ToInt(ipNet.IP.To4()),
 			},
 		},
-		Len: int32(len(ipNet.Mask) * 8),
+		Len: int32(maskLen),
 	}
 }
