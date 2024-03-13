@@ -10,9 +10,8 @@ require (
 	github.com/google/uuid v1.5.0
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.1
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.18.1
-	github.com/mardim91/opi-api v0.0.0-20240110121013-fe56fe24d360
 	github.com/onsi/ginkgo/v2 v2.13.2
-	github.com/opiproject/opi-api v0.0.0-20231204182835-b9900483c605
+	github.com/opiproject/opi-api v0.0.0-20240304222410-5dba226aaa9e
 	github.com/opiproject/opi-smbios-bridge v0.1.3-0.20231202044121-42d9a10eaca6
 	github.com/p4lang/p4runtime v1.4.0-rc.5
 	github.com/philippgille/gokv v0.6.0
@@ -35,8 +34,6 @@ require (
 	golang.org/x/tools v0.16.1
 	google.golang.org/grpc v1.60.1
 	google.golang.org/protobuf v1.32.0
-	gopkg.in/yaml.v2 v2.4.0
-	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -237,6 +234,8 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20231106174013-bbf56f31fb17 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231030173426-d783a09b4405 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	honnef.co/go/tools v0.4.6 // indirect
 	howett.net/plist v1.0.0 // indirect
 	mvdan.cc/gofumpt v0.5.0 // indirect

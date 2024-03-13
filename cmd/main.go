@@ -22,8 +22,7 @@ import (
 	"github.com/spf13/viper"
 
 	pc "github.com/opiproject/opi-api/inventory/v1/gen/go"
-	// pe "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
-	pe "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
+	pe "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	"github.com/opiproject/opi-evpn-bridge/pkg/bridge"
 	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"

@@ -20,8 +20,7 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/proto"
 
-	//pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
-	pb "github.com/mardim91/opi-api/network/evpn-gw/v1alpha1/gen/go"
+	pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pc "github.com/opiproject/opi-api/network/opinetcommon/v1alpha1/gen/go"
 
 	//"github.com/opiproject/opi-evpn-bridge/pkg/utils"
