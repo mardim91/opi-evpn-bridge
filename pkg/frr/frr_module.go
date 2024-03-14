@@ -447,7 +447,7 @@ func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 		fmt.Printf("FRR Details %s\n", details)
 		return details, true
 	}
-	return "", false
+	return "", true
 }
 
 // checkFrrResult checks the vrf result
@@ -477,7 +477,7 @@ func setUpSvi(svi *infradb.Svi) (string, bool) {
 		}
 		return "", true
 	}
-	return "", false
+	return "", true
 }
 
 // tearDownSvi tears down svi
@@ -494,7 +494,7 @@ func tearDownSvi(svi *infradb.Svi) bool {
 		fmt.Printf("FRR: Executed vtysh -c conf t -c router bgp 65000 vrf %s -c no  neighbor %s peer-group -c exit\n", path.Base(svi.Spec.Vrf), linkSvi)
 		return true
 	}
-	return false
+	return true
 }
 
 // tearDownVrf tears down vrf

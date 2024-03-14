@@ -47,7 +47,7 @@ linux_frr:
     default_vtep: "vxlan-vtep"
     port_mux: "enp0s1f0d5"
     vrf_mux: "enp0s1f0d4"
-    ip_mtu: 2962
+    ip_mtu: 1500
 netlink:
     enabled: true
     poll_interval: 1

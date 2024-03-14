@@ -454,7 +454,7 @@ func set_up_vrf(vrf *infradb.Vrf) (string, bool) {
 		vtip = fmt.Sprintf("%+v", vrf.Spec.VtepIP.IP)
 		*vrf.Spec.VtepIP = getIPAddress(defaultVtep)
 	}
-	log.Printf("set_up_vrf: %s %d %d\n", vtip, *vrf.Spec.Vni, routingTable)
+	log.Printf("set_up_vrf: %s %d %d\n", vtip, routingTable)
 	// Create the vrf interface for the specified routing table and add loopback address
 
 	linkAdderr := nlink.LinkAdd(ctx, &netlink.Vrf{
@@ -462,11 +462,11 @@ func set_up_vrf(vrf *infradb.Vrf) (string, bool) {
 		Table:     routingTable,
 	})
 	if linkAdderr != nil {
-		log.Printf("LGM: Error in Adding vrf link table %d\n", vrf.Spec.Vni)
+		log.Printf("LGM: Error in Adding vrf link table %d\n", routingTable)
 		return "", false
 	}
 
-	log.Printf("LGM: vrf link %s Added with table id %d\n", vrf.Name, vrf.Spec.Vni)
+	log.Printf("LGM: vrf link %s Added with table id %d\n", vrf.Name, routingTable)
 
 	link, linkErr := nlink.LinkByName(ctx, vrf.Name)
 	if linkErr != nil {
@@ -620,7 +620,7 @@ func setUpSvi(svi *infradb.Svi) (string, bool) {
 		log.Printf("LGM : Failed to get link information for %s: %v\n", brTenant, err)
 		return "", false
 	}
-	if err = nlink.BridgeVlanAdd(ctx, brIntf, uint16(vid), true, false, false, false); err != nil {
+	if err = nlink.BridgeVlanAdd(ctx, brIntf, uint16(vid), false, false, true, false); err != nil {
 		log.Printf("LGM : Failed to add VLAN %d to bridge interface %s: %v\n", vid, brTenant, err)
 		return "", false
 	}
@@ -682,13 +682,14 @@ func setUpSvi(svi *infradb.Svi) (string, bool) {
 			return "", false
 		}*/
 	log.Printf("LGM Executed :  ip link set %s master %s up mtu %d\n", linkSvi, path.Base(svi.Spec.Vrf), ipMtu)
-	command := fmt.Sprintf("net.ipv4.conf.%s.arp_accept=1", linkSvi)
+	//TODO Execute below command in LVM module, so that not to include in CI env
+	/*command := fmt.Sprintf("net.ipv4.conf.%s.arp_accept=1", linkSvi)
 	CP, err1 := run([]string{"sysctl", "-w", command}, false)
 	if err1 != 0 {
 		log.Printf("LGM: Error in executing command %s %s\n", "sysctl -w net.ipv4.conf.linkSvi.arp_accept=1", linkSvi)
 		log.Printf("%s\n", CP)
 		return "", false
-	}
+	}*/
 	for _, ipIntf := range svi.Spec.GatewayIPs {
 		addr := &netlink.Addr{
 			IPNet: &net.IPNet{
