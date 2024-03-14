@@ -80,6 +80,9 @@ func NewBridgePort(in *pb.BridgePort) *BridgePort {
 	var transTrunk bool
 	components := make([]common.Component, 0)
 
+	// Tansform Mac From Byte to net.HardwareAddr type
+	macAddr := net.HardwareAddr(in.Spec.MacAddress[:])
+
 	subscribers := eventbus.EBus.GetSubscribers("bridge-port")
 	if subscribers == nil {
 		log.Println("NewBridgePort(): No subscribers for Bridge Port objects")
@@ -107,7 +110,7 @@ func NewBridgePort(in *pb.BridgePort) *BridgePort {
 		Name: in.Name,
 		Spec: &BridgePortSpec{
 			Ptype:          bpType,
-			MacAddress:     BytetoMac(in.Spec.MacAddress),
+			MacAddress:     &macAddr,
 			LogicalBridges: in.Spec.LogicalBridges,
 		},
 		Status: &BridgePortStatus{

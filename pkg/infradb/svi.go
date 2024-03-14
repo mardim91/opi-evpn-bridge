@@ -67,6 +67,9 @@ func NewSvi(in *pb.Svi) *Svi {
 	components := make([]common.Component, 0)
 	gwIPs := make([]*net.IPNet, 0)
 
+	// Tansform Mac From Byte to net.HardwareAddr type
+	macAddr := net.HardwareAddr(in.Spec.MacAddress[:])
+
 	// Parse Gateway IPs
 	for _, gwIPPrefix := range in.Spec.GwIpPrefix {
 		gatewayIP := make(net.IP, 4)
@@ -90,7 +93,7 @@ func NewSvi(in *pb.Svi) *Svi {
 		Spec: &SviSpec{
 			Vrf:           in.Spec.Vrf,
 			LogicalBridge: in.Spec.LogicalBridge,
-			MacAddress:    BytetoMac(in.Spec.MacAddress),
+			MacAddress:    &macAddr,
 			GatewayIPs:    gwIPs,
 			EnableBgp:     in.Spec.EnableBgp,
 			RemoteAs:      &in.Spec.RemoteAs,
@@ -102,15 +105,6 @@ func NewSvi(in *pb.Svi) *Svi {
 		Metadata:        &SviMetadata{},
 		ResourceVersion: generateVersion(),
 	}
-}
-
-// BytetoMac translates mac address from byte to HardwareAddr type
-func BytetoMac(mac []byte) *net.HardwareAddr {
-	MacAddr, err := net.ParseMAC(string(mac))
-	if err != nil {
-		return nil
-	}
-	return &MacAddr
 }
 
 // ToPb transforms Svi object to protobuf message
