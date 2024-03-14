@@ -136,12 +136,11 @@ func (e *testEnv) Close() {
 }
 
 func newTestEnv(ctx context.Context, t *testing.T) *testEnv {
-	//store := gomap.NewStore(gomap.Options{Codec: utils.ProtoCodec{}})
 	env := &testEnv{}
 	env.mockNetlink = mocks.NewNetlink(t)
 	env.mockFrr = mocks.NewFrr(t)
-	//env.opi = NewServerWithArgs(env.mockNetlink, env.mockFrr, store)
 	env.opi = NewServer()
+	infradb.NewInfraDB("", "gomap")
 	conn, err := grpc.DialContext(ctx,
 		"",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),

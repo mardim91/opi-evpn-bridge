@@ -11,7 +11,6 @@ import (
 	"log"
 	"reflect"
 
-	"github.com/dgraph-io/badger"
 	"github.com/google/uuid"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 
@@ -68,7 +67,7 @@ func (s *Server) DeleteVrf(ctx context.Context, in *pb.DeleteVrfRequest) (*empty
 	// fetch object from the database
 	_, err := s.getVrf(in.Name)
 	if err != nil {
-		if err != badger.ErrKeyNotFound {
+		if err != infradb.ErrKeyNotFound {
 			log.Printf("Failed to interact with store: %v", err)
 			return nil, err
 		}

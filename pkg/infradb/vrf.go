@@ -118,14 +118,19 @@ func NewVrfWithArgs(name string, vni *uint32, loopbackIP, vtepIP *net.IPNet) (*V
 
 // NewVrf creates new VRF object from protobuf message
 func NewVrf(in *pb.Vrf) *Vrf {
+	var vip *net.IPNet
 	components := make([]common.Component, 0)
 
 	loopip := make(net.IP, 4)
 	binary.BigEndian.PutUint32(loopip, in.Spec.LoopbackIpPrefix.Addr.GetV4Addr())
 	lip := net.IPNet{IP: loopip, Mask: net.CIDRMask(int(in.Spec.LoopbackIpPrefix.Len), 32)}
-	vtepip := make(net.IP, 4)
-	binary.BigEndian.PutUint32(vtepip, in.Spec.VtepIpPrefix.Addr.GetV4Addr())
-	vip := net.IPNet{IP: vtepip, Mask: net.CIDRMask(int(in.Spec.VtepIpPrefix.Len), 32)}
+
+	// Parse vtep IP
+	if in.Spec.VtepIpPrefix != nil {
+		vtepip := make(net.IP, 4)
+		binary.BigEndian.PutUint32(vtepip, in.Spec.VtepIpPrefix.Addr.GetV4Addr())
+		vip = &net.IPNet{IP: vtepip, Mask: net.CIDRMask(int(in.Spec.VtepIpPrefix.Len), 32)}
+	}
 
 	subscribers := eventbus.EBus.GetSubscribers("vrf")
 	if subscribers == nil {
@@ -142,7 +147,7 @@ func NewVrf(in *pb.Vrf) *Vrf {
 		Spec: &VrfSpec{
 			Vni:        in.Spec.Vni,
 			LoopbackIP: &lip,
-			VtepIP:     &vip,
+			VtepIP:     vip,
 		},
 		Status: &VrfStatus{
 			VrfOperStatus: VrfOperStatus(VrfOperStatusDown),
