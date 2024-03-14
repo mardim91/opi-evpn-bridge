@@ -147,7 +147,7 @@ func startSubscriber(eventBus *eb.EventBus, eventType string) {
 
 func handleRouteAdded(route interface{}) {
 	var entries []interface{}
-	routeData, _ := route.(nm.Route_struct)
+	routeData, _ := route.(nm.RouteStruct)
 	// for _, decoder := range decoders {
 	//        entries = append(entries, L3.translate_added_route(routeData))
 	entries = L3.translate_added_route(routeData)
@@ -163,7 +163,7 @@ func handleRouteAdded(route interface{}) {
 
 func handleRouteUpdated(route interface{}) {
 	var entries []interface{}
-	routeData, _ := route.(nm.Route_struct)
+	routeData, _ := route.(nm.RouteStruct)
 	// for _, decoder := range decoders {
 	// entries = append(entries, L3.translate_deleted_route(routeData))
 	entries = L3.translate_deleted_route(routeData)
@@ -188,7 +188,7 @@ func handleRouteUpdated(route interface{}) {
 }
 func handleRouteDeleted(route interface{}) {
 	var entries []interface{}
-	routeData, _ := route.(nm.Route_struct)
+	routeData, _ := route.(nm.RouteStruct)
 	// for _, decoder := range decoders {
 	// entries = append(entries, L3.translate_deleted_route(routeData))
 	entries = L3.translate_deleted_route(routeData)
@@ -204,7 +204,7 @@ func handleRouteDeleted(route interface{}) {
 
 func handleNexthopAdded(nexthop interface{}) {
 	var entries []interface{}
-	nexthopData, _ := nexthop.(nm.Nexthop_struct)
+	nexthopData, _ := nexthop.(nm.NexthopStruct)
 	// for _, decoder := range decoders {
 	// entries = append(entries, L3.translate_added_nexthop(nexthopData))
 	// entries = append(entries, Vxlan.translate_added_nexthop(nexthopData))
@@ -229,7 +229,7 @@ func handleNexthopAdded(nexthop interface{}) {
 }
 func handleNexthopUpdated(nexthop interface{}) {
 	var entries []interface{}
-	nexthopData, _ := nexthop.(nm.Nexthop_struct)
+	nexthopData, _ := nexthop.(nm.NexthopStruct)
 	// for _, decoder := range decoders {
 	// entries = append(entries, L3.translate_deleted_nexthop(nexthopData))
 	// entries = append(entries, Vxlan.translate_deleted_nexthop(nexthopData))
@@ -274,7 +274,7 @@ func handleNexthopUpdated(nexthop interface{}) {
 
 func handleNexthopDeleted(nexthop interface{}) {
 	var entries []interface{}
-	nexthopData, _ := nexthop.(nm.Nexthop_struct)
+	nexthopData, _ := nexthop.(nm.NexthopStruct)
 	// nexthopData, ok := nexthop.(nm.Nexthop)
 	// for _, decoder := range decoders {
 	// entries = append(entries, L3.translate_deleted_nexthop(nexthopData))
@@ -299,7 +299,7 @@ func handleNexthopDeleted(nexthop interface{}) {
 }
 func handleFbdEntryAdded(fbdEntry interface{}) {
 	var entries []interface{}
-	fbdEntryData, _ := fbdEntry.(nm.FdbEntry_struct)
+	fbdEntryData, _ := fbdEntry.(nm.FdbEntryStruct)
 	// for _, decoder := range decoders {
 	// entries = append(entries, Vxlan.translate_added_fdb(fbdEntryData))
 	// entries = append(entries, Pod.translate_added_fdb(fbdEntryData))
@@ -324,7 +324,7 @@ func handleFbdEntryAdded(fbdEntry interface{}) {
 
 func handleFbdEntryUpdated(fdbEntry interface{}) {
 	var entries []interface{}
-	fbdEntryData, _ := fdbEntry.(nm.FdbEntry_struct)
+	fbdEntryData, _ := fdbEntry.(nm.FdbEntryStruct)
 	// for _, decoder := range decoders {
 	// entries = append(entries, Vxlan.translate_deleted_fdb(fbdEntryData))
 	// entries = append(entries, Pod.translate_deleted_fdb(fbdEntryData))
@@ -369,7 +369,7 @@ func handleFbdEntryUpdated(fdbEntry interface{}) {
 }
 func handleFbdEntryDeleted(fdbEntry interface{}) {
 	var entries []interface{}
-	fbdEntryData, _ := fdbEntry.(nm.FdbEntry_struct)
+	fbdEntryData, _ := fdbEntry.(nm.FdbEntryStruct)
 	// for _, decoder := range decoders {
 	// entries = append(entries, Vxlan.translate_deleted_fdb(fbdEntryData))
 	// entries = append(entries, Pod.translate_deleted_fdb(fbdEntryData))
@@ -394,7 +394,7 @@ func handleFbdEntryDeleted(fdbEntry interface{}) {
 
 func handleL2NexthopAdded(l2NextHop interface{}) {
 	var entries []interface{}
-	l2NextHopData, _ := l2NextHop.(nm.L2Nexthop_struct)
+	l2NextHopData, _ := l2NextHop.(nm.L2NexthopStruct)
 
 	// for _, decoder := range decoders {
 	// entries = append(entries, Vxlan.translate_added_l2_nexthop(l2NextHopData))
@@ -419,7 +419,7 @@ func handleL2NexthopAdded(l2NextHop interface{}) {
 }
 func handleL2NexthopUpdated(l2NextHop interface{}) {
 	var entries []interface{}
-	l2NextHopData, _ := l2NextHop.(nm.L2Nexthop_struct)
+	l2NextHopData, _ := l2NextHop.(nm.L2NexthopStruct)
 	//        for _, decoder := range decoders {
 	// entries = append(entries, Vxlan.translate_deleted_l2_nexthop(l2NextHopData))
 	// entries = append(entries, Pod.translate_deleted_l2_nexthop(l2NextHopData))
@@ -464,7 +464,7 @@ func handleL2NexthopUpdated(l2NextHop interface{}) {
 
 func handleL2NexthopDeleted(l2NextHop interface{}) {
 	var entries []interface{}
-	l2NextHopData, _ := l2NextHop.(nm.L2Nexthop_struct)
+	l2NextHopData, _ := l2NextHop.(nm.L2NexthopStruct)
 	// for _, decoder := range decoders {
 	// entries = append(entries, Vxlan.translate_deleted_l2_nexthop(l2NextHopData))
 	// entries = append(entries, Pod.translate_deleted_l2_nexthop(l2NextHopData))
