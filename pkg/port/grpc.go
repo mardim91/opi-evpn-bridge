@@ -11,7 +11,6 @@ import (
 	"log"
 	"reflect"
 
-	"github.com/dgraph-io/badger"
 	"github.com/google/uuid"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
@@ -68,7 +67,7 @@ func (s *Server) DeleteBridgePort(ctx context.Context, in *pb.DeleteBridgePortRe
 	// fetch object from the database
 	_, err := s.getBridgePort(in.Name)
 	if err != nil {
-		if err != badger.ErrKeyNotFound {
+		if err != infradb.ErrKeyNotFound {
 			log.Printf("Failed to interact with store: %v", err)
 			return nil, err
 		}
@@ -97,7 +96,7 @@ func (s *Server) UpdateBridgePort(ctx context.Context, in *pb.UpdateBridgePortRe
 	// fetch object from the
 	bpObj, err := s.getBridgePort(in.BridgePort.Name)
 	if err != nil {
-		if err != badger.ErrKeyNotFound {
+		if err != infradb.ErrKeyNotFound {
 			log.Printf("UpdateBridgePort(): Failed to interact with store: %v", err)
 			return nil, err
 		}
@@ -156,7 +155,7 @@ func (s *Server) GetBridgePort(ctx context.Context, in *pb.GetBridgePortRequest)
 	// fetch object from the database
 	bpObj, err := s.getBridgePort(in.Name)
 	if err != nil {
-		if err != badger.ErrKeyNotFound {
+		if err != infradb.ErrKeyNotFound {
 			log.Printf("Failed to interact with store: %v", err)
 			return nil, err
 		}

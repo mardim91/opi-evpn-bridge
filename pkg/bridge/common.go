@@ -129,6 +129,22 @@ func (e *testEnv) Close() {
 	}
 }
 
+// TestCreateLogicalBridge is used for testing purposes
+func (s *Server) TestCreateLogicalBridge(lb *pb.LogicalBridge) (*pb.LogicalBridge, error) {
+	// check parameters
+	if err := s.validateLogicalBridgeSpec(lb); err != nil {
+		return nil, err
+	}
+
+	// translation of pb to domain object
+	domainLB := infradb.NewLogicalBridge(lb)
+	// Note: The status of the object will be generated in infraDB operation not here
+	if err := infradb.CreateLB(domainLB); err != nil {
+		return nil, err
+	}
+	return domainLB.ToPb(), nil
+}
+
 func newTestEnv(ctx context.Context, t *testing.T) *testEnv {
 	env := &testEnv{}
 	env.mockNetlink = mocks.NewNetlink(t)
