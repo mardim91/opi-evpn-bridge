@@ -11,7 +11,6 @@ import (
 	"log"
 	"reflect"
 
-	"github.com/dgraph-io/badger"
 	"github.com/google/uuid"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
@@ -68,7 +67,7 @@ func (s *Server) DeleteSvi(ctx context.Context, in *pb.DeleteSviRequest) (*empty
 	// fetch object from the database
 	_, err := s.getSvi(in.Name)
 	if err != nil {
-		if err != badger.ErrKeyNotFound {
+		if err != infradb.ErrKeyNotFound {
 			log.Printf("Failed to interact with store: %v", err)
 			return nil, err
 		}
@@ -98,7 +97,7 @@ func (s *Server) UpdateSvi(ctx context.Context, in *pb.UpdateSviRequest) (*pb.Sv
 	// fetch object from the database
 	sviObj, err := s.getSvi(in.Svi.Name)
 	if err != nil {
-		if err != badger.ErrKeyNotFound {
+		if err != infradb.ErrKeyNotFound {
 			log.Printf("UpdateSvi(): Failed to interact with store: %v", err)
 			return nil, err
 		}
@@ -157,7 +156,7 @@ func (s *Server) GetSvi(ctx context.Context, in *pb.GetSviRequest) (*pb.Svi, err
 	// fetch object from the database
 	sviObj, err := s.getSvi(in.Name)
 	if err != nil {
-		if err != badger.ErrKeyNotFound {
+		if err != infradb.ErrKeyNotFound {
 			log.Printf("Failed to interact with store: %v", err)
 			return nil, err
 		}

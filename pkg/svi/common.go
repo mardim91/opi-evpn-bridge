@@ -24,8 +24,10 @@ import (
 	pc "github.com/opiproject/opi-api/network/opinetcommon/v1alpha1/gen/go"
 
 	//"github.com/opiproject/opi-evpn-bridge/pkg/utils"
+	"github.com/opiproject/opi-evpn-bridge/pkg/bridge"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils/mocks"
+	"github.com/opiproject/opi-evpn-bridge/pkg/vrf"
 )
 
 func sortSvis(svis []*pb.Svi) {
@@ -136,7 +138,7 @@ var (
 		Name: testLogicalBridgeName,
 		Spec: testLogicalBridge.Spec,
 		Status: &pb.LogicalBridgeStatus{
-			OperStatus: pb.LBOperStatus_LB_OPER_STATUS_UP,
+			OperStatus: pb.LBOperStatus_LB_OPER_STATUS_DOWN,
 		},
 	}
 
@@ -166,10 +168,10 @@ var (
 		},
 	}
 	testVrfWithStatus = pb.Vrf{
-		Name:   testVrfName,
-		Spec:   testVrf.Spec,
+		Name: testVrfName,
+		Spec: testVrf.Spec,
 		Status: &pb.VrfStatus{
-			//LocalAs: 4, //no field in vrf
+			OperStatus: pb.VRFOperStatus_VRF_OPER_STATUS_DOWN,
 		},
 	}
 )
@@ -178,6 +180,8 @@ type testEnv struct {
 	mockNetlink *mocks.Netlink
 	mockFrr     *mocks.Frr
 	opi         *Server
+	lbServer    *bridge.Server
+	vrfServer   *vrf.Server
 	conn        *grpc.ClientConn
 }
 
@@ -189,12 +193,13 @@ func (e *testEnv) Close() {
 }
 
 func newTestEnv(ctx context.Context, t *testing.T) *testEnv {
-	//store := gomap.NewStore(gomap.Options{Codec: utils.ProtoCodec{}})
 	env := &testEnv{}
 	env.mockNetlink = mocks.NewNetlink(t)
 	env.mockFrr = mocks.NewFrr(t)
-	//env.opi = NewServerWithArgs(env.mockNetlink, env.mockFrr, store)
 	env.opi = NewServer()
+	env.lbServer = bridge.NewServer()
+	env.vrfServer = vrf.NewServer()
+	infradb.NewInfraDB("", "gomap")
 	conn, err := grpc.DialContext(ctx,
 		"",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),

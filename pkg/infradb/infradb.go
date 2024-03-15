@@ -1050,7 +1050,7 @@ func CreateSvi(svi *Svi) error {
 	}
 	if !found {
 		log.Printf("CreateSvi(): The Logical Bridge with name %+v has not been found\n", svi.Spec.LogicalBridge)
-		return ErrVrfNotFound
+		return ErrLogicalBridgeNotFound
 	}
 
 	// Store svi reference to the VRF object

@@ -135,6 +135,22 @@ func (e *testEnv) Close() {
 	}
 }
 
+// TestCreateVrf is used for testing purposes
+func (s *Server) TestCreateVrf(vrf *pb.Vrf) (*pb.Vrf, error) {
+	// check parameters
+	if err := s.validateVrfSpec(vrf); err != nil {
+		return nil, err
+	}
+
+	// translation of pb to domain object
+	domainVrf := infradb.NewVrf(vrf)
+	// Note: The status of the object will be generated in infraDB operation not here
+	if err := infradb.CreateVrf(domainVrf); err != nil {
+		return nil, err
+	}
+	return domainVrf.ToPb(), nil
+}
+
 func newTestEnv(ctx context.Context, t *testing.T) *testEnv {
 	env := &testEnv{}
 	env.mockNetlink = mocks.NewNetlink(t)
