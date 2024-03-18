@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2022-2023 Intel Corporation, or its subsidiaries.
+// Copyright (C) 2023 Nordix Foundation.
+
 // Package netlink handles the netlink related functionality
 package netlink
 
@@ -29,7 +33,6 @@ import (
 
 	// "io/ioutil"
 	"path"
-	"path/filepath"
 
 	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
@@ -57,9 +60,6 @@ var stopMonitoring bool
 
 // EventBus variable
 var EventBus = eb.NewEventBus()
-
-// logFile variable
-var logFile string
 
 // strNone variable
 var strNone = "NONE"
@@ -2084,21 +2084,7 @@ func monitorNetlink(_ bool) {
 
 // Init function intializes config
 func Init() {
-	logFile = "./netlink.log"
-	// open log file
-	logFile = filepath.Clean(logFile)
-	logFile, err := os.OpenFile(logFile, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0600)
-	if err != nil {
-		log.Panic(err)
-	}
-	defer func() {
-		err := logFile.Close()
-		if err != nil {
-			log.Println(err)
-		}
-	}()
-	log.SetOutput(logFile)
-	log.SetFlags(log.Lshortfile | log.LstdFlags)
+
 	// var config Config_t
 	/*yfile, err := ioutil.ReadFile("config.yaml")
 	if err != nil {

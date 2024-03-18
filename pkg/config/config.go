@@ -1,3 +1,9 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2022-2023 Intel Corporation, or its subsidiaries.
+// Copyright (C) 2023 Nordix Foundation.
+// Copyright (c) 2022-2023 Dell Inc, or its subsidiaries.
+
+//Package config handles the evpn bridge config
 package config
 
 import (

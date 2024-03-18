@@ -1,9 +1,12 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2022-2023 Intel Corporation, or its subsidiaries.
+// Copyright (C) 2023 Nordix Foundation.
+
 package p4translation
 
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 
 	// "io/ioutil"
 	"log"
@@ -30,8 +33,6 @@ import (
 var L3 L3Decoder
 var Vxlan VxlanDecoder
 var Pod PodDecoder
-
-const logfile string = "./ipu_vendor.log"
 
 // var decoders []interface{}
 // var decoders = []interface{}{L3, Vxlan, Pod}
@@ -858,14 +859,6 @@ func tear_down_vrf(VRF *infradb.Vrf) bool {
 	}
 */
 func Init() {
-	logFile, err := os.OpenFile(logfile, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
-	if err != nil {
-		log.Panic(err)
-	}
-	defer logFile.Close()
-	log.SetOutput(logFile)
-	log.SetFlags(log.Lshortfile | log.LstdFlags)
-
 	// Netlink Listener
 	startSubscriber(nm.EventBus, "route_added")
 

@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2022-2023 Intel Corporation, or its subsidiaries.
+// Copyright (C) 2023 Nordix Foundation.
+
 // Package frr handles the frr related functionality
 package frr
 
@@ -272,9 +276,6 @@ var ctx context.Context
 // Frr variable of type utils wrapper
 var Frr utils.Frr
 
-// logfile log file
-const logfile string = "./frr.log"
-
 // Init function handles init functionality
 func Init() {
 	/*config, err := readConfig("config.yaml")
@@ -283,18 +284,7 @@ func Init() {
 		// os.Exit(0)
 	}*/
 	//	fmt.SetOutput(os.Stdout)
-	logFile, err := os.OpenFile(logfile, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0600)
-	if err != nil {
-		log.Panic(err)
-	}
-	defer func() {
-		err := logFile.Close()
-		if err != nil {
-			log.Println(err)
-		}
-	}()
-	log.SetOutput(logFile)
-	log.SetFlags(log.Lshortfile | log.LstdFlags)
+
 	frrEnabled := config.GlobalConfig.Linux_frr.Enabled
 	if !frrEnabled {
 		fmt.Println("FRR Module disabled")

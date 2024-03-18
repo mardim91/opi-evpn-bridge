@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2022-2023 Intel Corporation, or its subsidiaries.
+// Copyright (C) 2023 Nordix Foundation.
+
+// Package taskmanager manages the tasks that are created for realization of intents
 package taskmanager
 
 // TaskQueue represents a queue of tasks

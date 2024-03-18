@@ -131,18 +131,17 @@ func initConfig() {
 }
 
 const logfile string = "opi-evpn-bridge.log"
-const logprefix string = "LOGTEST: "
 
 var logger *log.Logger
 
-func setupLogger(filename, prefix string) {
+func setupLogger(filename string) {
 	var err error
 	filename = filepath.Clean(filename)
 	out, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		log.Fatal(err)
 	}
-	logger = log.New(io.MultiWriter(os.Stdout, out), prefix, log.LstdFlags)
+	logger = log.New(io.MultiWriter(os.Stdout, out), "", log.Lshortfile|log.LstdFlags)
 	log.SetOutput(logger.Writer())
 }
 
@@ -187,7 +186,7 @@ func validateConfigs() error {
 // main function
 func main() {
 	// setup file and console logger
-	setupLogger(logfile, logprefix)
+	setupLogger(logfile)
 	// initialize  cobra config
 	initialize()
 	// start the main cmd

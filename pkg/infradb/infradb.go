@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2022-2023 Intel Corporation, or its subsidiaries.
 // Copyright (C) 2023 Nordix Foundation.
 
 // Package infradb exposes the interface for the manipulation of the api objects
