@@ -42,6 +42,10 @@ type Netlink interface {
 	RouteFlushTable(context.Context, string) error
 	RouteListIPTable(context.Context, string) bool
 	LinkSetBrNeighSuppress(context.Context, netlink.Link, bool) error
+	ReadNeigh(context.Context, string) (string, error)
+	ReadRoute(context.Context, string) (string, error)
+	ReadFDB(context.Context) (string, error)
+	RouteLookup(context.Context, string, string) (string, error)
 }
 
 // run function run the commands
@@ -234,6 +238,50 @@ func (n *NetlinkWrapper) BridgeFdbAdd(_ context.Context, link string, macAddress
 		return errors.New("failed to add fdb entry")
 	}
 	return nil
+}
+
+func (n *NetlinkWrapper) ReadNeigh(_ context.Context, link string) (string, error) {
+	var out string
+	var err int
+	if link == "" {
+		out, err = run([]string{"ip", "-j", "-d", "neighbor", "show"}, false)
+	} else {
+		out, err = run([]string{"ip", "-j", "-d", "neighbor", "show", "vrf", link}, false)
+	}
+	if err != 0 {
+		return "", errors.New("failed routelookup")
+	}
+	return out, nil
+}
+
+func (n *NetlinkWrapper) ReadRoute(_ context.Context, table string) (string, error) {
+	 out, err := run([]string{"ip", "-j", "-d", "route", "show", "table", table}, false)
+	 if err != 0 {
+		 return "", errors.New("failed to read route")
+	 }
+	 return out, nil
+}
+
+func (n *NetlinkWrapper) ReadFDB(_ context.Context) (string, error) {
+	out, err := run([]string{"bridge", "-d", "-j", "fdb", "show", "br", "br-tenant", "dynamic"}, false)
+	if err != 0 {
+		return "", errors.New("failed to read fdb")
+	}
+	return out, nil
+}
+
+func (n *NetlinkWrapper) RouteLookup(_ context.Context, dst string, link string) (string, error) {
+	var out string
+	var err int
+	if link == "" {
+		out, err =  run([]string{"ip", "-j", "route", "get", dst, "fibmatch"}, false)
+	} else {
+		out, err = run([]string{"ip", "-j", "route", "get", dst, "vrf", link, "fibmatch"}, false)
+	}
+	if err != 0 {
+		return "", errors.New("failed routelookup")
+	}
+	return out, nil
 }
 
 // LinkSetBrNeighSuppress is a wrapper for netlink.LinkSetBrNeighSuppress

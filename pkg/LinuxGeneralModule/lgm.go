@@ -670,14 +670,14 @@ func setUpSvi(svi *infradb.Svi) (string, bool) {
 			return "", false
 		}*/
 	log.Printf("LGM Executed :  ip link set %s master %s up mtu %d\n", linkSvi, path.Base(svi.Spec.Vrf), ipMtu)
-	//TODO Execute below command in LVM module, so that not to include in CI env
-	/*command := fmt.Sprintf("net.ipv4.conf.%s.arp_accept=1", linkSvi)
+	//Ignoring the error as CI env doesn't allow to write to the filesystem
+	command := fmt.Sprintf("net.ipv4.conf.%s.arp_accept=1", linkSvi)
 	CP, err1 := run([]string{"sysctl", "-w", command}, false)
 	if err1 != 0 {
 		log.Printf("LGM: Error in executing command %s %s\n", "sysctl -w net.ipv4.conf.linkSvi.arp_accept=1", linkSvi)
 		log.Printf("%s\n", CP)
-		return "", false
-	}*/
+		//return "", false
+	}
 	for _, ipIntf := range svi.Spec.GatewayIPs {
 		addr := &netlink.Addr{
 			IPNet: &net.IPNet{

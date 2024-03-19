@@ -10,8 +10,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
-
+	"context"
 	// "sync"
 	"regexp"
 	"strconv"
@@ -37,9 +36,12 @@ import (
 	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	eb "github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/event_bus"
+	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 	// "gopkg.in/yaml.v3"
 )
 
+var ctx context.Context
+var nlink utils.Netlink
 // dbLock variable
 // var dbLock int
 
@@ -195,19 +197,6 @@ var LatestFDB = make(map[FDBKey]FdbEntryStruct)
 
 // LatestL2Nexthop Variable
 var LatestL2Nexthop = make(map[L2NexthopKey]L2NexthopStruct)
-
-func run(cmd []string) (string, error) {
-	var out []byte
-	var err error
-	out, err = exec.Command(cmd[0], cmd[1:]...).CombinedOutput() // #nosec G204
-	if err != nil {
-		log.Println(cmd)
-		return "", err
-	}
-	output := string(out)
-	return output, err
-}
-
 /*--------------------------------------------------------------------------
 ###  Route Database Entries
 ###
@@ -1370,14 +1359,14 @@ func readNeighbors(v *infradb.Vrf) {
 	if v.Spec.Vni == nil {
 		/* No support for "ip neighbor show" command in netlink library Raised ticket https://github.com/vishvananda/netlink/issues/913 ,
 		   so using ip command as WA */
-		Nb, err = run([]string{"ip", "-j", "-d", "neighbor", "show"})
+		Nb, err = nlink.ReadNeigh(ctx, "")
 		/*	neigh.NS.Neigh0 , neigh.NS.Err = netlink.NeighList(0, netlink.FAMILY_V4)
 			if neigh.NS.Err != nil {
 			    log.Print("Failed to NeighList: %v", neigh.NS.Err)
 			}
 		*/
 	} else {
-		Nb, err = run([]string{"ip", "-j", "-d", "neighbor", "show", "vrf", path.Base(v.Name)})
+		Nb, err = nlink.ReadNeigh(ctx, path.Base(v.Name))
 		/*     vrf, _ := netlink.LinkByName(v.Name)
 		neigh.NS.Neigh0 , neigh.Err = netlink.NeighList(vrf.Attrs().Index, netlink.FAMILY_V4)
 		if neigh.NS.Err != nil {
@@ -1460,7 +1449,7 @@ func readRouteFromIP(v *infradb.Vrf) {
 	// TODO
 	for _, routeSt := range v.Metadata.RoutingTable {
 		Rt1 = int(*routeSt)
-		Raw, err := run([]string{"ip", "-j", "-d", "route", "show", "table", strconv.Itoa(Rt1)})
+		Raw, err := nlink.ReadRoute(ctx, strconv.Itoa(Rt1))
 		if err != nil {
 			log.Printf("Err Command route\n")
 			return
@@ -1566,7 +1555,7 @@ func readFDB() []FdbEntryStruct {
 	var macs []FdbEntryStruct
 	var fs FdbEntryStruct
 
-	CP, err := run([]string{"bridge", "-d", "-j", "fdb", "show", "br", "br-tenant", "dynamic"})
+	CP, err := nlink.ReadFDB(ctx)
 	if err != nil || len(CP) == 3 {
 		// log.Fatal("FDB: Command error\n") //TODO
 		return macs
@@ -1598,9 +1587,9 @@ func lookupRoute(dst net.IP, v *infradb.Vrf) RouteStruct {
 	var CP string
 	var err error
 	if v.Spec.Vni != nil {
-		CP, err = run([]string{"ip", "-j", "route", "get", dst.String(), "vrf", path.Base(v.Name), "fibmatch"})
+		CP, err = nlink.RouteLookup(ctx, dst.String(), path.Base(v.Name))
 	} else {
-		CP, err = run([]string{"ip", "-j", "route", "get", dst.String(), "fibmatch"})
+		CP, err = nlink.RouteLookup(ctx, dst.String(), "")
 	}
 	if err != nil {
 		log.Fatal("Command error\n")
@@ -2111,6 +2100,8 @@ func Init() {
 		phyPorts[config.GlobalConfig.Netlink.Phy_ports[i].Name] = config.GlobalConfig.Netlink.Phy_ports[i].Vsi
 	}
 	getlink()
+	ctx = context.Background()
+	nlink = utils.NewNetlinkWrapper()
 	go monitorNetlink(config.GlobalConfig.P4.Enabled) // monitor Thread started
 	// log.Println("Started netlink_monitor thread with {pollInterval} s poll interval.")
 	//	time.Sleep(1 * time.Second)

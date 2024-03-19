@@ -1,0 +1,61 @@
+grpcport: 50151
+httpport: 8082
+tlsfiles:
+database: redis
+dbaddress: 127.0.0.1:6379
+frraddress: 127.0.0.1
+buildenv: ipu
+subscribers:
+ - name: "lvm"
+   priority: 2
+   events: ["vrf", "bridge-port"]
+ - name: "lgm"
+   priority: 1
+   events: ["vrf", "svi", "logical-bridge"]
+ - name: "frr"
+   priority: 3
+   events: ["vrf", "svi"]
+ - name: "ipu"
+   priority: 4
+   events: ["vrf"]
+grpc:
+    server_addresses:
+      - 0.0.0.0
+    server_port: 51703
+    num_threads: 10
+    static_external_macs: []
+p4:
+    enabled: true
+    driver: "tdi"
+    representors:
+      port_mux: "port-mux"
+      vrf_mux: "vrf-mux"
+      grpc_acc: "host"
+      grpc_host: "00:20:00:00:14:48"
+      phy0_rep: "port0"
+      phy1_rep: "port1"
+    config:
+        p4info_file: /root/p4files/opi_ln.p4info.txt
+        bin_file: /root/p4files/opi_ln.pb.bin
+        conf_file: /root/p4files/opi_ln.conf
+        sde_path: /root/acc_sdk_4445/p4sde/install
+linux_frr:
+    enabled: true
+    default_vtep: "vxlan-vtep"
+    port_mux: "enp0s1f0d5"
+    vrf_mux: "enp0s1f0d4"
+    ip_mtu: 2962
+netlink:
+    enabled: true
+    poll_interval: 1
+    phy_ports:
+      - name: "enp0s1f0d1"
+        vsi: 0
+      - name: "enp0s1f0d2"
+        vsi: 1
+loglevel:
+    db: INFO
+    grpc: INFO
+    linux_frr: INFO
+    netlink: INFO
+    p4: DEBUG
