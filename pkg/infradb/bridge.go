@@ -2,6 +2,7 @@
 // Copyright (c) 2022-2023 Dell Inc, or its subsidiaries.
 // Copyright (c) 2022-2023 Intel Corporation, or its subsidiaries.
 // Copyright (C) 2023 Nordix Foundation.
+
 package infradb
 
 import (
@@ -103,7 +104,6 @@ func NewLogicalBridge(in *pb.LogicalBridge) *LogicalBridge {
 
 // ToPb transforms Logical Bridge object to protobuf message
 func (in *LogicalBridge) ToPb() *pb.LogicalBridge {
-
 	vtepip := common.ConvertToIPPrefix(in.Spec.VtepIP)
 
 	lb := &pb.LogicalBridge{

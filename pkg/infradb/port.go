@@ -83,7 +83,7 @@ func NewBridgePort(in *pb.BridgePort) *BridgePort {
 	components := make([]common.Component, 0)
 
 	// Tansform Mac From Byte to net.HardwareAddr type
-	macAddr := net.HardwareAddr(in.Spec.MacAddress[:])
+	macAddr := net.HardwareAddr(in.Spec.MacAddress)
 
 	subscribers := eventbus.EBus.GetSubscribers("bridge-port")
 	if subscribers == nil {

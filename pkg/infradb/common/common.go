@@ -45,7 +45,6 @@ func ip4ToInt(ip net.IP) uint32 {
 
 // ConvertToIPPrefix converts IPNet type to IPPrefix
 func ConvertToIPPrefix(ipNet *net.IPNet) *pc.IPPrefix {
-
 	if ipNet == nil {
 		return nil
 	}

@@ -35,20 +35,20 @@ p4:
       phy0_rep: "port0"
       phy1_rep: "port1"
     config:
-        p4info_file: /root/p4files/opi_ln.p4info.txt
-        bin_file: /root/p4files/opi_ln.pb.bin
-        conf_file: /root/p4files/opi_ln.conf
-        sde_path: /root/acc_sdk_4445/p4sde/install
-linux_frr:
+        p4infofile: /root/p4files/opi_ln.p4info.txt
+        binfile: /root/p4files/opi_ln.pb.bin
+        conffile: /root/p4files/opi_ln.conf
+        sdepath: /root/acc_sdk_4445/p4sde/install
+linuxfrr:
     enabled: true
-    default_vtep: "vxlan-vtep"
-    port_mux: "enp0s1f0d5"
-    vrf_mux: "enp0s1f0d4"
-    ip_mtu: 2962
+    defaultvtep: "vxlan-vtep"
+    portmux: "enp0s1f0d5"
+    vrfmux: "enp0s1f0d4"
+    ipmtu: 1500
 netlink:
     enabled: true
-    poll_interval: 1
-    phy_ports:
+    pollinterval: 1
+    phyports:
       - name: "enp0s1f0d1"
         vsi: 0
       - name: "enp0s1f0d2"
@@ -56,6 +56,6 @@ netlink:
 loglevel:
     db: INFO
     grpc: INFO
-    linux_frr: INFO
+    linux: INFO
     netlink: INFO
     p4: DEBUG

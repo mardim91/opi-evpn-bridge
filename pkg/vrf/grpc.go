@@ -23,7 +23,7 @@ import (
 )
 
 // CreateVrf executes the creation of the VRF
-func (s *Server) CreateVrf(ctx context.Context, in *pb.CreateVrfRequest) (*pb.Vrf, error) {
+func (s *Server) CreateVrf(_ context.Context, in *pb.CreateVrfRequest) (*pb.Vrf, error) {
 	// check input correctness
 	if err := s.validateCreateVrfRequest(in); err != nil {
 		log.Printf("CreateVrf(): validation failure: %v", err)
@@ -58,7 +58,7 @@ func (s *Server) CreateVrf(ctx context.Context, in *pb.CreateVrfRequest) (*pb.Vr
 }
 
 // DeleteVrf deletes a VRF
-func (s *Server) DeleteVrf(ctx context.Context, in *pb.DeleteVrfRequest) (*emptypb.Empty, error) {
+func (s *Server) DeleteVrf(_ context.Context, in *pb.DeleteVrfRequest) (*emptypb.Empty, error) {
 	// check input correctness
 	if err := s.validateDeleteVrfRequest(in); err != nil {
 		log.Printf("DeleteVrf(): validation failure: %v", err)
@@ -88,7 +88,7 @@ func (s *Server) DeleteVrf(ctx context.Context, in *pb.DeleteVrfRequest) (*empty
 }
 
 // UpdateVrf updates an VRF
-func (s *Server) UpdateVrf(ctx context.Context, in *pb.UpdateVrfRequest) (*pb.Vrf, error) {
+func (s *Server) UpdateVrf(_ context.Context, in *pb.UpdateVrfRequest) (*pb.Vrf, error) {
 	// check input correctness
 	if err := s.validateUpdateVrfRequest(in); err != nil {
 		log.Printf("UpdateVrf(): validation failure: %v", err)
@@ -128,7 +128,7 @@ func (s *Server) UpdateVrf(ctx context.Context, in *pb.UpdateVrfRequest) (*pb.Vr
 	// If it is the we just return the old object.
 	updatedvrfObj := utils.ProtoClone(vrfObj)
 
-	//Apply updateMask to the current Pb object
+	// Apply updateMask to the current Pb object
 	utils.ApplyMaskToStoredPbObject(in.UpdateMask, updatedvrfObj, in.Vrf)
 
 	// Check if the object before the application of the field mask
@@ -147,7 +147,7 @@ func (s *Server) UpdateVrf(ctx context.Context, in *pb.UpdateVrfRequest) (*pb.Vr
 }
 
 // GetVrf gets an VRF
-func (s *Server) GetVrf(ctx context.Context, in *pb.GetVrfRequest) (*pb.Vrf, error) {
+func (s *Server) GetVrf(_ context.Context, in *pb.GetVrfRequest) (*pb.Vrf, error) {
 	// check input correctness
 	if err := s.validateGetVrfRequest(in); err != nil {
 		log.Printf("GetVrf(): validation failure: %v", err)
@@ -181,8 +181,8 @@ func (s *Server) ListVrfs(_ context.Context, in *pb.ListVrfsRequest) (*pb.ListVr
 		return nil, err
 	}
 	// fetch object from the database
-	Blobarray := []*pb.Vrf{}
-	Blobarray, err = s.getAllVrfs()
+
+	Blobarray, err := s.getAllVrfs()
 	if err != nil {
 		if err != infradb.ErrKeyNotFound {
 			log.Printf("Failed to interact with store: %v", err)

@@ -156,14 +156,14 @@ func Test_CreateBridgePort(t *testing.T) {
 				Name: testLogicalBridgeName,
 				Spec: testLogicalBridge.Spec,
 			}
-			env.lbServer.TestCreateLogicalBridge(&testLogicalBridgeFull)
+			_, _ = env.lbServer.TestCreateLogicalBridge(&testLogicalBridgeFull)
 
 			if tt.exist {
 				testBridgePortFull := pb.BridgePort{
 					Name: testBridgePortName,
 					Spec: testBridgePort.Spec,
 				}
-				env.opi.createBridgePort(&testBridgePortFull)
+				_, _ = env.opi.createBridgePort(&testBridgePortFull)
 			}
 			if tt.out != nil {
 				tt.out = utils.ProtoClone(tt.out)
@@ -250,12 +250,12 @@ func Test_DeleteBridgePort(t *testing.T) {
 				Name: testLogicalBridgeName,
 				Spec: testLogicalBridge.Spec,
 			}
-			env.lbServer.TestCreateLogicalBridge(&testLogicalBridgeFull)
+			_, _ = env.lbServer.TestCreateLogicalBridge(&testLogicalBridgeFull)
 			testBridgePortFull := pb.BridgePort{
 				Name: testBridgePortName,
 				Spec: testBridgePort.Spec,
 			}
-			env.opi.createBridgePort(&testBridgePortFull)
+			_, _ = env.opi.createBridgePort(&testBridgePortFull)
 			if tt.on != nil {
 				tt.on(env.mockNetlink, env.mockFrr, tt.errMsg)
 			}
@@ -335,12 +335,12 @@ func Test_UpdateBridgePort(t *testing.T) {
 					Name: testLogicalBridgeName,
 					Spec: testLogicalBridge.Spec,
 				}
-				env.lbServer.TestCreateLogicalBridge(&testLogicalBridgeFull)
+				_, _ = env.lbServer.TestCreateLogicalBridge(&testLogicalBridgeFull)
 				testBridgePortFull := pb.BridgePort{
 					Name: testBridgePortName,
 					Spec: testBridgePort.Spec,
 				}
-				env.opi.createBridgePort(&testBridgePortFull)
+				_, _ = env.opi.createBridgePort(&testBridgePortFull)
 			}
 			if tt.out != nil {
 				tt.out = utils.ProtoClone(tt.out)
@@ -409,12 +409,12 @@ func Test_GetBridgePort(t *testing.T) {
 				Name: testLogicalBridgeName,
 				Spec: testLogicalBridge.Spec,
 			}
-			env.lbServer.TestCreateLogicalBridge(&testLogicalBridgeFull)
+			_, _ = env.lbServer.TestCreateLogicalBridge(&testLogicalBridgeFull)
 			testBridgePortFull := pb.BridgePort{
 				Name: testBridgePortName,
 				Spec: testBridgePort.Spec,
 			}
-			env.opi.createBridgePort(&testBridgePortFull)
+			_, _ = env.opi.createBridgePort(&testBridgePortFull)
 
 			request := &pb.GetBridgePortRequest{Name: tt.in}
 			response, err := client.GetBridgePort(ctx, request)
@@ -507,13 +507,13 @@ func Test_ListBridgePorts(t *testing.T) {
 				Name: testLogicalBridgeName,
 				Spec: testLogicalBridge.Spec,
 			}
-			env.lbServer.TestCreateLogicalBridge(&testLogicalBridgeFull)
+			_, _ = env.lbServer.TestCreateLogicalBridge(&testLogicalBridgeFull)
 
 			testBridgePortFull := pb.BridgePort{
 				Name: testBridgePortName,
 				Spec: testBridgePort.Spec,
 			}
-			env.opi.createBridgePort(&testBridgePortFull)
+			_, _ = env.opi.createBridgePort(&testBridgePortFull)
 			env.opi.Pagination["existing-pagination-token"] = 1
 
 			request := &pb.ListBridgePortsRequest{PageSize: tt.size, PageToken: tt.token}

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2022-2023 Dell Inc, or its subsidiaries.
+// Copyright (c) 2022-2023 Intel Corporation, or its subsidiaries.
+// Copyright (C) 2023 Nordix Foundation.
 
 // Package utils has some utility functions and interfaces
 package utils
@@ -52,7 +54,7 @@ type Netlink interface {
 func run(cmd []string, _ bool) (string, int) {
 	var out []byte
 	var err error
-	out, err = exec.Command(cmd[0], cmd[1:]...).CombinedOutput()
+	out, err = exec.Command(cmd[0], cmd[1:]...).CombinedOutput() //nolint:gosec
 	if err != nil {
 		/*if flag {
 			// panic(fmt.Sprintf("Command %s': exit code %s;", out, err.Error()))
@@ -210,7 +212,7 @@ func (n *NetlinkWrapper) RouteListFiltered(ctx context.Context, family int, rout
 // RouteAdd is a wrapper for netlink.RouteAdd
 func (n *NetlinkWrapper) RouteAdd(ctx context.Context, route *netlink.Route) error {
 	_, childSpan := n.tracer.Start(ctx, "netlink.RouteAdd")
-	netlink.LinkByIndex(route.LinkIndex)
+	_, _ = netlink.LinkByIndex(route.LinkIndex)
 	childSpan.SetAttributes(attribute.String("route.LinkIndex", string(rune(route.LinkIndex))))
 	defer childSpan.End()
 	return netlink.RouteAdd(route)
@@ -240,6 +242,7 @@ func (n *NetlinkWrapper) BridgeFdbAdd(_ context.Context, link string, macAddress
 	return nil
 }
 
+// ReadNeigh is a wrapper for netlink.ReadNeigh
 func (n *NetlinkWrapper) ReadNeigh(_ context.Context, link string) (string, error) {
 	var out string
 	var err int
@@ -254,14 +257,16 @@ func (n *NetlinkWrapper) ReadNeigh(_ context.Context, link string) (string, erro
 	return out, nil
 }
 
+// ReadRoute is a wrapper for netlink.ReadRoute
 func (n *NetlinkWrapper) ReadRoute(_ context.Context, table string) (string, error) {
-	 out, err := run([]string{"ip", "-j", "-d", "route", "show", "table", table}, false)
-	 if err != 0 {
-		 return "", errors.New("failed to read route")
-	 }
-	 return out, nil
+	out, err := run([]string{"ip", "-j", "-d", "route", "show", "table", table}, false)
+	if err != 0 {
+		return "", errors.New("failed to read route")
+	}
+	return out, nil
 }
 
+// ReadFDB is a wrapper for netlink.ReadFDB
 func (n *NetlinkWrapper) ReadFDB(_ context.Context) (string, error) {
 	out, err := run([]string{"bridge", "-d", "-j", "fdb", "show", "br", "br-tenant", "dynamic"}, false)
 	if err != 0 {
@@ -270,11 +275,12 @@ func (n *NetlinkWrapper) ReadFDB(_ context.Context) (string, error) {
 	return out, nil
 }
 
+// RouteLookup is a wrapper for netlink.RouteLookup
 func (n *NetlinkWrapper) RouteLookup(_ context.Context, dst string, link string) (string, error) {
 	var out string
 	var err int
 	if link == "" {
-		out, err =  run([]string{"ip", "-j", "route", "get", dst, "fibmatch"}, false)
+		out, err = run([]string{"ip", "-j", "route", "get", dst, "fibmatch"}, false)
 	} else {
 		out, err = run([]string{"ip", "-j", "route", "get", dst, "vrf", link, "fibmatch"}, false)
 	}

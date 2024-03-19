@@ -15,7 +15,6 @@ func TestFrontEnd_NewServer(t *testing.T) {
 
 	for testName := range tests {
 		t.Run(testName, func(t *testing.T) {
-
 			server := NewServer()
 			if server == nil {
 				t.Error("expected non nil server")

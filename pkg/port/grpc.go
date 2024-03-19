@@ -24,7 +24,7 @@ import (
 )
 
 // CreateBridgePort executes the creation of the port
-func (s *Server) CreateBridgePort(ctx context.Context, in *pb.CreateBridgePortRequest) (*pb.BridgePort, error) {
+func (s *Server) CreateBridgePort(_ context.Context, in *pb.CreateBridgePortRequest) (*pb.BridgePort, error) {
 	// check input correctness
 	if err := s.validateCreateBridgePortRequest(in); err != nil {
 		log.Printf("CreateBridgePort(): validation failure: %v", err)
@@ -58,7 +58,7 @@ func (s *Server) CreateBridgePort(ctx context.Context, in *pb.CreateBridgePortRe
 }
 
 // DeleteBridgePort deletes a port
-func (s *Server) DeleteBridgePort(ctx context.Context, in *pb.DeleteBridgePortRequest) (*emptypb.Empty, error) {
+func (s *Server) DeleteBridgePort(_ context.Context, in *pb.DeleteBridgePortRequest) (*emptypb.Empty, error) {
 	// check input correctness
 	if err := s.validateDeleteBridgePortRequest(in); err != nil {
 		log.Printf("DeleteBridgePort(): validation failure: %v", err)
@@ -87,7 +87,7 @@ func (s *Server) DeleteBridgePort(ctx context.Context, in *pb.DeleteBridgePortRe
 }
 
 // UpdateBridgePort updates an Nvme Subsystem
-func (s *Server) UpdateBridgePort(ctx context.Context, in *pb.UpdateBridgePortRequest) (*pb.BridgePort, error) {
+func (s *Server) UpdateBridgePort(_ context.Context, in *pb.UpdateBridgePortRequest) (*pb.BridgePort, error) {
 	// check input correctness
 	if err := s.validateUpdateBridgePortRequest(in); err != nil {
 		log.Printf("UpdateBridgePort(): validation failure: %v", err)
@@ -127,7 +127,7 @@ func (s *Server) UpdateBridgePort(ctx context.Context, in *pb.UpdateBridgePortRe
 	// If it is the we just return the old object.
 	updatedbpObj := utils.ProtoClone(bpObj)
 
-	//Apply updateMask to the current Pb object
+	// Apply updateMask to the current Pb object
 	utils.ApplyMaskToStoredPbObject(in.UpdateMask, updatedbpObj, in.BridgePort)
 
 	// Check if the object before the application of the field mask
@@ -146,7 +146,7 @@ func (s *Server) UpdateBridgePort(ctx context.Context, in *pb.UpdateBridgePortRe
 }
 
 // GetBridgePort gets an BridgePort
-func (s *Server) GetBridgePort(ctx context.Context, in *pb.GetBridgePortRequest) (*pb.BridgePort, error) {
+func (s *Server) GetBridgePort(_ context.Context, in *pb.GetBridgePortRequest) (*pb.BridgePort, error) {
 	// check input correctness
 	if err := s.validateGetBridgePortRequest(in); err != nil {
 		log.Printf("GetBridgePort(): validation failure: %v", err)
@@ -180,8 +180,7 @@ func (s *Server) ListBridgePorts(_ context.Context, in *pb.ListBridgePortsReques
 		return nil, err
 	}
 	// fetch object from the database
-	Blobarray := []*pb.BridgePort{}
-	Blobarray, err = s.getAllBridgePorts()
+	Blobarray, err := s.getAllBridgePorts()
 	if err != nil {
 		if err != infradb.ErrKeyNotFound {
 			log.Printf("Failed to interact with store: %v", err)

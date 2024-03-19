@@ -157,7 +157,7 @@ func Test_CreateLogicalBridge(t *testing.T) {
 					Name: testLogicalBridgeName,
 					Spec: testLogicalBridge.Spec,
 				}
-				env.opi.createLogicalBridge(&testLogicalBridgeFull)
+				_, _ = env.opi.createLogicalBridge(&testLogicalBridgeFull)
 			}
 			if tt.out != nil {
 				tt.out = utils.ProtoClone(tt.out)
@@ -244,7 +244,7 @@ func Test_DeleteLogicalBridge(t *testing.T) {
 				Name: testLogicalBridgeName,
 				Spec: testLogicalBridge.Spec,
 			}
-			env.opi.createLogicalBridge(&testLogicalBridgeFull)
+			_, _ = env.opi.createLogicalBridge(&testLogicalBridgeFull)
 
 			if tt.on != nil {
 				tt.on(env.mockNetlink, env.mockFrr, tt.errMsg)
@@ -324,7 +324,7 @@ func Test_UpdateLogicalBridge(t *testing.T) {
 					Name: testLogicalBridgeName,
 					Spec: testLogicalBridge.Spec,
 				}
-				env.opi.createLogicalBridge(&testLogicalBridgeFull)
+				_, _ = env.opi.createLogicalBridge(&testLogicalBridgeFull)
 			}
 			if tt.out != nil {
 				tt.out = utils.ProtoClone(tt.out)
@@ -393,7 +393,7 @@ func Test_GetLogicalBridge(t *testing.T) {
 				Name: testLogicalBridgeName,
 				Spec: testLogicalBridge.Spec,
 			}
-			env.opi.createLogicalBridge(&testLogicalBridgeFull)
+			_, _ = env.opi.createLogicalBridge(&testLogicalBridgeFull)
 
 			request := &pb.GetLogicalBridgeRequest{Name: tt.in}
 			response, err := client.GetLogicalBridge(ctx, request)
@@ -486,7 +486,7 @@ func Test_ListLogicalBridges(t *testing.T) {
 				Name: testLogicalBridgeName,
 				Spec: testLogicalBridge.Spec,
 			}
-			env.opi.createLogicalBridge(&testLogicalBridgeFull)
+			_, _ = env.opi.createLogicalBridge(&testLogicalBridgeFull)
 			env.opi.Pagination["existing-pagination-token"] = 1
 
 			request := &pb.ListLogicalBridgesRequest{PageSize: tt.size, PageToken: tt.token}

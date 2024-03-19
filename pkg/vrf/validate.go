@@ -33,7 +33,6 @@ func (s *Server) validateCreateVrfRequest(in *pb.CreateVrfRequest) error {
 }
 
 func (s *Server) validateVrfSpec(vrf *pb.Vrf) error {
-
 	// check vni is in range
 	if (vrf.Spec.Vni != nil) && (*vrf.Spec.Vni < 1 || *vrf.Spec.Vni > 16777215) {
 		msg := fmt.Sprintf("Vni value (%d) have to be between 1 and 16777215", *vrf.Spec.Vni)

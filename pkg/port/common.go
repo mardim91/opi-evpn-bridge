@@ -14,7 +14,7 @@ import (
 	"sort"
 	"testing"
 
-	//"github.com/philippgille/gokv/gomap"
+	// "github.com/philippgille/gokv/gomap"
 	"go.einride.tech/aip/resourcename"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -24,7 +24,7 @@ import (
 	pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	pc "github.com/opiproject/opi-api/network/opinetcommon/v1alpha1/gen/go"
 
-	//"github.com/opiproject/opi-evpn-bridge/pkg/utils"
+	// "github.com/opiproject/opi-evpn-bridge/pkg/utils"
 	"github.com/opiproject/opi-evpn-bridge/pkg/bridge"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils/mocks"
@@ -52,7 +52,6 @@ func (s *Server) createBridgePort(bp *pb.BridgePort) (*pb.BridgePort, error) {
 }
 
 func (s *Server) deleteBridgePort(name string) error {
-
 	// Note: The status of the object will be generated in infraDB operation not here
 	if err := infradb.DeleteBP(name); err != nil {
 		return err
@@ -105,7 +104,7 @@ func resourceIDToFullName(resourceID string) string {
 
 func checkTobeDeletedStatus(bp *pb.BridgePort) error {
 	if bp.Status.OperStatus == pb.BPOperStatus_BP_OPER_STATUS_TO_BE_DELETED {
-		return fmt.Errorf("Bridge Port %s in to be deleted status", bp.Name)
+		return fmt.Errorf("bridge Port %s in to be deleted status", bp.Name)
 	}
 
 	return nil
@@ -164,7 +163,7 @@ func newTestEnv(ctx context.Context, t *testing.T) *testEnv {
 	env.mockFrr = mocks.NewFrr(t)
 	env.opi = NewServer()
 	env.lbServer = bridge.NewServer()
-	infradb.NewInfraDB("", "gomap")
+	_ = infradb.NewInfraDB("", "gomap")
 	conn, err := grpc.DialContext(ctx,
 		"",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),

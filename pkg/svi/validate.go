@@ -2,6 +2,7 @@
 // Copyright (c) 2022-2023 Dell Inc, or its subsidiaries.
 // Copyright (c) 2022-2023 Intel Corporation, or its subsidiaries.
 // Copyright (C) 2023 Nordix Foundation.
+
 // Package svi is the main package of the application
 package svi
 
@@ -65,7 +66,7 @@ func (s *Server) validateSviSpec(svi *pb.Svi) error {
 		}
 	} else {
 		if svi.Spec.RemoteAs != 0 {
-			msg := fmt.Sprintf("Invalid RemoteAs: RemoteAs must not be defined when EnableBgp is False")
+			msg := "Invalid RemoteAs: RemoteAs must not be defined when EnableBgp is False"
 			return status.Errorf(codes.InvalidArgument, msg)
 		}
 	}

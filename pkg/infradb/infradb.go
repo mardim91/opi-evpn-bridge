@@ -256,6 +256,9 @@ func UpdateLB(lb *LogicalBridge) error {
 }
 
 // UpdateLBStatus updates the status of logical bridge object based on the component report
+// nolint: funlen
+//
+//gocognit:ignore
 func UpdateLBStatus(name string, resourceVersion string, notificationID string, lbMeta *LogicalBridgeMetadata, component common.Component) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
@@ -581,6 +584,9 @@ func UpdateBP(bp *BridgePort) error {
 }
 
 // UpdateBPStatus updates the status of bridge port object based on the component report
+// nolint: funlen
+//
+//gocognit:ignore
 func UpdateBPStatus(name string, resourceVersion string, notificationID string, bpMeta *BridgePortMetadata, component common.Component) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
@@ -897,6 +903,9 @@ func UpdateVrf(vrf *Vrf) error {
 }
 
 // UpdateVrfStatus updates the status of vrf object based on the component report
+// nolint: funlen
+//
+//gocognit:ignore
 func UpdateVrfStatus(name string, resourceVersion string, notificationID string, vrfMeta *VrfMetadata, component common.Component) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()
@@ -1217,6 +1226,9 @@ func UpdateSvi(svi *Svi) error {
 }
 
 // UpdateSviStatus updates the status of svi object based on the component report
+// nolint: funlen
+//
+//gocognit:ignore
 func UpdateSviStatus(name string, resourceVersion string, notificationID string, sviMeta *SviMetadata, component common.Component) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()

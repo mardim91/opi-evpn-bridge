@@ -51,14 +51,14 @@ func (s *Server) validateBridgePortSpec(bp *pb.BridgePort) error {
 	// for Access type, the LogicalBridge list must have only one item
 	if bp.Spec.Ptype == pb.BridgePortType_BRIDGE_PORT_TYPE_ACCESS {
 		if bp.Spec.LogicalBridges == nil {
-			msg := fmt.Sprintf("LogicalBridges field cannot be empty when the Bridge Port is of type ACCESS")
+			msg := "LogicalBridges field cannot be empty when the Bridge Port is of type ACCESS"
 			return status.Errorf(codes.InvalidArgument, msg)
-		} else {
-			lenLbs := len(bp.Spec.LogicalBridges)
-			if lenLbs > 1 {
-				msg := fmt.Sprintf("ACCESS type must have single LogicalBridge and not (%d)", lenLbs)
-				return status.Errorf(codes.InvalidArgument, msg)
-			}
+		}
+
+		lenLbs := len(bp.Spec.LogicalBridges)
+		if lenLbs > 1 {
+			msg := fmt.Sprintf("ACCESS type must have single LogicalBridge and not (%d)", lenLbs)
+			return status.Errorf(codes.InvalidArgument, msg)
 		}
 	}
 

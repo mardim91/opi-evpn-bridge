@@ -167,7 +167,7 @@ func Test_CreateVrf(t *testing.T) {
 					Name: testVrfName,
 					Spec: testVrf.Spec,
 				}
-				env.opi.createVrf(&testVrfFull)
+				_, _ = env.opi.createVrf(&testVrfFull)
 			}
 			if tt.out != nil {
 				tt.out = utils.ProtoClone(tt.out)
@@ -253,7 +253,7 @@ func Test_DeleteVrf(t *testing.T) {
 				Name: testVrfName,
 				Spec: testVrf.Spec,
 			}
-			env.opi.createVrf(&testVrfFull)
+			_, _ = env.opi.createVrf(&testVrfFull)
 			if tt.on != nil {
 				tt.on(env.mockNetlink, env.mockFrr, tt.errMsg)
 			}
@@ -340,7 +340,7 @@ func Test_UpdateVrf(t *testing.T) {
 					Name: testVrfName,
 					Spec: testVrf.Spec,
 				}
-				env.opi.createVrf(&testVrfFull)
+				_, _ = env.opi.createVrf(&testVrfFull)
 			}
 			if tt.out != nil {
 				tt.out = utils.ProtoClone(tt.out)
@@ -409,7 +409,7 @@ func Test_GetVrf(t *testing.T) {
 				Name: testVrfName,
 				Spec: testVrf.Spec,
 			}
-			env.opi.createVrf(&testVrfFull)
+			_, _ = env.opi.createVrf(&testVrfFull)
 
 			request := &pb.GetVrfRequest{Name: tt.in}
 			response, err := client.GetVrf(ctx, request)
@@ -502,7 +502,7 @@ func Test_ListVrfs(t *testing.T) {
 				Name: testVrfName,
 				Spec: testVrf.Spec,
 			}
-			env.opi.createVrf(&testVrfFull)
+			_, _ = env.opi.createVrf(&testVrfFull)
 			env.opi.Pagination["existing-pagination-token"] = 1
 
 			request := &pb.ListVrfsRequest{PageSize: tt.size, PageToken: tt.token}

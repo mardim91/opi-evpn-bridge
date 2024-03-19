@@ -24,7 +24,7 @@ import (
 )
 
 // CreateLogicalBridge executes the creation of the LogicalBridge
-func (s *Server) CreateLogicalBridge(ctx context.Context, in *pb.CreateLogicalBridgeRequest) (*pb.LogicalBridge, error) {
+func (s *Server) CreateLogicalBridge(_ context.Context, in *pb.CreateLogicalBridgeRequest) (*pb.LogicalBridge, error) {
 	// check input correctness
 	if err := s.validateCreateLogicalBridgeRequest(in); err != nil {
 		log.Printf("CreateLogicalBridge(): validation failure: %v", err)
@@ -60,7 +60,7 @@ func (s *Server) CreateLogicalBridge(ctx context.Context, in *pb.CreateLogicalBr
 }
 
 // DeleteLogicalBridge deletes a LogicalBridge
-func (s *Server) DeleteLogicalBridge(ctx context.Context, in *pb.DeleteLogicalBridgeRequest) (*emptypb.Empty, error) {
+func (s *Server) DeleteLogicalBridge(_ context.Context, in *pb.DeleteLogicalBridgeRequest) (*emptypb.Empty, error) {
 	// check input correctness
 	if err := s.validateDeleteLogicalBridgeRequest(in); err != nil {
 		log.Printf("DeleteLogicalBridge(): validation failure: %v", err)
@@ -90,7 +90,7 @@ func (s *Server) DeleteLogicalBridge(ctx context.Context, in *pb.DeleteLogicalBr
 }
 
 // UpdateLogicalBridge updates a LogicalBridge
-func (s *Server) UpdateLogicalBridge(ctx context.Context, in *pb.UpdateLogicalBridgeRequest) (*pb.LogicalBridge, error) {
+func (s *Server) UpdateLogicalBridge(_ context.Context, in *pb.UpdateLogicalBridgeRequest) (*pb.LogicalBridge, error) {
 	// check input correctness
 	if err := s.validateUpdateLogicalBridgeRequest(in); err != nil {
 		log.Printf("UpdateLogicalBridge(): validation failure: %v", err)
@@ -131,7 +131,7 @@ func (s *Server) UpdateLogicalBridge(ctx context.Context, in *pb.UpdateLogicalBr
 	// If it is the we just return the old object.
 	updatedlbObj := utils.ProtoClone(lbObj)
 
-	//Apply updateMask to the current Pb object
+	// Apply updateMask to the current Pb object
 	utils.ApplyMaskToStoredPbObject(in.UpdateMask, updatedlbObj, in.LogicalBridge)
 
 	// Check if the object before the application of the field mask
@@ -150,7 +150,7 @@ func (s *Server) UpdateLogicalBridge(ctx context.Context, in *pb.UpdateLogicalBr
 }
 
 // GetLogicalBridge gets a LogicalBridge
-func (s *Server) GetLogicalBridge(ctx context.Context, in *pb.GetLogicalBridgeRequest) (*pb.LogicalBridge, error) {
+func (s *Server) GetLogicalBridge(_ context.Context, in *pb.GetLogicalBridgeRequest) (*pb.LogicalBridge, error) {
 	// check input correctness
 	if err := s.validateGetLogicalBridgeRequest(in); err != nil {
 		log.Printf("GetLogicalBridge(): validation failure: %v", err)
@@ -184,8 +184,7 @@ func (s *Server) ListLogicalBridges(_ context.Context, in *pb.ListLogicalBridges
 		return nil, err
 	}
 	// fetch object from the database
-	Blobarray := []*pb.LogicalBridge{}
-	Blobarray, err = s.getAllLogicalBridges()
+	Blobarray, err := s.getAllLogicalBridges()
 	if err != nil {
 		if err != infradb.ErrKeyNotFound {
 			log.Printf("Failed to interact with store: %v", err)

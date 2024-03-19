@@ -229,20 +229,20 @@ func Test_CreateSvi(t *testing.T) {
 				Name: testVrfName,
 				Spec: testVrf.Spec,
 			}
-			env.vrfServer.TestCreateVrf(&testVrfFull)
+			_, _ = env.vrfServer.TestCreateVrf(&testVrfFull)
 
 			testLogicalBridgeFull := pb.LogicalBridge{
 				Name: testLogicalBridgeName,
 				Spec: testLogicalBridge.Spec,
 			}
-			env.lbServer.TestCreateLogicalBridge(&testLogicalBridgeFull)
+			_, _ = env.lbServer.TestCreateLogicalBridge(&testLogicalBridgeFull)
 
 			if tt.exist {
 				testSviFull := pb.Svi{
 					Name: testSviName,
 					Spec: testSvi.Spec,
 				}
-				env.opi.createSvi(&testSviFull)
+				_, _ = env.opi.createSvi(&testSviFull)
 			}
 			if tt.out != nil {
 				tt.out = utils.ProtoClone(tt.out)
@@ -328,19 +328,19 @@ func Test_DeleteSvi(t *testing.T) {
 				Name: testVrfName,
 				Spec: testVrf.Spec,
 			}
-			env.vrfServer.TestCreateVrf(&testVrfFull)
+			_, _ = env.vrfServer.TestCreateVrf(&testVrfFull)
 
 			testLogicalBridgeFull := pb.LogicalBridge{
 				Name: testLogicalBridgeName,
 				Spec: testLogicalBridge.Spec,
 			}
-			env.lbServer.TestCreateLogicalBridge(&testLogicalBridgeFull)
+			_, _ = env.lbServer.TestCreateLogicalBridge(&testLogicalBridgeFull)
 
 			testSviFull := pb.Svi{
 				Name: testSviName,
 				Spec: testSvi.Spec,
 			}
-			env.opi.createSvi(&testSviFull)
+			_, _ = env.opi.createSvi(&testSviFull)
 
 			if tt.on != nil {
 				tt.on(env.mockNetlink, env.mockFrr, tt.errMsg)
@@ -421,20 +421,20 @@ func Test_UpdateSvi(t *testing.T) {
 				Name: testVrfName,
 				Spec: testVrf.Spec,
 			}
-			env.vrfServer.TestCreateVrf(&testVrfFull)
+			_, _ = env.vrfServer.TestCreateVrf(&testVrfFull)
 
 			testLogicalBridgeFull := pb.LogicalBridge{
 				Name: testLogicalBridgeName,
 				Spec: testLogicalBridge.Spec,
 			}
-			env.lbServer.TestCreateLogicalBridge(&testLogicalBridgeFull)
+			_, _ = env.lbServer.TestCreateLogicalBridge(&testLogicalBridgeFull)
 
 			if tt.exist {
 				testSviFull := pb.Svi{
 					Name: testSviName,
 					Spec: testSvi.Spec,
 				}
-				env.opi.createSvi(&testSviFull)
+				_, _ = env.opi.createSvi(&testSviFull)
 			}
 			if tt.out != nil {
 				tt.out = utils.ProtoClone(tt.out)
@@ -503,19 +503,19 @@ func Test_GetSvi(t *testing.T) {
 				Name: testVrfName,
 				Spec: testVrf.Spec,
 			}
-			env.vrfServer.TestCreateVrf(&testVrfFull)
+			_, _ = env.vrfServer.TestCreateVrf(&testVrfFull)
 
 			testLogicalBridgeFull := pb.LogicalBridge{
 				Name: testLogicalBridgeName,
 				Spec: testLogicalBridge.Spec,
 			}
-			env.lbServer.TestCreateLogicalBridge(&testLogicalBridgeFull)
+			_, _ = env.lbServer.TestCreateLogicalBridge(&testLogicalBridgeFull)
 
 			testSviFull := pb.Svi{
 				Name: testSviName,
 				Spec: testSvi.Spec,
 			}
-			env.opi.createSvi(&testSviFull)
+			_, _ = env.opi.createSvi(&testSviFull)
 
 			request := &pb.GetSviRequest{Name: tt.in}
 			response, err := client.GetSvi(ctx, request)
@@ -608,19 +608,19 @@ func Test_ListSvis(t *testing.T) {
 				Name: testVrfName,
 				Spec: testVrf.Spec,
 			}
-			env.vrfServer.TestCreateVrf(&testVrfFull)
+			_, _ = env.vrfServer.TestCreateVrf(&testVrfFull)
 
 			testLogicalBridgeFull := pb.LogicalBridge{
 				Name: testLogicalBridgeName,
 				Spec: testLogicalBridge.Spec,
 			}
-			env.lbServer.TestCreateLogicalBridge(&testLogicalBridgeFull)
+			_, _ = env.lbServer.TestCreateLogicalBridge(&testLogicalBridgeFull)
 
 			testSviFull := pb.Svi{
 				Name: testSviName,
 				Spec: testSvi.Spec,
 			}
-			env.opi.createSvi(&testSviFull)
+			_, _ = env.opi.createSvi(&testSviFull)
 			env.opi.Pagination["existing-pagination-token"] = 1
 
 			request := &pb.ListSvisRequest{PageSize: tt.size, PageToken: tt.token}

@@ -48,14 +48,14 @@ const vxlanStr string = "vxlan-"
 
 // GenerateRouteTable range specification, note that min <= max
 func GenerateRouteTable() uint32 {
-	return uint32(rand.Intn(RoutingTableMax-RoutingTableMin+1) + RoutingTableMin)
+	return uint32(rand.Intn(RoutingTableMax-RoutingTableMin+1) + RoutingTableMin) //nolint:gosec
 }
 
 // run runs the commands
 func run(cmd []string, flag bool) (string, int) {
 	var out []byte
 	var err error
-	out, err = exec.Command(cmd[0], cmd[1:]...).CombinedOutput()
+	out, err = exec.Command(cmd[0], cmd[1:]...).CombinedOutput() //nolint:gosec
 	if err != nil {
 		if flag {
 			panic(fmt.Sprintf("LGM: Command %s': exit code %s;", out, err.Error()))
@@ -250,7 +250,7 @@ func handlevrf(objectData *eventbus.ObjectData) {
 		}
 	}
 	if vrf.Status.VrfOperStatus != infradb.VrfOperStatusToBeDeleted {
-		details, status := set_up_vrf(vrf)
+		details, status := setUpVrf(vrf)
 		comp.Name = lgmComp
 		if status {
 			comp.Details = details
@@ -326,8 +326,8 @@ func Init() {
 		}
 	}
 	brTenant = "br-tenant"
-	defaultVtep = config.GlobalConfig.Linux_frr.Default_vtep
-	ipMtu = config.GlobalConfig.Linux_frr.Ip_mtu
+	defaultVtep = config.GlobalConfig.LinuxFrr.DefaultVtep
+	ipMtu = config.GlobalConfig.LinuxFrr.IPMtu
 	ctx = context.Background()
 	nlink = utils.NewNetlinkWrapper()
 }
@@ -405,8 +405,9 @@ func setUpBridge(lb *infradb.LogicalBridge) bool {
 	return true
 }
 
-// set_up_vrf sets up the vrf
-func set_up_vrf(vrf *infradb.Vrf) (string, bool) {
+// setUpVrf sets up the vrf
+//nolint:funlen,gocognit
+func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 	IPMtu := fmt.Sprintf("%+v", ipMtu)
 	Ifname := strings.Split(vrf.Name, "/")
 	ifwlen := len(Ifname)
@@ -442,7 +443,7 @@ func set_up_vrf(vrf *infradb.Vrf) (string, bool) {
 		vtip = fmt.Sprintf("%+v", vrf.Spec.VtepIP.IP)
 		*vrf.Spec.VtepIP = getIPAddress(defaultVtep)
 	}
-	log.Printf("set_up_vrf: %s %d %d\n", vtip, routingTable)
+	log.Printf("setUpVrf: %s %d\n", vtip, routingTable)
 	// Create the vrf interface for the specified routing table and add loopback address
 
 	linkAdderr := nlink.LinkAdd(ctx, &netlink.Vrf{
@@ -670,13 +671,13 @@ func setUpSvi(svi *infradb.Svi) (string, bool) {
 			return "", false
 		}*/
 	log.Printf("LGM Executed :  ip link set %s master %s up mtu %d\n", linkSvi, path.Base(svi.Spec.Vrf), ipMtu)
-	//Ignoring the error as CI env doesn't allow to write to the filesystem
+	// Ignoring the error as CI env doesn't allow to write to the filesystem
 	command := fmt.Sprintf("net.ipv4.conf.%s.arp_accept=1", linkSvi)
 	CP, err1 := run([]string{"sysctl", "-w", command}, false)
 	if err1 != 0 {
 		log.Printf("LGM: Error in executing command %s %s\n", "sysctl -w net.ipv4.conf.linkSvi.arp_accept=1", linkSvi)
 		log.Printf("%s\n", CP)
-		//return "", false
+		// return "", false
 	}
 	for _, ipIntf := range svi.Spec.GatewayIPs {
 		addr := &netlink.Addr{
@@ -706,7 +707,7 @@ func setUpSvi(svi *infradb.Svi) (string, bool) {
 func GenerateMac() net.HardwareAddr {
 	buf := make([]byte, 5)
 	var mac net.HardwareAddr
-	_, err := rand.Read(buf)
+	_, err := rand.Read(buf) //nolint:gosec
 	if err != nil {
 		log.Printf("failed to generate random mac %+v\n", err)
 	}

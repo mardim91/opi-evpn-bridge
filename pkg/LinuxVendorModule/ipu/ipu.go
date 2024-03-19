@@ -62,7 +62,7 @@ const lvmComp string = "lvm"
 func run(cmd []string, flag bool) (string, int) {
 	var out []byte
 	var err error
-	out, err = exec.Command(cmd[0], cmd[1:]...).CombinedOutput()
+	out, err = exec.Command(cmd[0], cmd[1:]...).CombinedOutput() //nolint:gosec
 	if err != nil {
 		if flag {
 			panic(fmt.Sprintf("LVM: Command %s': exit code %s;", out, err.Error()))
@@ -381,8 +381,6 @@ var nlink utils.Netlink
 
 // Init function initialize config
 func Init() {
-
-
 	eb := eventbus.EBus
 	for _, subscriberConfig := range config.GlobalConfig.Subscribers {
 		if subscriberConfig.Name == lvmComp {
@@ -391,9 +389,9 @@ func Init() {
 			}
 		}
 	}
-	portMux = config.GlobalConfig.Linux_frr.Port_mux
-	vrfMux = config.GlobalConfig.Linux_frr.Vrf_mux
-	ipMtu = config.GlobalConfig.Linux_frr.Ip_mtu
+	portMux = config.GlobalConfig.LinuxFrr.PortMux
+	vrfMux = config.GlobalConfig.LinuxFrr.VrfMux
+	ipMtu = config.GlobalConfig.LinuxFrr.IPMtu
 	brTenant = "br-tenant"
 	ctx = context.Background()
 	nlink = utils.NewNetlinkWrapper()

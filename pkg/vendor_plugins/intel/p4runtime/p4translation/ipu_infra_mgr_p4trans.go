@@ -916,7 +916,7 @@ func Init() {
 		log.Fatal("Error accessing bin_file")
 	}*/
 
-	err1 := p4client.NewP4RuntimeClient(config.GlobalConfig.P4.Config.Bin_file, config.GlobalConfig.P4.Config.P4info_file, Conn)
+	err1 := p4client.NewP4RuntimeClient(config.GlobalConfig.P4.Config.BinFile, config.GlobalConfig.P4.Config.P4infoFile, Conn)
 	if err1 != nil {
 		log.Fatalf("Failed to create P4Runtime client: %v", err1)
 	}

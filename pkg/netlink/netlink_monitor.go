@@ -7,10 +7,11 @@ package netlink
 
 import (
 	//	"fmt"
+	"context"
 	"fmt"
 	"log"
 	"os"
-	"context"
+
 	// "sync"
 	"regexp"
 	"strconv"
@@ -35,13 +36,14 @@ import (
 
 	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
-	eb "github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/event_bus"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
+	eb "github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/event_bus"
 	// "gopkg.in/yaml.v3"
 )
 
 var ctx context.Context
 var nlink utils.Netlink
+
 // dbLock variable
 // var dbLock int
 
@@ -197,6 +199,7 @@ var LatestFDB = make(map[FDBKey]FdbEntryStruct)
 
 // LatestL2Nexthop Variable
 var LatestL2Nexthop = make(map[L2NexthopKey]L2NexthopStruct)
+
 /*--------------------------------------------------------------------------
 ###  Route Database Entries
 ###
@@ -2073,7 +2076,6 @@ func monitorNetlink(_ bool) {
 
 // Init function intializes config
 func Init() {
-
 	// var config Config_t
 	/*yfile, err := ioutil.ReadFile("config.yaml")
 	if err != nil {
@@ -2085,7 +2087,7 @@ func Init() {
 		log.Fatal(err2)
 	}*/
 	// wg.Add(1)
-	pollInterval = config.GlobalConfig.Netlink.Poll_interval
+	pollInterval = config.GlobalConfig.Netlink.PollInterval
 	log.Println(pollInterval)
 	//TODO:fix this
 
@@ -2096,8 +2098,8 @@ func Init() {
 		log.Println("netlink_monitor disabled")
 		return
 	}
-	for i := 0; i < len(config.GlobalConfig.Netlink.Phy_ports); i++ {
-		phyPorts[config.GlobalConfig.Netlink.Phy_ports[i].Name] = config.GlobalConfig.Netlink.Phy_ports[i].Vsi
+	for i := 0; i < len(config.GlobalConfig.Netlink.PhyPorts); i++ {
+		phyPorts[config.GlobalConfig.Netlink.PhyPorts[i].Name] = config.GlobalConfig.Netlink.PhyPorts[i].Vsi
 	}
 	getlink()
 	ctx = context.Background()

@@ -3,7 +3,7 @@
 // Copyright (C) 2023 Nordix Foundation.
 // Copyright (c) 2022-2023 Dell Inc, or its subsidiaries.
 
-//Package config handles the evpn bridge config
+// Package config introduces the configuration from file or runtime param
 package config
 
 import (
@@ -12,52 +12,68 @@ import (
 	"github.com/spf13/viper"
 )
 
+// SubscriberConfig subscriber config structure
 type SubscriberConfig struct {
 	Name     string   `yaml:"name"`
 	Priority int      `yaml:"priority"`
 	Events   []string `yaml:"events"`
 }
+
+// P4FilesConfig p4 config structure
 type P4FilesConfig struct {
-	P4info_file string `yaml:"p4info_file"`
-	Bin_file    string `yaml:"bin_file"`
-	Conf_file   string `yaml:"conf_file"`
+	P4infoFile string `yaml:"p4infofile"`
+	BinFile    string `yaml:"binfile"`
+	ConfFile   string `yaml:"conffile"`
+	SdePath    string `yaml:"sdepath"`
 }
+
+// RepresentorsConfig Representors config structure
 type RepresentorsConfig struct {
-	Port_mux  string `yaml:"port-mux"`
-	Vrf_mux   string `yaml:"vrf_mux"`
-	Grpc_acc  string `yaml:"host"`
-	Grpc_host string `yaml:"grpc_host"`
-	Phy0_rep  string `yaml:"phy0_rep"`
-	Phy1_rep  string `yaml:"phy1_rep"`
+	PortMux  string `yaml:"port-mux"`
+	VrfMux   string `yaml:"vrf_mux"`
+	GrpcAcc  string `yaml:"host"`
+	GrpcHost string `yaml:"grpc_host"`
+	Phy0Rep  string `yaml:"phy0_rep"`
+	Phy1Rep  string `yaml:"phy1_rep"`
 }
-type P4_Config struct {
+
+// P4Config p4 config structure
+type P4Config struct {
 	Enabled      bool                   `yaml:"enabled"`
 	Driver       string                 `yaml:"driver"`
 	Representors map[string]interface{} `yaml:"representors"`
 	Config       P4FilesConfig          `yaml:"config"`
 }
+
+// loglevelConfig log level config structure
 type loglevelConfig struct {
-	Db        string `yaml:"db"`
-	Grpc      string `yaml:"grpc"`
-	Linux_frr string `yaml:"linux_frr"`
-	Netlink   string `yaml:"netlink"`
-	P4        string `yaml:"p4"`
+	DB      string `yaml:"db"`
+	Grpc    string `yaml:"grpc"`
+	Linux   string `yaml:"linux"`
+	Netlink string `yaml:"netlink"`
+	P4      string `yaml:"p4"`
 }
-type Linux_frrConfig struct {
-	Enabled      bool   `yaml:"enabled"`
-	Default_vtep string `yaml:"default_vtep"`
-	Port_mux     string `yaml:"port_mux"`
-	Vrf_mux      string `yaml:"vrf_mux"`
-	Ip_mtu       int    `yaml:"ip_mtu"`
+
+// LinuxFrrConfig linux frr config structure
+type LinuxFrrConfig struct {
+	Enabled     bool   `yaml:"enabled"`
+	DefaultVtep string `yaml:"defaultvtep"`
+	PortMux     string `yaml:"portmux"`
+	VrfMux      string `yaml:"vrfmux"`
+	IPMtu       int    `yaml:"ipmtu"`
 }
-type Netlink_Config struct {
-	Enabled       bool `yaml:"enabled"`
-	Poll_interval int  `yaml:"poll_interval"`
-	Phy_ports     []struct {
+
+// NetlinkConfig netlink config structure
+type NetlinkConfig struct {
+	Enabled      bool `yaml:"enabled"`
+	PollInterval int  `yaml:"pollinterval"`
+	PhyPorts     []struct {
 		Name string `yaml:"name"`
 		Vsi  int    `yaml:"vsi"`
-	} `yaml:"phy_ports"`
+	} `yaml:"phyports"`
 }
+
+// Config global config structure
 type Config struct {
 	CfgFile     string
 	GRPCPort    int                `yaml:"grpcport"`
@@ -68,19 +84,22 @@ type Config struct {
 	FRRAddress  string             `yaml:"frraddress"`
 	Buildenv    string             `yaml:"buildenv"`
 	Subscribers []SubscriberConfig `yaml:"subscribers"`
-	Linux_frr   Linux_frrConfig    `yaml:"linux_frr"`
-	Netlink     Netlink_Config     `yaml:"netlink"`
-	P4          P4_Config          `yaml: "p4"`
-	LogLevel    loglevelConfig     `yaml: "loglevel"`
+	LinuxFrr    LinuxFrrConfig     `yaml:"linuxfrr"`
+	Netlink     NetlinkConfig      `yaml:"netlink"`
+	P4          P4Config           `yaml:"p4"`
+	LogLevel    loglevelConfig     `yaml:"loglevel"`
 }
 
+// GlobalConfig global config
 var GlobalConfig Config
 
+// SetConfig sets the global config
 func SetConfig(cfg Config) error {
 	GlobalConfig = cfg
 	return nil
 }
 
+// LoadConfig loads the config from yaml file
 func LoadConfig() {
 	/*if GlobalConfig.CfgFile != "" {
 		viper.SetConfigFile(GlobalConfig.CfgFile)
@@ -102,10 +121,11 @@ func LoadConfig() {
 	GlobalConfig.Linux_frr.Enable = viper.GetBool("linux_frr.enabled")
 	GlobalConfig.Netlink.Enable = viper.GetBool("netlink.enabled")*/
 
-	log.Println("config %+v", GlobalConfig)
-	log.Printf("enabled from init config: %d\n", GlobalConfig.P4.Enabled)
+	log.Printf("config %+v", GlobalConfig)
+	log.Printf("enabled from init config: %#+v\n", GlobalConfig.P4.Enabled)
 }
 
+// GetConfig gets the global config
 func GetConfig() *Config {
 	return &GlobalConfig
 }

@@ -21,13 +21,13 @@ grpc:
     server_port: 51703
     num_threads: 10
     static_external_macs: []
-linux_frr:
+linuxfrr:
     enabled: true
-    default_vtep: "vxlan-vtep"
-    ip_mtu: 1500
+    defaultvtep: "vxlan-vtep"
+    ipmtu: 1500
 loglevel:
     db: INFO
     grpc: INFO
-    linux_frr: INFO
+    linux: INFO
     netlink: INFO
     p4: DEBUG

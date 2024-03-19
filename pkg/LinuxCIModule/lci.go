@@ -188,7 +188,6 @@ func tearDownBp(bp *infradb.BridgePort) bool {
 var ctx context.Context
 var nlink utils.Netlink
 
-
 // Init initializes the config and  subscribers
 func Init() {
 	/*config, err := readConfig("config.yaml")

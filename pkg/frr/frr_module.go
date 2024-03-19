@@ -147,6 +147,8 @@ func handlesvi(objectData *eventbus.ObjectData) {
 }
 
 // handlevrf handles the vrf functionality
+//
+//nolint:funlen,gocognit
 func handlevrf(objectData *eventbus.ObjectData) {
 	var comp common.Component
 	vrf, err := infradb.GetVrf(objectData.Name)
@@ -234,7 +236,7 @@ func run(cmd []string, flag bool) (string, int) {
 	var out []byte
 	var err error
 	//  out, err = exec.Command("sudo",cmd...).Output()
-	out, err = exec.Command(cmd[0], cmd[1:]...).CombinedOutput()
+	out, err = exec.Command(cmd[0], cmd[1:]...).CombinedOutput() //nolint:gosec
 	if err != nil {
 		if flag {
 			panic(fmt.Sprintf("FRR: Command %s': exit code %s;", out, err.Error()))
@@ -247,7 +249,8 @@ func run(cmd []string, flag bool) (string, int) {
 }
 
 var defaultVtep, portMux, vrfMux string
-var brTenant int
+
+// var brTenant int
 
 // subscribeInfradb function handles the infradb subscriptions
 func subscribeInfradb(config *config.Config) {
@@ -285,15 +288,16 @@ func Init() {
 	}*/
 	//	fmt.SetOutput(os.Stdout)
 
-	frrEnabled := config.GlobalConfig.Linux_frr.Enabled
+	frrEnabled := config.GlobalConfig.LinuxFrr.Enabled
 	if !frrEnabled {
 		fmt.Println("FRR Module disabled")
 		return
 	}
-	defaultVtep = config.GlobalConfig.Linux_frr.Default_vtep
-	// br_tenant = config.GlobalConfig.Linux_frr.Br_tenant
-	portMux = config.GlobalConfig.Linux_frr.Port_mux
-	vrfMux = config.GlobalConfig.Linux_frr.Vrf_mux
+	defaultVtep = config.GlobalConfig.LinuxFrr.DefaultVtep
+	// br_tenant = config.GlobalConfig.LinuxFrr.Br_tenant
+	portMux = config.GlobalConfig.LinuxFrr.PortMux
+	vrfMux = config.GlobalConfig.LinuxFrr.VrfMux
+	log.Printf(" frr vtep %+v \n", defaultVtep)
 	// Subscribe to InfraDB notifications
 	subscribeInfradb(&config.GlobalConfig)
 	// Set up the static configuration parts
@@ -303,11 +307,11 @@ func Init() {
 	Frr = utils.NewFrrWrapper()
 
 	// Make sure IPv4 forwarding is enabled.
-	run([]string{"sysctl", "-w", " net.ipv4.ip_forward=1"}, false)
+	_, _ = run([]string{"sysctl", "-w", " net.ipv4.ip_forward=1"}, false)
 }
 
 // routingTableBusy function checks the routing table
-func routingTableBusy(table uint32) bool {
+/*func routingTableBusy(table uint32) bool {
 	cp, err := run([]string{"ip", "route", "show", "table", strconv.Itoa(int(table))}, false)
 	if err != 0 {
 		fmt.Println(cp)
@@ -316,7 +320,7 @@ func routingTableBusy(table uint32) bool {
 	// fmt.Printf("route table busy %s %s\n",cp,err)
 	// Table is busy if it exists and contains some routes
 	return true // reflect.ValueOf(cp).IsZero() && len(cp)!= 0
-}
+}*/
 
 // VRF structure
 type VRF struct {
@@ -449,7 +453,8 @@ func checkFrrResult(cp string, show bool) bool {
 func setUpSvi(svi *infradb.Svi) (string, bool) {
 	linkSvi := fmt.Sprintf("%+v-%+v", path.Base(svi.Spec.Vrf), strings.Split(path.Base(svi.Spec.LogicalBridge), "vlan")[1])
 	if svi.Spec.EnableBgp && !reflect.ValueOf(svi.Spec.GatewayIPs).IsZero() {
-		gwIP := fmt.Sprintf("%s", svi.Spec.GatewayIPs[0].IP.To4())
+		// gwIP := fmt.Sprintf("%s", svi.Spec.GatewayIPs[0].IP.To4())
+		gwIP := string(svi.Spec.GatewayIPs[0].IP.To4())
 		RemoteAs := fmt.Sprintf("%d", *svi.Spec.RemoteAs)
 		bgpVrfName := fmt.Sprintf("router bgp 65000 vrf %s\n", path.Base(svi.Spec.Vrf))
 		neighlink := fmt.Sprintf("neighbor %s peer-group\n", linkSvi)

@@ -70,7 +70,7 @@ func NewSvi(in *pb.Svi) *Svi {
 	gwIPs := make([]*net.IPNet, 0)
 
 	// Tansform Mac From Byte to net.HardwareAddr type
-	macAddr := net.HardwareAddr(in.Spec.MacAddress[:])
+	macAddr := net.HardwareAddr(in.Spec.MacAddress)
 
 	// Parse Gateway IPs
 	for _, gwIPPrefix := range in.Spec.GwIpPrefix {

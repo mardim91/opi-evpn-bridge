@@ -23,7 +23,7 @@ import (
 )
 
 // CreateSvi executes the creation of the Svi
-func (s *Server) CreateSvi(ctx context.Context, in *pb.CreateSviRequest) (*pb.Svi, error) {
+func (s *Server) CreateSvi(_ context.Context, in *pb.CreateSviRequest) (*pb.Svi, error) {
 	// check input correctness
 	if err := s.validateCreateSviRequest(in); err != nil {
 		log.Printf("CreateSvi(): validation failure: %v", err)
@@ -58,7 +58,7 @@ func (s *Server) CreateSvi(ctx context.Context, in *pb.CreateSviRequest) (*pb.Sv
 }
 
 // DeleteSvi deletes a Svi
-func (s *Server) DeleteSvi(ctx context.Context, in *pb.DeleteSviRequest) (*emptypb.Empty, error) {
+func (s *Server) DeleteSvi(_ context.Context, in *pb.DeleteSviRequest) (*emptypb.Empty, error) {
 	// check input correctness
 	if err := s.validateDeleteSviRequest(in); err != nil {
 		log.Printf("DeleteSvi(): validation failure: %v", err)
@@ -88,7 +88,7 @@ func (s *Server) DeleteSvi(ctx context.Context, in *pb.DeleteSviRequest) (*empty
 }
 
 // UpdateSvi updates a Svi
-func (s *Server) UpdateSvi(ctx context.Context, in *pb.UpdateSviRequest) (*pb.Svi, error) {
+func (s *Server) UpdateSvi(_ context.Context, in *pb.UpdateSviRequest) (*pb.Svi, error) {
 	// check input correctness
 	if err := s.validateUpdateSviRequest(in); err != nil {
 		log.Printf("UpdateSvi(): validation failure: %v", err)
@@ -128,7 +128,7 @@ func (s *Server) UpdateSvi(ctx context.Context, in *pb.UpdateSviRequest) (*pb.Sv
 	// If it is the we just return the old object.
 	updatedsviObj := utils.ProtoClone(sviObj)
 
-	//Apply updateMask to the current Pb object
+	// Apply updateMask to the current Pb object
 	utils.ApplyMaskToStoredPbObject(in.UpdateMask, updatedsviObj, in.Svi)
 
 	// Check if the object before the application of the field mask
@@ -147,7 +147,7 @@ func (s *Server) UpdateSvi(ctx context.Context, in *pb.UpdateSviRequest) (*pb.Sv
 }
 
 // GetSvi gets a Svi
-func (s *Server) GetSvi(ctx context.Context, in *pb.GetSviRequest) (*pb.Svi, error) {
+func (s *Server) GetSvi(_ context.Context, in *pb.GetSviRequest) (*pb.Svi, error) {
 	// check input correctness
 	if err := s.validateGetSviRequest(in); err != nil {
 		log.Printf("GetSvi(): validation failure: %v", err)
@@ -181,8 +181,7 @@ func (s *Server) ListSvis(_ context.Context, in *pb.ListSvisRequest) (*pb.ListSv
 		return nil, err
 	}
 	// fetch object from the database
-	Blobarray := []*pb.Svi{}
-	Blobarray, err = s.getAllSvis()
+	Blobarray, err := s.getAllSvis()
 	if err != nil {
 		if err != infradb.ErrKeyNotFound {
 			log.Printf("Failed to interact with store: %v", err)
