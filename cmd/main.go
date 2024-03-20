@@ -141,7 +141,7 @@ func setupLogger(filename string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	logger = log.New(io.MultiWriter(os.Stdout, out), "", log.Lshortfile|log.LstdFlags)
+	logger = log.New(io.MultiWriter(out), "", log.Lshortfile|log.LstdFlags)
 	log.SetOutput(logger.Writer())
 }
 

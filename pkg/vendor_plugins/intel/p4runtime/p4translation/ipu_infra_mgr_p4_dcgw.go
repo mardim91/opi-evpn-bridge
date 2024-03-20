@@ -825,7 +825,7 @@ func (l L3Decoder) translate_added_nexthop(nexthop netlink_polling.NexthopStruct
 			})
 	} else if nexthop.NhType == netlink_polling.ACC {
 		var dmac, _ = net.ParseMAC(nexthop.Metadata["dmac"].(string))
-		var vlan_id = nexthop.Metadata["vlan_id"].(uint32)
+		var vlan_id = nexthop.Metadata["vlanID"].(uint32)
 		var vport = _to_egress_vsi(nexthop.Metadata["egress_vport"].(int))
 		entries = append(entries, p4client.TableEntry{
 			Tablename: PUSH_DMAC_VLAN,
@@ -857,9 +857,9 @@ func (l L3Decoder) translate_added_nexthop(nexthop netlink_polling.NexthopStruct
 	} else if nexthop.NhType == netlink_polling.SVI {
 		var smac, _ = net.ParseMAC(nexthop.Metadata["smac"].(string))
 		var dmac, _ = net.ParseMAC(nexthop.Metadata["dmac"].(string))
-		var vlan_id = nexthop.Metadata["vlan_id"]
+		var vlan_id = nexthop.Metadata["vlanID"]
 		var vport = _to_egress_vsi(nexthop.Metadata["egress_vport"].(int))
-		var Type = nexthop.Metadata["port_type"]
+		var Type = nexthop.Metadata["portType"]
 
 		if Type == ipu_db.TRUNK {
 			entries = append(entries, p4client.TableEntry{
@@ -967,7 +967,7 @@ func (l L3Decoder) translate_deleted_nexthop(nexthop netlink_polling.NexthopStru
 			})
 	} else if nexthop.NhType == netlink_polling.ACC {
 		// var dmac, _ = net.ParseMAC(nexthop.Metadata["dmac"].(string))
-		// var vlan_id = nexthop.Metadata["vlan_id"]
+		// var vlan_id = nexthop.Metadata["vlanID"]
 		// var vport = _to_egress_vsi(nexthop.Metadata["egress_vport"].(int))
 
 		entries = append(entries, p4client.TableEntry{
@@ -992,9 +992,9 @@ func (l L3Decoder) translate_deleted_nexthop(nexthop netlink_polling.NexthopStru
 	} else if nexthop.NhType == netlink_polling.SVI {
 		// var smac, _ = net.ParseMAC(nexthop.Metadata["smac"].(string))
 		// var dmac, _ = net.ParseMAC(nexthop.Metadata["dmac"].(string))
-		// var vlan_id = nexthop.Metadata["vlan_id"]
+		// var vlan_id = nexthop.Metadata["vlanID"]
 		// var vport = _to_egress_vsi(nexthop.Metadata["egress_vport"].(int))
-		var Type = nexthop.Metadata["port_type"]
+		var Type = nexthop.Metadata["portType"]
 
 		if Type == ipu_db.TRUNK {
 			entries = append(entries, p4client.TableEntry{
@@ -2220,7 +2220,7 @@ func (p PodDecoder) translate_added_l2_nexthop(nexthop netlink_polling.L2Nexthop
 		return entries
 	}
 	var neighbor = nexthop.ID
-	var port_type = nexthop.Metadata["port_type"]
+	var port_type = nexthop.Metadata["portType"]
 	var port_id = nexthop.Metadata["vport_id"]
 
 	if port_type == ipu_db.ACCESS {
@@ -2285,7 +2285,7 @@ func (p PodDecoder) translate_deleted_l2_nexthop(nexthop netlink_polling.L2Nexth
 		return entries
 	}
 	var neighbor = nexthop.ID
-	var port_type = nexthop.Metadata["port_type"]
+	var port_type = nexthop.Metadata["portType"]
 
 	if port_type == ipu_db.ACCESS {
 		entries = append(entries, p4client.TableEntry{

@@ -154,8 +154,14 @@ func MactoVport(mac *net.HardwareAddr) int {
 
 // setUpBp sets up a bridge port
 func setUpBp(bp *infradb.BridgePort) bool {
-	MacAddress := fmt.Sprintf("%+v", bp.Spec.MacAddress)
-	vportID := MactoVport(bp.Spec.MacAddress)
+	//fmt.Println("setUpBp : ", bp.Spec.MacAddress)
+	macAddr, err := net.ParseMAC(string(*bp.Spec.MacAddress))
+	if err != nil {
+		log.Printf("Error: %v %s", err, macAddr)
+		return false
+	}
+	MacAddress := fmt.Sprintf("%+v", macAddr)
+	vportID := MactoVport(&macAddr)
 	link := fmt.Sprintf("vport-%+v", vportID)
 	vport := fmt.Sprintf("%+v", vportID)
 	bp.Metadata.VPort = vport

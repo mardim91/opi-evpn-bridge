@@ -1954,10 +1954,10 @@ var latestgenmap = make(map[interface{}]interface{})
 
 // notifyDBChanges notify the database changes
 func notifyDBChanges() {
-	var routeEventStr = make([]string, len(notifyEvents))
-	var nexthopEventStr = make([]string, len(notifyEvents))
-	var fdbEventStr = make([]string, len(notifyEvents))
-	var l2nexthopEventStr = make([]string, len(notifyEvents))
+	var routeEventStr []string
+	var nexthopEventStr []string
+	var fdbEventStr []string
+	var l2nexthopEventStr []string
 
 	for _, s := range notifyEvents {
 		routeEventStr = append(routeEventStr, "route"+s)
