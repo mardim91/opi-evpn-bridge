@@ -108,10 +108,6 @@ func checkTobeDeletedStatus(lb *pb.LogicalBridge) error {
 }
 
 // TODO: move all of this to a common place
-// Dimitris: This should be moved to the configuration for lgm module section
-const (
-	tenantbridgeName = "br-tenant"
-)
 
 type testEnv struct {
 	mockNetlink *mocks.Netlink

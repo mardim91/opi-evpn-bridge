@@ -109,9 +109,6 @@ func checkTobeDeletedStatus(bp *pb.BridgePort) error {
 }
 
 // TODO: move all of this to a common place
-const (
-	tenantbridgeName = "br-tenant"
-)
 
 var (
 	testLogicalBridgeID   = "opi-bridge9"
@@ -129,13 +126,6 @@ var (
 				},
 				Len: 24,
 			},
-		},
-	}
-	testLogicalBridgeWithStatus = pb.LogicalBridge{
-		Name: testLogicalBridgeName,
-		Spec: testLogicalBridge.Spec,
-		Status: &pb.LogicalBridgeStatus{
-			OperStatus: pb.LBOperStatus_LB_OPER_STATUS_DOWN,
 		},
 	}
 )

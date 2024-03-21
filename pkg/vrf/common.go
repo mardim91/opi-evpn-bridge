@@ -7,7 +7,6 @@ package vrf
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"log"
 	"net"
@@ -94,18 +93,6 @@ func resourceIDToFullName(resourceID string) string {
 		"//network.opiproject.org/",
 		"vrfs", resourceID,
 	)
-}
-
-func generateRandMAC() ([]byte, error) {
-	buf := make([]byte, 6)
-	if _, err := rand.Read(buf); err != nil {
-		return nil, fmt.Errorf("unable to retrieve 6 rnd bytes: %s", err)
-	}
-
-	// Set locally administered addresses bit and reset multicast bit
-	buf[0] = (buf[0] | 0x02) & 0xfe
-
-	return buf, nil
 }
 
 func checkTobeDeletedStatus(vrf *pb.Vrf) error {

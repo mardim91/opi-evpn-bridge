@@ -176,10 +176,9 @@ func handlesvi(objectData *eventbus.ObjectData) {
 		}
 	}
 	if svi.Status.SviOperStatus != infradb.SviOperStatusToBeDeleted {
-		details, status := setUpSvi(svi)
+		status := setUpSvi(svi)
 		comp.Name = lgmComp
 		if status {
-			comp.Details = details
 			comp.CompStatus = common.ComponentStatusSuccess
 			comp.Timer = 0
 		} else {
@@ -562,7 +561,7 @@ func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 }
 
 // setUpSvi sets up the svi
-func setUpSvi(svi *infradb.Svi) (string, bool) {
+func setUpSvi(svi *infradb.Svi) bool {
 	linkSvi := fmt.Sprintf("%+v-%+v", path.Base(svi.Spec.Vrf), strings.Split(path.Base(svi.Spec.LogicalBridge), "vlan")[1])
 	MacAddress := fmt.Sprintf("%+v", svi.Spec.MacAddress)
 	// ipMtu := fmt.Sprintf("%+v", ipMtu)
@@ -571,43 +570,43 @@ func setUpSvi(svi *infradb.Svi) (string, bool) {
 	brIntf, err := nlink.LinkByName(ctx, brTenant)
 	if err != nil {
 		log.Printf("LGM : Failed to get link information for %s: %v\n", brTenant, err)
-		return "", false
+		return false
 	}
 	if err = nlink.BridgeVlanAdd(ctx, brIntf, uint16(vid), false, false, true, false); err != nil {
 		log.Printf("LGM : Failed to add VLAN %d to bridge interface %s: %v\n", vid, brTenant, err)
-		return "", false
+		return false
 	}
 
 	log.Printf("LGM Executed : bridge vlan add dev %s vid %d self\n", brTenant, vid)
 	vlanLink := &netlink.Vlan{LinkAttrs: netlink.LinkAttrs{Name: linkSvi, ParentIndex: brIntf.Attrs().Index}, VlanId: vid}
 	if err = nlink.LinkAdd(ctx, vlanLink); err != nil {
 		log.Printf("LGM : Failed to add VLAN sub-interface %s: %v\n", linkSvi, err)
-		return "", false
+		return false
 	}
 
 	log.Printf("LGM Executed : ip link add link %s name %s type vlan id %d\n", brTenant, linkSvi, vid)
 	if err = nlink.LinkSetHardwareAddr(ctx, vlanLink, *svi.Spec.MacAddress); err != nil {
 		log.Printf("LGM : Failed to set link %v: %s\n", vlanLink, err)
-		return "", false
+		return false
 	}
 
 	log.Printf("LGM Executed : ip link set %s address %s\n", linkSvi, MacAddress)
 	vrfIntf, err := nlink.LinkByName(ctx, path.Base(svi.Spec.Vrf))
 	if err != nil {
 		log.Printf("LGM : Failed to get link information for %s: %v\n", path.Base(svi.Spec.Vrf), err)
-		return "", false
+		return false
 	}
 	if err = nlink.LinkSetMaster(ctx, vlanLink, vrfIntf); err != nil {
 		log.Printf("LGM : Failed to set master for %v: %s\n", vlanLink, err)
-		return "", false
+		return false
 	}
 	if err = nlink.LinkSetUp(ctx, vlanLink); err != nil {
 		log.Printf("LGM : Failed to set up link for %v: %s\n", vlanLink, err)
-		return "", false
+		return false
 	}
 	if err = nlink.LinkSetMTU(ctx, vlanLink, ipMtu); err != nil {
 		log.Printf("LGM : Failed to set MTU for %v: %s\n", vlanLink, err)
-		return "", false
+		return false
 	}
 
 	log.Printf("LGM Executed :  ip link set %s master %s up mtu %d\n", linkSvi, path.Base(svi.Spec.Vrf), ipMtu)
@@ -617,7 +616,7 @@ func setUpSvi(svi *infradb.Svi) (string, bool) {
 	if err1 != 0 {
 		log.Printf("LGM: Error in executing command %s %s\n", "sysctl -w net.ipv4.conf.linkSvi.arp_accept=1", linkSvi)
 		log.Printf("%s\n", CP)
-		// return "", false
+		// return  false
 	}
 	for _, ipIntf := range svi.Spec.GatewayIPs {
 		addr := &netlink.Addr{
@@ -628,12 +627,12 @@ func setUpSvi(svi *infradb.Svi) (string, bool) {
 		}
 		if err := nlink.AddrAdd(ctx, vlanLink, addr); err != nil {
 			log.Printf("LGM: Failed to add ip address %v to %v: %v\n", addr, vlanLink, err)
-			return "", false
+			return false
 		}
 
 		log.Printf("LGM Executed :  ip address add %s dev %+v\n", addr, vlanLink)
 	}
-	return "", true
+	return true
 }
 
 // GenerateMac Generates the random mac

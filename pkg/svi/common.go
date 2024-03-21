@@ -110,9 +110,6 @@ func checkTobeDeletedStatus(svi *pb.Svi) error {
 }
 
 // TODO: move all of this to a common place
-const (
-	tenantbridgeName = "br-tenant"
-)
 
 var (
 	testLogicalBridgeID   = "opi-bridge9"
@@ -132,14 +129,6 @@ var (
 			},
 		},
 	}
-	/*testLogicalBridgeWithStatus = pb.LogicalBridge{
-		Name: testLogicalBridgeName,
-		Spec: testLogicalBridge.Spec,
-		Status: &pb.LogicalBridgeStatus{
-			OperStatus: pb.LBOperStatus_LB_OPER_STATUS_DOWN,
-		},
-	}*/
-
 	testVrfID   = "opi-vrf8"
 	testVrfName = resourceIDToFullName(testVrfID)
 	testVrf     = pb.Vrf{
@@ -165,13 +154,6 @@ var (
 			},
 		},
 	}
-	/*testVrfWithStatus = pb.Vrf{
-		Name: testVrfName,
-		Spec: testVrf.Spec,
-		Status: &pb.VrfStatus{
-			OperStatus: pb.VRFOperStatus_VRF_OPER_STATUS_DOWN,
-		},
-	}*/
 )
 
 type testEnv struct {

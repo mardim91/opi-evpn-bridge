@@ -81,10 +81,9 @@ func handlesvi(objectData *eventbus.ObjectData) {
 		}
 	}
 	if svi.Status.SviOperStatus != infradb.SviOperStatusToBeDeleted {
-		detail, status := setUpSvi(svi)
+		status := setUpSvi(svi)
 		comp.Name = frrComp
 		if status {
-			comp.Details = detail
 			comp.CompStatus = common.ComponentStatusSuccess
 			comp.Timer = 0
 		} else {
@@ -242,11 +241,9 @@ func subscribeInfradb(config *config.Config) {
 
 // setUpTenantBridge function handles the tanent bridge
 func setUpTenantBridge() {
-	//	run([]string{"ip","-br","l"},false)
 	run([]string{"ip", "link", "add" /*strconv.Itoa(brTenant)*/, "br-tenant", "type", "bridge", "vlan_default_pvid", "0", "vlan_filtering", "1", "vlan_protocol", "802.1Q"}, false)
-	//	fmt.Println("Venky ",cp,err)
+
 	run([]string{"ip", "link", "set", "br-tenant" /*"strconv.Itoa(brTenant)",*/, "up"}, false)
-	// fmt.Println("Venky1 ",cp,err)
 }
 
 // ctx variable of type context
@@ -266,7 +263,7 @@ func Init() {
 	// br_tenant = config.GlobalConfig.LinuxFrr.Br_tenant
 	portMux = config.GlobalConfig.LinuxFrr.PortMux
 	vrfMux = config.GlobalConfig.LinuxFrr.VrfMux
-	log.Printf(" frr vtep %+v \n", defaultVtep)
+	log.Printf(" frr vtep: %+v port-mux %+v vrf-mux: +%v", defaultVtep, portMux, vrfMux)
 	// Subscribe to InfraDB notifications
 	subscribeInfradb(&config.GlobalConfig)
 	// Set up the static configuration parts
@@ -276,7 +273,10 @@ func Init() {
 	Frr = utils.NewFrrWrapper()
 
 	// Make sure IPv4 forwarding is enabled.
-	_, _ = run([]string{"sysctl", "-w", " net.ipv4.ip_forward=1"}, false)
+	detail, flag := run([]string{"sysctl", "-w", " net.ipv4.ip_forward=1"}, false)
+	if flag != 0 {
+		log.Println("Error in running command", detail)
+	}
 }
 
 // routingTableBusy function checks the routing table
@@ -419,7 +419,7 @@ func checkFrrResult(cp string, show bool) bool {
 }
 
 // setUpSvi sets up the svi
-func setUpSvi(svi *infradb.Svi) (string, bool) {
+func setUpSvi(svi *infradb.Svi) bool {
 	linkSvi := fmt.Sprintf("%+v-%+v", path.Base(svi.Spec.Vrf), strings.Split(path.Base(svi.Spec.LogicalBridge), "vlan")[1])
 	if svi.Spec.EnableBgp && !reflect.ValueOf(svi.Spec.GatewayIPs).IsZero() {
 		// gwIP := fmt.Sprintf("%s", svi.Spec.GatewayIPs[0].IP.To4())
@@ -437,11 +437,11 @@ func setUpSvi(svi *infradb.Svi) (string, bool) {
 
 		if err != nil || checkFrrResult(data, false) {
 			fmt.Printf("FRR: Error in conf svi %s %s command %s\n", svi.Name, path.Base(svi.Spec.Vrf), data)
-			return "", false
+			return false
 		}
-		return "", true
+		return true
 	}
-	return "", true
+	return true
 }
 
 // tearDownSvi tears down svi
