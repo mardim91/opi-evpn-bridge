@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	// "io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -26,30 +25,7 @@ import (
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriberframework/eventbus"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
-	// "gopkg.in/yaml.v3"
 )
-
-// SubscriberConfig structure
-type SubscriberConfig struct {
-	Name     string   `yaml:"name"`
-	Priority int      `yaml:"priority"`
-	Events   []string `yaml:"events"`
-}
-
-// LinuxFrrConfig structure
-type LinuxFrrConfig struct {
-	Enable      bool   `yaml:"enabled"`
-	DefaultVtep string `yaml:"default_vtep"`
-	PortMux     string `yaml:"port_mux"`
-	VrfMux      string `yaml:"vrf_mux"`
-	BrTenant    int    `yaml:"br_tenant"`
-}
-
-// Config structure
-type Config struct {
-	Subscribers []SubscriberConfig `yaml:"subscribers"`
-	LinuxFrr    LinuxFrrConfig     `yaml:"linux_frr"`
-}
 
 // frrComp string constant
 const frrComp string = "frr"
@@ -281,13 +257,6 @@ var Frr utils.Frr
 
 // Init function handles init functionality
 func Init() {
-	/*config, err := readConfig("config.yaml")
-	if err != nil {
-		fmt.Fatal(err)
-		// os.Exit(0)
-	}*/
-	//	fmt.SetOutput(os.Stdout)
-
 	frrEnabled := config.GlobalConfig.LinuxFrr.Enabled
 	if !frrEnabled {
 		fmt.Println("FRR Module disabled")
@@ -493,7 +462,7 @@ func tearDownSvi(svi *infradb.Svi) bool {
 }
 
 // tearDownVrf tears down vrf
-func tearDownVrf(vrf *infradb.Vrf) bool { // interface{}){
+func tearDownVrf(vrf *infradb.Vrf) bool {
 	// This function must not be executed for the vrf representing the GRD
 	Ifname := strings.Split(vrf.Name, "/")
 	ifwlen := len(Ifname)

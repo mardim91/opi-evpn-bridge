@@ -45,6 +45,7 @@ type TaskStatus struct {
 	component       *common.Component
 }
 
+// newTaskManager return the new task manager object
 func newTaskManager() *TaskManager {
 	return &TaskManager{
 		taskQueue:      NewTaskQueue(),
@@ -52,6 +53,7 @@ func newTaskManager() *TaskManager {
 	}
 }
 
+// newTask return the new task object
 func newTask(name, objectType, resourceVersion string, subs []*eventbus.Subscriber) *Task {
 	return &Task{
 		name:            name,
@@ -62,6 +64,7 @@ func newTask(name, objectType, resourceVersion string, subs []*eventbus.Subscrib
 	}
 }
 
+// newTaskStatus return the new task status object
 func newTaskStatus(name, objectType, resourceVersion, notificationID string, dropTask bool, component *common.Component) *TaskStatus {
 	return &TaskStatus{
 		name:            name,
@@ -100,6 +103,7 @@ func (t *TaskManager) StatusUpdated(name, objectType, resourceVersion, notificat
 	log.Printf("StatusUpdated(): New Task Status has been created and sent to channel: %+v\n", taskStatus)
 }
 
+// processTasks processes the task
 func (t *TaskManager) processTasks() {
 	var taskStatus *TaskStatus
 

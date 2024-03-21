@@ -903,9 +903,7 @@ func UpdateVrf(vrf *Vrf) error {
 }
 
 // UpdateVrfStatus updates the status of vrf object based on the component report
-// nolint: funlen
-//
-//gocognit:ignore
+// nolint: funlen, gocognit
 func UpdateVrfStatus(name string, resourceVersion string, notificationID string, vrfMeta *VrfMetadata, component common.Component) error {
 	globalLock.Lock()
 	defer globalLock.Unlock()

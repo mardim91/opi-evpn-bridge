@@ -134,6 +134,7 @@ const logfile string = "opi-evpn-bridge.log"
 
 var logger *log.Logger
 
+// setupLogger sets the config for logger
 func setupLogger(filename string) {
 	var err error
 	filename = filepath.Clean(filename)

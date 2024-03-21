@@ -101,28 +101,16 @@ func SetConfig(cfg Config) error {
 
 // LoadConfig loads the config from yaml file
 func LoadConfig() {
-	/*if GlobalConfig.CfgFile != "" {
-		viper.SetConfigFile(GlobalConfig.CfgFile)
-	} else {
-		// Search config in the default location
-		viper.AddConfigPath(".")
-		viper.SetConfigType("yaml")
-		viper.SetConfigName("evpn.yaml")
-	}*/
 	if err := viper.ReadInConfig(); err == nil {
 		log.Println("Using config file:", viper.ConfigFileUsed())
 	}
-	log.Println("Load Config Function")
+
 	if err := viper.Unmarshal(&GlobalConfig); err != nil {
 		log.Println(err)
 		return
 	}
-	/*GlobalConfig.P4.Enable = viper.GetBool("p4.enabled")
-	GlobalConfig.Linux_frr.Enable = viper.GetBool("linux_frr.enabled")
-	GlobalConfig.Netlink.Enable = viper.GetBool("netlink.enabled")*/
 
 	log.Printf("config %+v", GlobalConfig)
-	log.Printf("enabled from init config: %#+v\n", GlobalConfig.P4.Enabled)
 }
 
 // GetConfig gets the global config

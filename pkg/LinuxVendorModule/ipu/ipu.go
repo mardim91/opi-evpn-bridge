@@ -9,7 +9,6 @@ import (
 	"context"
 	"fmt"
 
-	// "io/ioutil"
 	"log"
 	"net"
 	"os/exec"
@@ -24,32 +23,12 @@ import (
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriberframework/eventbus"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 	"github.com/vishvananda/netlink"
-	// "gopkg.in/yaml.v2"
 )
 
-// SubscriberConfig structure of sbuscirbers
-type SubscriberConfig struct {
-	Name     string   `yaml:"name"`
-	Priority int      `yaml:"priority"`
-	Events   []string `yaml:"events"`
-}
-
-// LinuxFrrConfig config for frr
-type LinuxFrrConfig struct {
-	Enable      bool   `yaml:"enabled"`
-	DefaultVtep string `yaml:"default_vtep"`
-	PortMux     string `yaml:"port_mux"`
-	VrfMux      string `yaml:"vrf_mux"`
-	IPMtu       int    `yaml:"ip_mtu"`
-}
-
-// Config array of subscribers, linux_frr
-type Config struct {
-	Subscribers []SubscriberConfig `yaml:"subscribers"`
-	LinuxFrr    LinuxFrrConfig     `yaml:"linux_frr"`
-}
-
+// portMux variable of type string
 var portMux string
+
+// vrfMux variable of type string
 var vrfMux string
 
 // ModulelvmHandler empty interface
@@ -154,7 +133,7 @@ func MactoVport(mac *net.HardwareAddr) int {
 
 // setUpBp sets up a bridge port
 func setUpBp(bp *infradb.BridgePort) bool {
-	//fmt.Println("setUpBp : ", bp.Spec.MacAddress)
+	// fmt.Println("setUpBp : ", bp.Spec.MacAddress)
 	macAddr, err := net.ParseMAC(string(*bp.Spec.MacAddress))
 	if err != nil {
 		log.Printf("Error: %v %s", err, macAddr)

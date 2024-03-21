@@ -26,18 +26,6 @@ type ModulelciHandler struct{}
 
 const lciComp string = "lci"
 
-// SubscriberConfig structure of sbuscirbers
-type SubscriberConfig struct {
-	Name     string   `yaml:"name"`
-	Priority int      `yaml:"priority"`
-	Events   []string `yaml:"events"`
-}
-
-// Config array of subscribers
-type Config struct {
-	Subscribers []SubscriberConfig `yaml:"subscribers"`
-}
-
 // HandleEvent handle the registered events
 func (h *ModulelciHandler) HandleEvent(eventType string, objectData *eventbus.ObjectData) {
 	switch eventType {
@@ -190,11 +178,6 @@ var nlink utils.Netlink
 
 // Init initializes the config and  subscribers
 func Init() {
-	/*config, err := readConfig("config.yaml")
-	if err != nil {
-		log.Fatal(err)
-	}*/
-
 	eb := eventbus.EBus
 	for _, subscriberConfig := range config.GlobalConfig.Subscribers {
 		if subscriberConfig.Name == "lci" {
@@ -206,18 +189,3 @@ func Init() {
 	ctx = context.Background()
 	nlink = utils.NewNetlinkWrapper()
 }
-
-/*func readConfig(filename string) (*Config, error) {
-	filename = filepath.Clean(filename)
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	var config Config
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		return nil, err
-	}
-
-	return &config, nil
-}*/
