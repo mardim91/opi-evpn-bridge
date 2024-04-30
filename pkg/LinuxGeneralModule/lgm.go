@@ -878,3 +878,21 @@ func tearDownBridge(lb *infradb.LogicalBridge) bool {
 	}
 	return true
 }
+
+// TearDownTenantBridge tears down the bridge
+func TearDownTenantBridge() error {
+
+		Intf, err := nlink.LinkByName(ctx, brTenant)
+		if err != nil {
+			log.Printf("LGM: Failed to get br-tenant %s: %v\n", Intf, err)
+			return err
+		}
+		if err = nlink.LinkDel(ctx, Intf); err != nil {
+			log.Printf("LGM : Failed to delete br-tenant %s: %v\n", Intf, err)
+			return err
+		}
+		log.Printf("LGM: Executed ip link delete %s", brTenant)
+
+		return nil
+
+}

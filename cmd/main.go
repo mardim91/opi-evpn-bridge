@@ -79,6 +79,9 @@ var rootCmd = &cobra.Command{
 		}
 
 		runGrpcServer(config.GlobalConfig.GRPCPort, config.GlobalConfig.TLSFiles)
+
+
+
 	},
 }
 
@@ -118,6 +121,21 @@ func setupLogger(filename string) {
 	log.SetOutput(logger.Writer())
 }
 
+func cleanUp() {
+
+		log.Println("Defer function called")
+		if err := deleteGrdVrf(); err != nil {
+			log.Println("Failed to delete GRD vrf")
+		}
+		if err := gen_linux.TearDownTenantBridge(); err != nil {
+			log.Println("Failed to close infradb")
+		}
+		if err := infradb.Close(); err != nil {
+			log.Println("Failed to close infradb")
+		}
+
+}
+
 // main function
 func main() {
 	// setup file and console logger
@@ -134,11 +152,7 @@ func main() {
 		log.Panicf("Error in Execute(): %v", err)
 	}
 
-	defer func() {
-		if err := infradb.Close(); err != nil {
-			log.Panicf("Error in close(): %v", err)
-		}
-	}()
+	defer cleanUp()
 }
 
 // runGrpcServer start the grpc server for all the components
@@ -246,6 +260,20 @@ func createGrdVrf() error {
 	err = infradb.CreateVrf(grdVrf)
 	if err != nil {
 		log.Printf("CreateGrdVrf(): Error in creating GRD VRF object %+v\n", err)
+		return err
+	}
+
+	return nil
+}
+
+// deleteGrdVrf creates the grd vrf with vni 0
+func deleteGrdVrf() error {
+
+	log.Printf("DeleteGrdVrf(): deleted GRD VRF object\n")
+	
+	err := infradb.DeleteVrf("//network.opiproject.org/vrfs/GRD")
+	if err != nil {
+		log.Printf("CreateGrdVrf(): Error in deleting GRD VRF object %+v\n", err)
 		return err
 	}
 
