@@ -42,6 +42,8 @@ import (
 	gen_linux "github.com/opiproject/opi-evpn-bridge/pkg/LinuxGeneralModule"
 	intel_e2000_linux "github.com/opiproject/opi-evpn-bridge/pkg/LinuxVendorModule/intele2000"
 	frr "github.com/opiproject/opi-evpn-bridge/pkg/frr"
+	netlink "github.com/opiproject/opi-evpn-bridge/pkg/netlink"
+	ipu_vendor "github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/intel-e2000/p4runtime/p4translation"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 )
 
@@ -65,6 +67,7 @@ var rootCmd = &cobra.Command{
 			gen_linux.Init()
 			intel_e2000_linux.Init()
 			frr.Init()
+			ipu_vendor.Init()
 		case "ci":
 			gen_linux.Init()
 			ci_linux.Init()
@@ -76,6 +79,12 @@ var rootCmd = &cobra.Command{
 		// Create GRD VRF configuration during startup
 		if err := createGrdVrf(); err != nil {
 			log.Panicf("Error: %v", err)
+		}
+		switch config.GlobalConfig.Buildenv {
+		case "intel_e2000":
+			netlink.Init()
+		default:
+			log.Fatal(" ERROR: Could not find Build env ")
 		}
 
 		runGrpcServer(config.GlobalConfig.GRPCPort, config.GlobalConfig.TLSFiles)

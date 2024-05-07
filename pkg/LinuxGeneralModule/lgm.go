@@ -15,7 +15,7 @@ import (
 	"os/exec"
 	"reflect"
 	"strconv"
-	"strings"
+	//"strings"
 	"time"
 
 	"github.com/opiproject/opi-evpn-bridge/pkg/config"
@@ -415,10 +415,7 @@ func setUpBridge(lb *infradb.LogicalBridge) bool {
 //nolint:funlen,gocognit
 func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 	IPMtu := fmt.Sprintf("%+v", ipMtu)
-	Ifname := strings.Split(vrf.Name, "/")
-	ifwlen := len(Ifname)
-	vrf.Name = Ifname[ifwlen-1]
-	if vrf.Name == "GRD" {
+	if path.Base(vrf.Name) == "GRD" {
 		vrf.Metadata.RoutingTable = make([]*uint32, 2)
 		vrf.Metadata.RoutingTable[0] = new(uint32)
 		vrf.Metadata.RoutingTable[1] = new(uint32)
@@ -463,7 +460,7 @@ func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 	// Create the vrf interface for the specified routing table and add loopback address
 
 	linkAdderr := nlink.LinkAdd(ctx, &netlink.Vrf{
-		LinkAttrs: netlink.LinkAttrs{Name: vrf.Name},
+		LinkAttrs: netlink.LinkAttrs{Name: path.Base(vrf.Name)},
 		Table:     routingTable,
 	})
 	if linkAdderr != nil {
@@ -473,7 +470,7 @@ func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 
 	log.Printf("LGM: vrf link %s Added with table id %d\n", vrf.Name, routingTable)
 
-	link, linkErr := nlink.LinkByName(ctx, vrf.Name)
+	link, linkErr := nlink.LinkByName(ctx, path.Base(vrf.Name))
 	if linkErr != nil {
 		log.Printf("LGM : Link %s not found\n", vrf.Name)
 		return "", false
@@ -529,7 +526,7 @@ func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 		// intel e2000 servers.
 
 		brErr := nlink.LinkAdd(ctx, &netlink.Bridge{
-			LinkAttrs: netlink.LinkAttrs{Name: brStr + vrf.Name},
+			LinkAttrs: netlink.LinkAttrs{Name: brStr + path.Base(vrf.Name)},
 		})
 		if brErr != nil {
 			log.Printf("LGM : Error in added bridge port\n")
@@ -540,7 +537,7 @@ func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 		rmac := fmt.Sprintf("%+v", GenerateMac()) // str(macaddress.MAC(b'\x00'+random.randbytes(5))).replace("-", ":")
 		hw, _ := net.ParseMAC(rmac)
 
-		linkBr, brErr := nlink.LinkByName(ctx, brStr+vrf.Name)
+		linkBr, brErr := nlink.LinkByName(ctx, brStr+path.Base(vrf.Name))
 		if brErr != nil {
 			log.Printf("LGM : Error in getting the br-%s\n", vrf.Name)
 			return "", false
@@ -557,7 +554,7 @@ func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 			return "", false
 		}
 
-		linkMaster, errMaster := nlink.LinkByName(ctx, vrf.Name)
+		linkMaster, errMaster := nlink.LinkByName(ctx, path.Base(vrf.Name))
 		if errMaster != nil {
 			log.Printf("LGM : Error in getting the %s\n", vrf.Name)
 			return "", false
@@ -580,7 +577,7 @@ func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 
 		SrcVtep := vrf.Spec.VtepIP.IP
 		vxlanErr := nlink.LinkAdd(ctx, &netlink.Vxlan{
-			LinkAttrs: netlink.LinkAttrs{Name: vxlanStr + vrf.Name, MTU: ipMtu}, VxlanId: int(*vrf.Spec.Vni), SrcAddr: SrcVtep, Learning: false, Proxy: true, Port: 4789})
+			LinkAttrs: netlink.LinkAttrs{Name: vxlanStr + path.Base(vrf.Name), MTU: ipMtu}, VxlanId: int(*vrf.Spec.Vni), SrcAddr: SrcVtep, Learning: false, Proxy: true, Port: 4789})
 		if vxlanErr != nil {
 			log.Printf("LGM : Error in added vxlan port\n")
 			return "", false
@@ -588,7 +585,7 @@ func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 
 		log.Printf("LGM : link added vxlan-%s type vxlan id %d local %s dstport 4789 nolearning proxy\n", vrf.Name, *vrf.Spec.Vni, vtip)
 
-		linkVxlan, vxlanErr := nlink.LinkByName(ctx, vxlanStr+vrf.Name)
+		linkVxlan, vxlanErr := nlink.LinkByName(ctx, vxlanStr+path.Base(vrf.Name))
 		if vxlanErr != nil {
 			log.Printf("LGM : Error in getting the %s\n", vxlanStr+vrf.Name)
 			return "", false
@@ -766,22 +763,19 @@ func getIPAddress(dev string) net.IPNet {
 
 // tearDownVrf tears down the vrf
 func tearDownVrf(vrf *infradb.Vrf) bool {
-	Ifname := strings.Split(vrf.Name, "/")
-	ifwlen := len(Ifname)
-	vrf.Name = Ifname[ifwlen-1]
-	link, err1 := nlink.LinkByName(ctx, vrf.Name)
+	link, err1 := nlink.LinkByName(ctx, path.Base(vrf.Name))
 	if err1 != nil {
 		log.Printf("LGM : Link %s not found %+v\n", vrf.Name, err1)
 		return true
 	}
 
-	if vrf.Name == "GRD" {
+	if path.Base(vrf.Name) == "GRD" {
 		return true
 	}
 	routingTable := *vrf.Metadata.RoutingTable[0]
 	// Delete the Linux networking artefacts in reverse order
 	if !reflect.ValueOf(vrf.Spec.Vni).IsZero() {
-		linkVxlan, linkErr := nlink.LinkByName(ctx, vxlanStr+vrf.Name)
+		linkVxlan, linkErr := nlink.LinkByName(ctx, vxlanStr+path.Base(vrf.Name))
 		if linkErr != nil {
 			log.Printf("LGM : Link vxlan-%s not found %+v\n", vrf.Name, linkErr)
 			return false
@@ -793,7 +787,7 @@ func tearDownVrf(vrf *infradb.Vrf) bool {
 		}
 		log.Printf("LGM : Delete vxlan-%s\n", vrf.Name)
 
-		linkBr, linkbrErr := nlink.LinkByName(ctx, brStr+vrf.Name)
+		linkBr, linkbrErr := nlink.LinkByName(ctx, brStr+path.Base(vrf.Name))
 		if linkbrErr != nil {
 			log.Printf("LGM : Link br-%s not found %+v\n", vrf.Name, linkbrErr)
 			return false
