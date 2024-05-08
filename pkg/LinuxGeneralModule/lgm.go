@@ -15,7 +15,6 @@ import (
 	"os/exec"
 	"reflect"
 	"strconv"
-	//"strings"
 	"time"
 
 	"github.com/opiproject/opi-evpn-bridge/pkg/config"
@@ -300,9 +299,6 @@ func handlevrf(objectData *eventbus.ObjectData) {
 	}
 }
 
-// defaultVtep variable string
-var defaultVtep string
-
 // ipMtu variable int
 var ipMtu int
 
@@ -326,7 +322,6 @@ func Init() {
 		}
 	}
 	brTenant = "br-tenant"
-	defaultVtep = config.GlobalConfig.LinuxFrr.DefaultVtep
 	ipMtu = config.GlobalConfig.LinuxFrr.IPMtu
 	ctx = context.Background()
 	nlink = utils.NewNetlinkWrapper()
@@ -375,10 +370,6 @@ func setUpBridge(lb *infradb.LogicalBridge) bool {
 		if err != nil {
 			log.Printf("LGM: Failed to get link information for %s: %v\n", brTenant, err)
 			return false
-		}
-		if reflect.ValueOf(lb.Spec.VtepIP).IsZero() {
-			tmpVtepIP := getIPAddress(defaultVtep)
-			lb.Spec.VtepIP = &tmpVtepIP
 		}
 		vxlan := &netlink.Vxlan{LinkAttrs: netlink.LinkAttrs{Name: link, MTU: ipMtu}, VxlanId: int(*lb.Spec.Vni), Port: 4789, Learning: false, SrcAddr: lb.Spec.VtepIP.IP}
 		if err := nlink.LinkAdd(ctx, vxlan); err != nil {
@@ -449,12 +440,6 @@ func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 			log.Printf(" LGM: VTEP IP not found: %+v\n", vrf.Spec.VtepIP)
 			return "", false
 		}
-	} else {
-		// Pick the IP of interface default VTEP interface
-		// log.Printf("LGM: VTEP iP %+v\n",getIPAddress(defaultVtep))
-		tmpVtepIP := getIPAddress(defaultVtep)
-		vrf.Spec.VtepIP = &tmpVtepIP
-		vtip = fmt.Sprintf("%+v", vrf.Spec.VtepIP.IP)
 	}
 	log.Printf("setUpVrf: %s %d\n", vtip, routingTable)
 	// Create the vrf interface for the specified routing table and add loopback address
@@ -729,36 +714,6 @@ func NetMaskToInt(mask int) (netmaskint [4]int64) {
 	netmaskint[3], _ = strconv.ParseInt(oct4, 2, 64)
 
 	return netmaskint
-}
-
-// getIPAddress gets the ip address from link
-func getIPAddress(dev string) net.IPNet {
-	link, err := nlink.LinkByName(ctx, dev)
-	if err != nil {
-		log.Printf("LGM: Error in LinkByName %+v\n", err)
-		return net.IPNet{
-			IP: net.ParseIP("0.0.0.0"),
-		}
-	}
-
-	addrs, err := nlink.AddrList(ctx, link, netlink.FAMILY_V4) // ip address show
-	if err != nil {
-		log.Printf("LGM: Error in AddrList\n")
-		return net.IPNet{
-			IP: net.ParseIP("0.0.0.0"),
-		}
-	}
-	var address = &net.IPNet{
-		IP:   net.IPv4(127, 0, 0, 0),
-		Mask: net.CIDRMask(8, 32)}
-	var addr = &netlink.Addr{IPNet: address}
-	var validIps []netlink.Addr
-	for index := 0; index < len(addrs); index++ {
-		if !addr.Equal(addrs[index]) {
-			validIps = append(validIps, addrs[index])
-		}
-	}
-	return *validIps[0].IPNet
 }
 
 // tearDownVrf tears down the vrf
