@@ -1646,7 +1646,7 @@ func (nexthop NexthopStruct) annotate() NexthopStruct {
 		if reflect.ValueOf(nexthop.Vrf.Spec.Vni).IsZero() {
 			nexthop.Metadata["vlanID"] = uint32(4089)
 		} else {
-			nexthop.Metadata["vlanID"] = *nexthop.Vrf.Spec.Vni
+			nexthop.Metadata["vlanID"] = *nexthop.Vrf.Metadata.RoutingTable[0]//*nexthop.Vrf.Spec.Vni
 		}
 	}
 	return nexthop
