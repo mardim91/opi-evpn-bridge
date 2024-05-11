@@ -397,3 +397,11 @@ func Init() {
 	ctx = context.Background()
 	nlink = utils.NewNetlinkWrapper()
 }
+
+// DeInit function handles stops functionality
+func DeInit() {
+
+	eb := eventbus.EBus
+	eb.UnsubscribeModule(lvmComp)
+
+ }

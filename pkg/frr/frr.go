@@ -264,6 +264,18 @@ func Init() {
 		log.Println("Error in running command", detail)
 	}
 }
+// DeInit function handles stops functionality
+func DeInit() {
+	frrEnabled := config.GlobalConfig.LinuxFrr.Enabled
+	if !frrEnabled {
+		log.Println("FRR Module disabled")
+		return
+	}
+	// Unsubscribe to InfraDB notifications
+	eb := eventbus.EBus
+	eb.UnsubscribeModule(frrComp)
+
+ }
 
 // routingTableBusy function checks the routing table
 /*func routingTableBusy(table uint32) bool {

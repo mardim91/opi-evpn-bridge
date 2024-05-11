@@ -19,7 +19,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-
 	pc "github.com/opiproject/opi-api/inventory/v1/gen/go"
 	pe "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
 	"github.com/opiproject/opi-evpn-bridge/pkg/bridge"
@@ -89,8 +88,6 @@ var rootCmd = &cobra.Command{
 
 		runGrpcServer(config.GlobalConfig.GRPCPort, config.GlobalConfig.TLSFiles)
 
-
-
 	},
 }
 
@@ -131,18 +128,27 @@ func setupLogger(filename string) {
 }
 
 func cleanUp() {
+	log.Println("Defer function called")
+	if err := deleteGrdVrf(); err != nil {
+		log.Println("Failed to delete GRD vrf")
+	}
 
-		log.Println("Defer function called")
-		if err := deleteGrdVrf(); err != nil {
-			log.Println("Failed to delete GRD vrf")
-		}
-		if err := gen_linux.TearDownTenantBridge(); err != nil {
-			log.Println("Failed to close infradb")
-		}
-		if err := infradb.Close(); err != nil {
-			log.Println("Failed to close infradb")
-		}
+	switch config.GlobalConfig.Buildenv {
+	case "intel_e2000":
+		gen_linux.DeInit()
+		intel_e2000_linux.DeInit()
+		frr.DeInit()
+	case "ci":
+		gen_linux.DeInit()
+		ci_linux.DeInit()
+		frr.DeInit()
+	default:
+		log.Panic(" ERROR: Could not find Build env ")
+	}
 
+	if err := infradb.Close(); err != nil {
+		log.Println("Failed to close infradb")
+	}
 }
 
 // main function
@@ -160,7 +166,6 @@ func main() {
 	if err := rootCmd.Execute(); err != nil {
 		log.Panicf("Error in Execute(): %v", err)
 	}
-
 	defer cleanUp()
 }
 
@@ -277,9 +282,8 @@ func createGrdVrf() error {
 
 // deleteGrdVrf creates the grd vrf with vni 0
 func deleteGrdVrf() error {
-
 	log.Printf("DeleteGrdVrf(): deleted GRD VRF object\n")
-	
+
 	err := infradb.DeleteVrf("//network.opiproject.org/vrfs/GRD")
 	if err != nil {
 		log.Printf("CreateGrdVrf(): Error in deleting GRD VRF object %+v\n", err)

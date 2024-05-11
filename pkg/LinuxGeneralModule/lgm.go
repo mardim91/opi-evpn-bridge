@@ -331,7 +331,17 @@ func Init() {
 		setUpTenantBridge()
 	}
 }
+// DeInit function handles stops functionality
+func DeInit() {
 
+	eb := eventbus.EBus
+	err := TearDownTenantBridge()
+	if err != nil {
+		log.Printf("LGM: Failed to tear down br-tenant: %v\n", err)
+	}
+	eb.UnsubscribeModule("lgm")
+
+ }
 func setUpTenantBridge() {
 	brTenantMtu := ipMtu + 20
 	vlanfiltering := true
@@ -830,18 +840,17 @@ func tearDownBridge(lb *infradb.LogicalBridge) bool {
 
 // TearDownTenantBridge tears down the bridge
 func TearDownTenantBridge() error {
+	Intf, err := nlink.LinkByName(ctx, brTenant)
+	if err != nil {
+		log.Printf("LGM: Failed to get br-tenant %s: %v\n", Intf, err)
+		return err
+	}
+	if err = nlink.LinkDel(ctx, Intf); err != nil {
+		log.Printf("LGM : Failed to delete br-tenant %s: %v\n", Intf, err)
+		return err
+	}
+	log.Printf("LGM: Executed ip link delete %s", brTenant)
 
-		Intf, err := nlink.LinkByName(ctx, brTenant)
-		if err != nil {
-			log.Printf("LGM: Failed to get br-tenant %s: %v\n", Intf, err)
-			return err
-		}
-		if err = nlink.LinkDel(ctx, Intf); err != nil {
-			log.Printf("LGM : Failed to delete br-tenant %s: %v\n", Intf, err)
-			return err
-		}
-		log.Printf("LGM: Executed ip link delete %s", brTenant)
-
-		return nil
+	return nil
 
 }
