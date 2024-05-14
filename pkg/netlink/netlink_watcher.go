@@ -16,10 +16,10 @@ import (
 	"strings"
 	"time"
 
-	"reflect"
 	"encoding/binary"
 	"encoding/json"
 	"net"
+	"reflect"
 
 	"golang.org/x/sys/unix"
 
@@ -29,8 +29,8 @@ import (
 
 	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
+	eb "github.com/opiproject/opi-evpn-bridge/pkg/netlink/eventbus"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
-	eb "github.com/opiproject/opi-evpn-bridge/pkg/netlink/event_bus"
 )
 
 var ctx context.Context
@@ -56,6 +56,7 @@ var EventBus = eb.NewEventBus()
 
 // strNone variable
 var strNone = "NONE"
+var zebraStr = "zebra"
 
 // Route Direction
 const ( // Route direction
@@ -203,10 +204,10 @@ type RouteList struct {
 
 // NexthopStruct contains nexthop structure
 type NexthopStruct struct {
-	nexthop vn.NexthopInfo
-	Vrf     *infradb.Vrf
-	Local   bool
-	Weight  int
+	nexthop   vn.NexthopInfo
+	Vrf       *infradb.Vrf
+	Local     bool
+	Weight    int
 	Metric    int
 	ID        int
 	Scope     int
@@ -597,12 +598,12 @@ type TryResolve func(map[string]string)
 
 // L2NexthopStruct structure
 type L2NexthopStruct struct {
-	Dev    string
-	VlanID int
-	Dst    net.IP
-	Key    L2NexthopKey
-	lb     *infradb.LogicalBridge
-	bp     *infradb.BridgePort
+	Dev      string
+	VlanID   int
+	Dst      net.IP
+	Key      L2NexthopKey
+	lb       *infradb.LogicalBridge
+	bp       *infradb.BridgePort
 	ID       int
 	FdbRefs  []FdbEntryStruct
 	Resolved bool
@@ -612,12 +613,12 @@ type L2NexthopStruct struct {
 
 // FdbEntryStruct structure
 type FdbEntryStruct struct {
-	VlanID int
-	Mac    string
-	Key    FDBKey
-	State  string
-	lb     *infradb.LogicalBridge
-	bp     *infradb.BridgePort
+	VlanID   int
+	Mac      string
+	Key      FDBKey
+	State    string
+	lb       *infradb.LogicalBridge
+	bp       *infradb.BridgePort
 	Nexthop  L2NexthopStruct
 	Type     int
 	Metadata map[interface{}]interface{}
@@ -642,7 +643,7 @@ func ParseFdb(fdbIP FdbIPStruct, fdbentry FdbEntryStruct) FdbEntryStruct {
 			break
 		}
 	}
-	if !(reflect.ValueOf(fdbentry.lb).IsZero()){
+	if !(reflect.ValueOf(fdbentry.lb).IsZero()) {
 		bp := fdbentry.lb.MacTable[fdbentry.Mac]
 		if bp != "" {
 			fdbentry.bp, _ = infradb.GetBP(bp)
@@ -654,7 +655,7 @@ func ParseFdb(fdbIP FdbIPStruct, fdbentry FdbEntryStruct) FdbEntryStruct {
 	fdbentry.Type = fdbentry.Nexthop.Type
 	return fdbentry
 }
-
+//nolint
 // ParseL2NH parse the l2hn
 func (l2n L2NexthopStruct) ParseL2NH(vlanID int, dev string, dst string, LB *infradb.LogicalBridge, BP *infradb.BridgePort) L2NexthopStruct {
 	l2n.Dev = dev
@@ -757,7 +758,7 @@ var NameIndex = make(map[int]string)
 func getlink() {
 	links, err := vn.LinkList()
 	if err != nil {
-		log.Fatal("netlink: %v",err)
+		log.Fatal("netlink:", err)
 	}
 	for i := 0; i < len(links); i++ {
 		linkTable = append(linkTable, links[i])
@@ -813,7 +814,7 @@ func dumpDBs() {
 	str += dumpL2NexthDB()
 	_, err = file.WriteString(str)
 	if err != nil {
-		log.Printf("netlink: %v",err)
+		log.Printf("netlink: %v", err)
 	}
 	err = file.Close()
 	if err != nil {
@@ -840,7 +841,7 @@ type NeighList struct {
 
 func neighborAnnotate(neighbor NeighStruct) NeighStruct {
 	neighbor.Metadata = make(map[interface{}]interface{})
-	if strings.HasPrefix(neighbor.Dev, path.Base(neighbor.VrfName)) && neighbor.Protocol != "zebra" {
+	if strings.HasPrefix(neighbor.Dev, path.Base(neighbor.VrfName)) && neighbor.Protocol != zebraStr {
 		pattern := fmt.Sprintf(`%s-\d+$`, path.Base(neighbor.VrfName))
 		mustcompile := regexp.MustCompile(pattern)
 		s := mustcompile.FindStringSubmatch(neighbor.Dev)
@@ -855,13 +856,13 @@ func neighborAnnotate(neighbor NeighStruct) NeighStruct {
 				break
 			}
 		}
-		if !(reflect.ValueOf(LB).IsZero()){
+		if !(reflect.ValueOf(LB).IsZero()) {
 			bp := LB.MacTable[neighbor.Neigh0.HardwareAddr.String()]
 			if bp != "" {
 				BP, _ = infradb.GetBP(bp)
 			}
 		}
-		if !(reflect.ValueOf(BP).IsZero()){
+		if !(reflect.ValueOf(BP).IsZero()) {
 			neighbor.Type = SVI
 			neighbor.Metadata["vport_id"] = BP.Metadata.VPort
 			neighbor.Metadata["vlanID"] = vlanID
@@ -869,35 +870,35 @@ func neighborAnnotate(neighbor NeighStruct) NeighStruct {
 		} else {
 			neighbor.Type = None
 		}
-	} else if strings.HasPrefix(neighbor.Dev, path.Base(neighbor.VrfName)) && neighbor.Protocol == "zebra" {
+	} else if strings.HasPrefix(neighbor.Dev, path.Base(neighbor.VrfName)) && neighbor.Protocol == zebraStr {
 		pattern := fmt.Sprintf(`%s-\d+$`, path.Base(neighbor.VrfName))
-                mustcompile := regexp.MustCompile(pattern)
-                s := mustcompile.FindStringSubmatch(neighbor.Dev)
-                var LB *infradb.LogicalBridge
-                vID := strings.Split(s[0], "-")[1]
-                lbs, _ := infradb.GetAllLBs()
-                vlanID, _ := strconv.Atoi(vID)
+		mustcompile := regexp.MustCompile(pattern)
+		s := mustcompile.FindStringSubmatch(neighbor.Dev)
+		var LB *infradb.LogicalBridge
+		vID := strings.Split(s[0], "-")[1]
+		lbs, _ := infradb.GetAllLBs()
+		vlanID, _ := strconv.Atoi(vID)
 		for _, lb := range lbs {
-                        if lb.Spec.VlanID == uint32(vlanID) {
-                                LB = lb
-                                break
-                        }
-                }
+			if lb.Spec.VlanID == uint32(vlanID) {
+				LB = lb
+				break
+			}
+		}
 		if LB.Spec.Vni != nil {
 			fdbEntry := LatestFDB[FDBKey{vlanID, neighbor.Neigh0.HardwareAddr.String()}]
 			neighbor.Metadata["l2_nh"] = fdbEntry.Nexthop
-			neighbor.Type = VXLAN //confirm this later
+			neighbor.Type = VXLAN // confirm this later
 		}
-	} else if path.Base(neighbor.VrfName) == "GRD" && neighbor.Protocol != "zebra" {
+	} else if path.Base(neighbor.VrfName) == "GRD" && neighbor.Protocol != zebraStr {
 		VRF, _ := infradb.GetVrf("//network.opiproject.org/vrfs/GRD")
-                r := lookupRoute(neighbor.Neigh0.IP, VRF)
+		r := lookupRoute(neighbor.Neigh0.IP, VRF)
 		if !(reflect.ValueOf(r).IsZero()) {
 			if r.Nexthops[0].nexthop.LinkIndex == neighbor.Neigh0.LinkIndex {
-			neighbor.Type = PHY
-			neighbor.Metadata["vport_id"] = phyPorts[NameIndex[neighbor.Neigh0.LinkIndex]]
-		} else {
-			neighbor.Type = None
-		}
+				neighbor.Type = PHY
+				neighbor.Metadata["vport_id"] = phyPorts[NameIndex[neighbor.Neigh0.LinkIndex]]
+			} else {
+				neighbor.Type = None
+			}
 		} else {
 			neighbor.Type = None
 		}
@@ -1327,7 +1328,7 @@ type RouteCmdInfo struct {
 // preFilterMac filter the mac
 func preFilterMac(f FdbEntryStruct) bool {
 	// TODO m.nexthop.dst
-	if f.VlanID != 0 || !(reflect.ValueOf(f.Nexthop.Dst).IsZero()){
+	if f.VlanID != 0 || !(reflect.ValueOf(f.Nexthop.Dst).IsZero()) {
 		log.Printf("netlink: %d vlan \n", len(f.Nexthop.Dst.String()))
 		return true
 	}
@@ -1486,7 +1487,7 @@ func lookupRoute(dst net.IP, v *infradb.Vrf) RouteStruct {
 		CP, err = nlink.RouteLookup(ctx, dst.String(), "")
 	}
 	if err != nil {
-		log.Fatal("netlink : Command error %v\n", err)
+		log.Fatal("netlink : Command error \n", err)
 		return RouteStruct{}
 	}
 	r := cmdProcessRt(v, CP, int(*v.Metadata.RoutingTable[0]))
@@ -1695,7 +1696,7 @@ func (fdb FdbEntryStruct) annotate() FdbEntryStruct {
 	if fdb.VlanID == 0 {
 		return fdb
 	}
-	if reflect.ValueOf(fdb.lb).IsZero() { 
+	if reflect.ValueOf(fdb.lb).IsZero() {
 		return fdb
 	}
 
@@ -1787,7 +1788,7 @@ func installFilterFDB(fdb FdbEntryStruct) bool {
 	// Drop entries w/o VLAN ID or associated LogicalBridge ...
 	// ... other than with L2 nexthops of type VXLAN and BridgePort ...
 	// ... and VXLAN entries with unresolved underlay nextop.
-	keep := !reflect.ValueOf(fdb.VlanID).IsZero() && !reflect.ValueOf(fdb.lb).IsZero() &&  checkFdbType(fdb.Type) && fdb.Nexthop.Resolved
+	keep := !reflect.ValueOf(fdb.VlanID).IsZero() && !reflect.ValueOf(fdb.lb).IsZero() && checkFdbType(fdb.Type) && fdb.Nexthop.Resolved
 	if !keep {
 		log.Printf("netlink: install_filter: dropping {%v}", fdb)
 	}
@@ -1960,7 +1961,7 @@ func monitorNetlink(_ bool) {
 // Init function intializes config
 func Init() {
 	pollInterval = config.GlobalConfig.Netlink.PollInterval
-	log.Printf("netlink: poll interval: %v",pollInterval)
+	log.Printf("netlink: poll interval: %v", pollInterval)
 	nlEnabled := config.GlobalConfig.Netlink.Enabled
 	if !nlEnabled {
 		log.Printf("netlink: netlink_monitor disabled")

@@ -331,17 +331,16 @@ func Init() {
 		setUpTenantBridge()
 	}
 }
+
 // DeInit function handles stops functionality
 func DeInit() {
-
 	eb := eventbus.EBus
 	err := TearDownTenantBridge()
 	if err != nil {
 		log.Printf("LGM: Failed to tear down br-tenant: %v\n", err)
 	}
 	eb.UnsubscribeModule("lgm")
-
- }
+}
 func setUpTenantBridge() {
 	brTenantMtu := ipMtu + 20
 	vlanfiltering := true
@@ -852,5 +851,4 @@ func TearDownTenantBridge() error {
 	log.Printf("LGM: Executed ip link delete %s", brTenant)
 
 	return nil
-
 }

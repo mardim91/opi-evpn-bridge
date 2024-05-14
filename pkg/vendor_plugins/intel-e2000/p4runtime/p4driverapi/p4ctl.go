@@ -2,19 +2,22 @@
 // Copyright (c) 2022-2023 Intel Corporation, or its subsidiaries.
 // Copyright (C) 2023 Nordix Foundation.
 
-package p4driverAPI
+// Package p4driverapi handles p4 driver realted functionality
+package p4driverapi
 
 import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"encoding/hex"
+
+	// "encoding/hex"
 	"fmt"
 	"net"
-	"strings"
-	"time"
+
+	// "strings"
 	"log"
-	proto "github.com/golang/protobuf/proto"
+	"time"
+
 	logr "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 
@@ -26,33 +29,43 @@ import (
 
 const (
 	defaultDeviceID = 1
+	lpmStr          = "lpm"
+	ternaryStr      = "ternary"
 )
 
 var (
+	// Ctx var of type context
 	Ctx context.Context
 
+	// P4RtC var of \p4 runtime client
 	P4RtC *client.Client
 )
 
+// TableEntry p4 table entry type
 type TableEntry struct {
 	Tablename string
 	TableField
 	Action
 }
 
+// Action p4 table action type
 type Action struct {
-	Action_name string
-	Params      []interface{}
+	ActionName string
+	Params     []interface{}
 }
 
+// TableField p4 table field type
 type TableField struct {
 	FieldValue map[string][2]interface{}
 	Priority   int32
 }
 
+// uint16toBytes convert uint16 to bytes
 func uint16toBytes(val uint16) []byte {
 	return []byte{byte(val >> 8), byte(val)}
 }
+
+// boolToBytes convert bool to bytes
 func boolToBytes(val bool) []byte {
 	if val {
 		return []byte{1}
@@ -60,11 +73,14 @@ func boolToBytes(val bool) []byte {
 	return []byte{0}
 }
 
+// uint32toBytes convert uint32 to bytes
 func uint32toBytes(num uint32) []byte {
 	bytes := make([]byte, 4)
 	binary.BigEndian.PutUint32(bytes, num)
 	return bytes
 }
+
+// Buildmfs builds the match fields
 func Buildmfs(tablefield TableField) (map[string]client.MatchInterface, bool, error) {
 	var isTernary bool
 	isTernary = false
@@ -74,43 +90,60 @@ func Buildmfs(tablefield TableField) (map[string]client.MatchInterface, bool, er
 		case net.HardwareAddr:
 			mfs[key] = &client.ExactMatch{Value: value[0].(net.HardwareAddr)}
 		case uint16:
-			if value[1].(string) == "lpm" {
+			// if value[1].(string) == lpmStr {
+			switch value[1].(string) {
+			case lpmStr:
 				mfs[key] = &client.LpmMatch{Value: uint16toBytes(value[0].(uint16)), PLen: 31}
-			} else if value[1].(string) == "ternary" {
+			// } else if value[1].(string) == ternaryStr {
+			case ternaryStr:
 				isTernary = true
 				mfs[key] = &client.TernaryMatch{Value: uint16toBytes(value[0].(uint16)), Mask: uint32toBytes(4294967295)}
-			} else {
+			// } else {
+			default:
 				mfs[key] = &client.ExactMatch{Value: uint16toBytes(value[0].(uint16))}
 			}
 		case *net.IPNet:
 			maskSize, _ := v.Mask.Size()
 			ip := v.IP.To4()
-			if value[1].(string) == "lpm" {
+			// if value[1].(string) == lpmStr {
+			switch value[1].(string) {
+			case lpmStr:
 				mfs[key] = &client.LpmMatch{Value: v.IP.To4(), PLen: int32(maskSize)}
-			} else if value[1].(string) == "ternary" {
+			// } else if value[1].(string) == ternaryStr {
+			case ternaryStr:
 				isTernary = true
 				mfs[key] = &client.TernaryMatch{Value: []byte(ip), Mask: uint32toBytes(4294967295)}
-			} else {
+			// } else {
+			default:
 				mfs[key] = &client.ExactMatch{Value: []byte(ip)}
 			}
 		case net.IP:
-			if value[1].(string) == "lpm" {
+
+			switch value[1].(string) {
+			case lpmStr:
+
 				mfs[key] = &client.LpmMatch{Value: value[0].(net.IP).To4(), PLen: 24}
-			} else if value[1].(string) == "ternary" {
+			// } else if value[1].(string) == ternaryStr {
+			case ternaryStr:
 				isTernary = true
 				mfs[key] = &client.TernaryMatch{Value: []byte(v), Mask: uint32toBytes(4294967295)}
-			} else {
+			// } else {
+			default:
 				mfs[key] = &client.ExactMatch{Value: []byte(v)}
 			}
 		case bool:
 			mfs[key] = &client.ExactMatch{Value: boolToBytes(value[0].(bool))}
 		case uint32:
-			if value[1].(string) == "lpm" {
+			switch value[1].(string) {
+			case lpmStr:
+
 				mfs[key] = &client.LpmMatch{Value: uint32toBytes(value[0].(uint32)), PLen: 31}
-			} else if value[1].(string) == "ternary" {
+			// } else if value[1].(string) == ternaryStr {
+			case ternaryStr:
 				isTernary = true
 				mfs[key] = &client.TernaryMatch{Value: uint32toBytes(value[0].(uint32)), Mask: uint32toBytes(4294967295)}
-			} else {
+			// } else {
+			default:
 				mfs[key] = &client.ExactMatch{Value: uint32toBytes(value[0].(uint32))}
 			}
 		default:
@@ -121,49 +154,53 @@ func Buildmfs(tablefield TableField) (map[string]client.MatchInterface, bool, er
 	return mfs, isTernary, nil
 }
 
-func Get_entry(table string) ([]*p4_v1.TableEntry, error) {
+// GetEntry get the entry
+func GetEntry(table string) ([]*p4_v1.TableEntry, error) {
 	entry, err1 := P4RtC.ReadTableEntryWildcard(Ctx, table)
 	return entry, err1
 }
 
-func Del_entry(Entry TableEntry) error {
+// DelEntry deletes the entry
+func DelEntry(entry TableEntry) error {
 	Options := &client.TableEntryOptions{
-		Priority: Entry.TableField.Priority,
+		Priority: entry.TableField.Priority,
 	}
-	mfs, isTernary, err := Buildmfs(Entry.TableField)
+	mfs, isTernary, err := Buildmfs(entry.TableField)
 	if err != nil {
 		log.Fatalf("intel-e2000: Error in Building mfs: %v", err)
 		return err
 	}
 	if isTernary {
-		entry := P4RtC.NewTableEntry(Entry.Tablename, mfs, nil, Options)
-		return P4RtC.DeleteTableEntry(Ctx, entry)
-	} else {
-		entry := P4RtC.NewTableEntry(Entry.Tablename, mfs, nil, nil)
+		entry := P4RtC.NewTableEntry(entry.Tablename, mfs, nil, Options)
 		return P4RtC.DeleteTableEntry(Ctx, entry)
 	}
+
+	entryP := P4RtC.NewTableEntry(entry.Tablename, mfs, nil, nil)
+	return P4RtC.DeleteTableEntry(Ctx, entryP)
 }
 
+/*// mustMarshal marshal the msg
 func mustMarshal(msg proto.Message) []byte {
 	data, err := proto.Marshal(msg)
 	if err != nil {
 		panic(err) // You should handle errors appropriately in your code
 	}
 	return data
-}
+}*/
 
-func Add_entry(Entry TableEntry) error {
+// AddEntry adds an entry
+func AddEntry(entry TableEntry) error {
 	Options := &client.TableEntryOptions{
-		Priority: Entry.TableField.Priority,
+		Priority: entry.TableField.Priority,
 	}
-	mfs, isTernary, err := Buildmfs(Entry.TableField)
+	mfs, isTernary, err := Buildmfs(entry.TableField)
 	if err != nil {
 		log.Fatalf("intel-e2000: Error in Building mfs: %v", err)
 		return err
 	}
-	params := make([][]byte, len(Entry.Action.Params))
-	for i := 0; i < len(Entry.Action.Params); i++ {
-		switch v := Entry.Action.Params[i].(type) {
+	params := make([][]byte, len(entry.Action.Params))
+	for i := 0; i < len(entry.Action.Params); i++ {
+		switch v := entry.Action.Params[i].(type) {
 		case uint16:
 			buf := new(bytes.Buffer)
 			err1 := binary.Write(buf, binary.BigEndian, v)
@@ -190,21 +227,24 @@ func Add_entry(Entry TableEntry) error {
 		}
 	}
 
-	actionSet := P4RtC.NewTableActionDirect(Entry.Action.Action_name, params)
+	actionSet := P4RtC.NewTableActionDirect(entry.Action.ActionName, params)
 
 	if isTernary {
-		entry := P4RtC.NewTableEntry(Entry.Tablename, mfs, actionSet, Options)
-		return P4RtC.InsertTableEntry(Ctx, entry)
-	} else {
-		entry := P4RtC.NewTableEntry(Entry.Tablename, mfs, actionSet, nil)
-		return P4RtC.InsertTableEntry(Ctx, entry)
+		entryP := P4RtC.NewTableEntry(entry.Tablename, mfs, actionSet, Options)
+		return P4RtC.InsertTableEntry(Ctx, entryP)
 	}
+	entryP := P4RtC.NewTableEntry(entry.Tablename, mfs, actionSet, nil)
+	return P4RtC.InsertTableEntry(Ctx, entryP)
 }
+
+/*// encodeMac encodes the mac from string
 func encodeMac(macAddrString string) []byte {
 	str := strings.Replace(macAddrString, ":", "", -1)
 	decoded, _ := hex.DecodeString(str)
 	return decoded
-}
+}*/
+
+// NewP4RuntimeClient get the p4 runtime client
 func NewP4RuntimeClient(binPath string, p4infoPath string, conn *grpc.ClientConn) error {
 	Ctx = context.Background()
 	c := p4_v1.NewP4RuntimeClient(conn)

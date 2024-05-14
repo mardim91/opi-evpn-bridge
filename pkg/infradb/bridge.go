@@ -14,10 +14,10 @@ import (
 	"net"
 
 	pb "github.com/opiproject/opi-api/network/evpn-gw/v1alpha1/gen/go"
+	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriberframework/eventbus"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
-	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 )
 
 // LogicalBridgeOperStatus operational Status for Logical Bridges

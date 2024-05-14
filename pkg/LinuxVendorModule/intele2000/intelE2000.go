@@ -400,8 +400,6 @@ func Init() {
 
 // DeInit function handles stops functionality
 func DeInit() {
-
 	eb := eventbus.EBus
 	eb.UnsubscribeModule(lvmComp)
-
- }
+}
