@@ -13,9 +13,9 @@ import (
 	"net"
 	"strings"
 	"time"
-
+	"log"
 	proto "github.com/golang/protobuf/proto"
-	log "github.com/sirupsen/logrus"
+	logr "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 
 	p4_v1 "github.com/p4lang/p4runtime/go/p4/v1"
@@ -114,7 +114,7 @@ func Buildmfs(tablefield TableField) (map[string]client.MatchInterface, bool, er
 				mfs[key] = &client.ExactMatch{Value: uint32toBytes(value[0].(uint32))}
 			}
 		default:
-			log.Println("Unknown field", v)
+			log.Println("intel-e2000: Unknown field ", v)
 			return mfs, false, fmt.Errorf("invalid inputtype %d for %s", v, key)
 		}
 	}
@@ -132,18 +132,14 @@ func Del_entry(Entry TableEntry) error {
 	}
 	mfs, isTernary, err := Buildmfs(Entry.TableField)
 	if err != nil {
-		log.Fatalf("Error in Building mfs: %v", err)
+		log.Fatalf("intel-e2000: Error in Building mfs: %v", err)
 		return err
 	}
 	if isTernary {
 		entry := P4RtC.NewTableEntry(Entry.Tablename, mfs, nil, Options)
-		//log.Println("isTernary Delete Table Name---", Entry.Tablename)
-		//log.Println("Delete Rule----", entry)
 		return P4RtC.DeleteTableEntry(Ctx, entry)
 	} else {
 		entry := P4RtC.NewTableEntry(Entry.Tablename, mfs, nil, nil)
-		//log.Println("Delete Table Name---", Entry.Tablename)
-		//log.Println("Delete Rule----", entry)
 		return P4RtC.DeleteTableEntry(Ctx, entry)
 	}
 }
@@ -162,7 +158,7 @@ func Add_entry(Entry TableEntry) error {
 	}
 	mfs, isTernary, err := Buildmfs(Entry.TableField)
 	if err != nil {
-		log.Fatalf("Error in Building mfs: %v", err)
+		log.Fatalf("intel-e2000: Error in Building mfs: %v", err)
 		return err
 	}
 	params := make([][]byte, len(Entry.Action.Params))
@@ -172,7 +168,7 @@ func Add_entry(Entry TableEntry) error {
 			buf := new(bytes.Buffer)
 			err1 := binary.Write(buf, binary.BigEndian, v)
 			if err1 != nil {
-				log.Println("binary.Write failed:", err1)
+				log.Println("intel-e2000: binary.Write failed:", err1)
 				return err1
 			}
 			params[i] = buf.Bytes()
@@ -180,7 +176,7 @@ func Add_entry(Entry TableEntry) error {
 			buf := new(bytes.Buffer)
 			err1 := binary.Write(buf, binary.BigEndian, v)
 			if err1 != nil {
-				log.Println("binary.Write failed:", err1)
+				log.Println("inte-e2000: binary.Write failed:", err1)
 				return err1
 			}
 			params[i] = buf.Bytes()
@@ -189,7 +185,7 @@ func Add_entry(Entry TableEntry) error {
 		case net.IP:
 			params[i] = v
 		default:
-			log.Println("Unknown actionparam", v)
+			log.Println("intel-e2000: Unknown actionparam", v)
 			return nil
 		}
 	}
@@ -198,13 +194,9 @@ func Add_entry(Entry TableEntry) error {
 
 	if isTernary {
 		entry := P4RtC.NewTableEntry(Entry.Tablename, mfs, actionSet, Options)
-		log.Println("isTernary Table Name---", Entry.Tablename)
-		log.Println("Rule----", entry)
 		return P4RtC.InsertTableEntry(Ctx, entry)
 	} else {
 		entry := P4RtC.NewTableEntry(Entry.Tablename, mfs, actionSet, nil)
-		log.Println("Table Name---", Entry.Tablename)
-		log.Println("Rule----", entry)
 		return P4RtC.InsertTableEntry(Ctx, entry)
 	}
 }
@@ -218,10 +210,10 @@ func NewP4RuntimeClient(binPath string, p4infoPath string, conn *grpc.ClientConn
 	c := p4_v1.NewP4RuntimeClient(conn)
 	resp, err := c.Capabilities(Ctx, &p4_v1.CapabilitiesRequest{})
 	if err != nil {
-		log.Fatalf("Error in Capabilities RPC: %v", err)
+		logr.Fatalf("intel-e2000: Error in Capabilities RPC: %v", err)
 		return err
 	}
-	log.Infof("P4Runtime server version is %s", resp.P4RuntimeApiVersion)
+	logr.Infof("intel-e2000: P4Runtime server version is %s", resp.P4RuntimeApiVersion)
 
 	stopCh := signals.RegisterSignalHandlers()
 
@@ -237,13 +229,13 @@ func NewP4RuntimeClient(binPath string, p4infoPath string, conn *grpc.ClientConn
 		sent := false
 		for isPrimary := range arbitrationCh {
 			if isPrimary {
-				log.Infof("We are the primary client!")
+				logr.Infof("We are the primary client!")
 				if !sent {
 					waitCh <- struct{}{}
 					sent = true
 				}
 			} else {
-				log.Infof("We are not the primary client!")
+				logr.Infof("We are not the primary client!")
 			}
 		}
 	}()
@@ -254,13 +246,13 @@ func NewP4RuntimeClient(binPath string, p4infoPath string, conn *grpc.ClientConn
 		defer cancel()
 		select {
 		case <-Ctx2.Done():
-			log.Fatalf("Could not become the primary client within %v", timeout)
+			logr.Fatalf("Could not become the primary client within %v", timeout)
 		case <-waitCh:
 		}
 	}()
-	log.Info("Setting forwarding pipe")
+	logr.Info("Setting forwarding pipe")
 	if _, err := P4RtC.SetFwdPipe(Ctx, binPath, p4infoPath, 0); err != nil {
-		log.Fatalf("Error when setting forwarding pipe: %v", err)
+		logr.Fatalf("Error when setting forwarding pipe: %v", err)
 		return err
 	}
 	return nil

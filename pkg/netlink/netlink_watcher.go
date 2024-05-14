@@ -705,7 +705,7 @@ func addFdbEntry(m FdbEntryStruct) {
 // addL2Nexthop add the l2 nexthop
 func addL2Nexthop(m FdbEntryStruct) FdbEntryStruct {
 	if reflect.ValueOf(LatestL2Nexthop).IsZero() {
-		log.Fatal("L2Nexthop DB empty\n")
+		log.Fatal("netlink: L2Nexthop DB empty\n")
 		return FdbEntryStruct{}
 	}
 	latestNexthops := LatestL2Nexthop[m.Nexthop.Key]
@@ -757,7 +757,7 @@ var NameIndex = make(map[int]string)
 func getlink() {
 	links, err := vn.LinkList()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("netlink: %v",err)
 	}
 	for i := 0; i < len(links); i++ {
 		linkTable = append(linkTable, links[i])
@@ -813,11 +813,11 @@ func dumpDBs() {
 	str += dumpL2NexthDB()
 	_, err = file.WriteString(str)
 	if err != nil {
-		log.Println(err)
+		log.Printf("netlink: %v",err)
 	}
 	err = file.Close()
 	if err != nil {
-		log.Println(err)
+		log.Printf("netlink: error closing file: %v", err)
 	}
 }
 
@@ -974,7 +974,6 @@ func printNeigh(neigh *NeighStruct) string {
 // dumpRouteDB dump the route database
 func dumpRouteDB() string {
 	var s string
-	log.Printf("netlink: len %d\n", len(LatestRoutes))
 	log.Printf("netlink: Dump Route table:\n")
 	s = "Route table:\n"
 	for _, n := range LatestRoutes {
@@ -997,7 +996,6 @@ func dumpRouteDB() string {
 // dumpL2NexthDB dump the l2 nexthop entries
 func dumpL2NexthDB() string {
 	var s string
-	log.Printf("netlink: len %d\n", len(LatestL2Nexthop))
 	log.Printf("netlink: Dump L2 Nexthop table:\n")
 	s = "L2 Nexthop table:\n"
 	var ip string
@@ -1020,7 +1018,6 @@ func dumpL2NexthDB() string {
 // dumpFDB dump the fdb entries
 func dumpFDB() string {
 	var s string
-	log.Printf("netlink: len %d\n", len(LatestFDB))
 	log.Printf("netlink: Dump FDB table:\n")
 	s = "FDB table:\n"
 	for _, n := range LatestFDB {
@@ -1037,7 +1034,6 @@ func dumpFDB() string {
 // dumpNexthDB dump the nexthop entries
 func dumpNexthDB() string {
 	var s string
-	log.Printf("netlink: len %d\n", len(LatestNexthop))
 	log.Printf("netlink: Dump Nexthop table:\n")
 	s = "Nexthop table:\n"
 	for _, n := range LatestNexthop {
@@ -1054,7 +1050,6 @@ func dumpNexthDB() string {
 // dumpNeighDB dump the neighbor entries
 func dumpNeighDB() string {
 	var s string
-	log.Printf("netlink: len %d\n", len(LatestNeighbors))
 	log.Printf("netlink: Dump Neighbor table:\n")
 	s = "Neighbor table:\n"
 	for _, n := range LatestNeighbors {
@@ -1195,7 +1190,7 @@ func cmdProcessNb(nb string, v string) NeighList {
 		log.Println(CPs[i])
 		err := json.Unmarshal([]byte(fmt.Sprintf("{%v}", CPs[i])), &ni)
 		if err != nil {
-			log.Println("error-", err)
+			log.Println("netlink: error-", err)
 		}
 		nbs = append(nbs, ni)
 	}
@@ -1343,7 +1338,7 @@ func preFilterMac(f FdbEntryStruct) bool {
 func cmdProcessRt(v *infradb.Vrf, r string, t int) RouteList {
 	var RouteData []RouteCmdInfo
 	if len(r) <= 3 {
-		log.Println("NL: Error in the cmd:", r)
+		log.Println("netlink: Error in the cmd:", r)
 		var route RouteList
 		return route
 	}
@@ -1403,9 +1398,8 @@ var notifyEvents = []string{"_added", "_updated", "_deleted"}
 
 //nolint
 func notify_changes(new_db map[interface{}]interface{}, old_db map[interface{}]interface{}, event []string) {
-	var DB1, DB2 = make(map[interface{}]interface{}), make(map[interface{}]interface{})
-	DB2 = old_db
-	DB1 = new_db
+	DB2 := old_db
+	DB1 := new_db
 	/* Checking the Updated entries in the netlink db by comparing the individual keys and their corresponding values in old and new db copies
 	   entries with same keys with different values and send the notification to vendor specific module */
 	for k1, v1 := range DB1 {
@@ -1466,7 +1460,7 @@ func readFDB() []FdbEntryStruct {
 		var fi FdbIPStruct
 		err := json.Unmarshal([]byte(fmt.Sprintf("{%v}", CPs[i])), &fi)
 		if err != nil {
-			log.Println("error-", err)
+			log.Printf("netlink: error-%v", err)
 		}
 		fdbs = append(fdbs, fi)
 	}
@@ -1492,7 +1486,7 @@ func lookupRoute(dst net.IP, v *infradb.Vrf) RouteStruct {
 		CP, err = nlink.RouteLookup(ctx, dst.String(), "")
 	}
 	if err != nil {
-		log.Fatal("Command error\n")
+		log.Fatal("netlink : Command error %v\n", err)
 		return RouteStruct{}
 	}
 	r := cmdProcessRt(v, CP, int(*v.Metadata.RoutingTable[0]))
@@ -1516,7 +1510,7 @@ func lookupRoute(dst net.IP, v *infradb.Vrf) RouteStruct {
 		return R1
 	}
 
-	log.Printf("netlink: Failed to lookup route {dst} in VRF {v}")
+	log.Printf("netlink: Failed to lookup route %v in VRF %v", dst, v)
 	return RouteStruct{}
 }
 
@@ -1589,16 +1583,16 @@ func (nexthop NexthopStruct) annotate() NexthopStruct {
 			if com.Name == "frr" {
 				err := json.Unmarshal([]byte(com.Details), &detail)
 				if err != nil {
-					log.Println("Error:", err)
+					log.Printf("netlink: Error: %v", err)
 				}
 				rmac, found := detail["rmac"].(string)
 				if !found {
-					log.Println("Key 'rmac' not found")
+					log.Printf("netlink: Key 'rmac' not found")
 					break
 				}
 				Rmac, err = net.ParseMAC(rmac)
 				if err != nil {
-					log.Println("Error parsing MAC address:", err)
+					log.Printf("netlink: Error parsing MAC address: %v", err)
 				}
 			}
 		}
@@ -1635,7 +1629,7 @@ func (nexthop NexthopStruct) annotate() NexthopStruct {
 		nexthop.NhType = ACC
 		link1, err := vn.LinkByName("rep-" + path.Base(nexthop.Vrf.Name))
 		if err != nil {
-			log.Printf("netlink: Error in getting rep information\n")
+			log.Printf("netlink: Error in getting rep information: %v\n", err)
 		}
 		if link1 == nil {
 			return nexthop
@@ -1945,12 +1939,12 @@ func monitorNetlink(_ bool) {
 		log.Printf("netlink: Polling netlink databases completed.")
 		time.Sleep(time.Duration(pollInterval) * time.Second)
 	}
-	log.Println("netlink: Stopped periodic polling. Waiting for Infra DB cleanup to finish")
+	log.Printf("netlink: Stopped periodic polling. Waiting for Infra DB cleanup to finish")
 	time.Sleep(2 * time.Second)
-	log.Println("netlink: One final netlink poll to identify what's still left.")
+	log.Printf("netlink: One final netlink poll to identify what's still left.")
 	resyncWithKernel()
 	// Inform subscribers to delete configuration for any still remaining Netlink DB objects.
-	log.Println("netlink: Delete any residual objects in DB")
+	log.Printf("netlink: Delete any residual objects in DB")
 	for _, r := range Routes {
 		notifyAddDel(r, "route_deleted")
 	}
@@ -1960,16 +1954,16 @@ func monitorNetlink(_ bool) {
 	for _, m := range FDB {
 		notifyAddDel(m, "FDB_entry_deleted")
 	}
-	log.Println("netlink: DB cleanup completed.")
+	log.Printf("netlink: DB cleanup completed.")
 }
 
 // Init function intializes config
 func Init() {
 	pollInterval = config.GlobalConfig.Netlink.PollInterval
-	log.Println(pollInterval)
+	log.Printf("netlink: poll interval: %v",pollInterval)
 	nlEnabled := config.GlobalConfig.Netlink.Enabled
 	if !nlEnabled {
-		log.Println("netlink_monitor disabled")
+		log.Printf("netlink: netlink_monitor disabled")
 		return
 	}
 	for i := 0; i < len(config.GlobalConfig.Netlink.PhyPorts); i++ {

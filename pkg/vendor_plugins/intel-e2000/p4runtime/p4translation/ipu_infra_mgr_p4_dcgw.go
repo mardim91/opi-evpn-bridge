@@ -481,7 +481,7 @@ func _big_endian_16(id interface{}) interface{} {
 	var value = []interface{}{id}
 	var packed_data, err = bp.Pack(pack_format, value)
 	if err != nil {
-		log.Println(err)
+		log.Printf("intel-e2000: error: %v\n",err)
 	}
 	var unpacked_data = binary.BigEndian.Uint16(packed_data)
 	return unpacked_data
@@ -493,7 +493,7 @@ func _big_endian_32(id interface{}) interface{} {
 	var value = []interface{}{id}
 	var packed_data, err = bp.Pack(pack_format, value)
 	if err != nil {
-		log.Println(err)
+		log.Printf("intel-e2000: error: %v\n",err)
 	}
 	var unpacked_data = binary.BigEndian.Uint32(packed_data)
 	return unpacked_data
@@ -1412,21 +1412,21 @@ func (v VxlanDecoder) translate_added_vrf(VRF *infradb.Vrf) []interface{} {
 		if com.Name == "frr" {
 			err := json.Unmarshal([]byte(com.Details), &detail)
 			if err != nil {
-				log.Println("Error:", err)
+				log.Println("intel-e2000: Error: ", err)
 			}
 			rmac, found := detail["rmac"].(string)
 			if !found {
-				log.Println("Key 'rmac' not found")
+				log.Println("intel-e2000: Key 'rmac' not found")
 				break
 			}
 			Rmac, err = net.ParseMAC(rmac)
 			if err != nil {
-				log.Println("Error parsing MAC address:", err)
+				log.Println("intel-e2000: Error parsing MAC address:", err)
 			}
 		}
 	}
 	if reflect.ValueOf(Rmac).IsZero() {
-		log.Println("Rmac not found for Vtep :", VRF.Spec.VtepIP.IP)
+		log.Println("intel-e2000: Rmac not found for Vtep :", VRF.Spec.VtepIP.IP)
 		return entries
 	}
 	entries = append(entries, p4client.TableEntry{
@@ -1459,21 +1459,21 @@ func (v VxlanDecoder) translate_deleted_vrf(VRF *infradb.Vrf) []interface{} {
 		if com.Name == "frr" {
 			err := json.Unmarshal([]byte(com.Details), &detail)
 			if err != nil {
-				log.Println("Error:", err)
+				log.Println("intel-e2000: Error: ", err)
 			}
 			rmac, found := detail["rmac"].(string)
 			if !found {
-				log.Println("Key 'rmac' not found")
+				log.Println("intel-e2000: Key 'rmac' not found")
 				break
 			}
 			Rmac, err = net.ParseMAC(rmac)
 			if err != nil {
-				log.Println("Error parsing MAC address:", err)
+				log.Println("intel-e2000: Error parsing MAC address:", err)
 			}
 		}
 	}
 	if reflect.ValueOf(Rmac).IsZero() {
-		log.Println("Rmac not found for Vtep :", VRF.Spec.VtepIP.IP)
+		log.Println("intel-e2000: Rmac not found for Vtep :", VRF.Spec.VtepIP.IP)
 		return entries
 	}
 	entries = append(entries, p4client.TableEntry{
@@ -1901,11 +1901,11 @@ func (p PodDecoder) translate_added_bp(bp *infradb.BridgePort) ([]interface{}, e
 		for _, vlan := range bp.Spec.LogicalBridges{
 			BrObj, err := infradb.GetLB(vlan)
 			if err != nil {
-                        	log.Printf("unable to find key %s and error is %v", vlan, err)
+				log.Printf("intel-e2000: unable to find key %s and error is %v\n", vlan, err)
                         	return entries, err
                 	}
 			if BrObj.Spec.VlanID > math.MaxUint16 {
-                        	log.Printf("VlanID %v value passed in Logical Bridge create is greater than 16 bit value\n", BrObj.Spec.VlanID)
+				log.Printf("intel-e2000: VlanID %v value passed in Logical Bridge create is greater than 16 bit value\n", BrObj.Spec.VlanID)
                         	return entries, errors.New("VlanID value passed in Logical Bridge create is greater than 16 bit value")
                 	}
 			vid := uint16(BrObj.Spec.VlanID)
@@ -1943,12 +1943,12 @@ func (p PodDecoder) translate_added_bp(bp *infradb.BridgePort) ([]interface{}, e
                         if BrObj.Svi != ""{
 				SviObj, err := infradb.GetSvi(BrObj.Svi)
 				if err != nil {
-					log.Printf("unable to find key %s and error is %v", BrObj.Svi, err)
+					log.Printf("intel-e2000: unable to find key %s and error is %v\n", BrObj.Svi, err)
 					return entries, err
 				}
 				VrfObj, err := infradb.GetVrf(SviObj.Spec.Vrf)
 				if err != nil {
-					log.Printf("unable to find key %s and error is %v", SviObj.Spec.Vrf, err)
+					log.Printf("intel-e2000: unable to find key %s and error is %v\n", SviObj.Spec.Vrf, err)
 					return entries, err
 				}
 				var tcam_prefix , _ = _get_tcam_prefix(*VrfObj.Spec.Vni, Direction.Tx)
@@ -1971,17 +1971,17 @@ func (p PodDecoder) translate_added_bp(bp *infradb.BridgePort) ([]interface{}, e
                                         },
                                 })
                         } else{
-                                log.Println("logger TODO")
+				log.Println("intel-e2000: no associated SVI object created")
                         }
                 }
         } else if (bp.Spec.Ptype == infradb.Access){
 			BrObj, err := infradb.GetLB(bp.Spec.LogicalBridges[0])
                         if err != nil {
-                                log.Printf("unable to find key %s and error is %v", bp.Spec.LogicalBridges[0], err)
+				log.Printf("intel-e2000: unable to find key %s and error is %v\n", bp.Spec.LogicalBridges[0], err)
                                 return entries, err
                         }
                         if BrObj.Spec.VlanID > math.MaxUint16 {
-                                log.Printf("VlanID %v value passed in Logical Bridge create is greater than 16 bit value\n", BrObj.Spec.VlanID)
+				log.Printf("intel-e2000: VlanID %v value passed in Logical Bridge create is greater than 16 bit value\n", BrObj.Spec.VlanID)
                                 return entries, errors.New("VlanID value passed in Logical Bridge create is greater than 16 bit value")
                         }
                         var vid = uint16(BrObj.Spec.VlanID)
@@ -2075,12 +2075,12 @@ func (p PodDecoder) translate_added_bp(bp *infradb.BridgePort) ([]interface{}, e
                         if BrObj.Svi != ""{
 				SviObj, err := infradb.GetSvi(BrObj.Svi)
                                 if err != nil {
-                                        log.Printf("unable to find key %s and error is %v", BrObj.Svi, err)
+					log.Printf("intel-e2000: unable to find key %s and error is %v\n", BrObj.Svi, err)
 					return entries, err
                                 }
                                 VrfObj, err := infradb.GetVrf(SviObj.Spec.Vrf)
                                 if err != nil {
-                                        log.Printf("unable to find key %s and error is %v", SviObj.Spec.Vrf, err)
+					log.Printf("intel-e2000: unable to find key %s and error is %v\n", SviObj.Spec.Vrf, err)
 					return entries, err
                                 }
                                 var tcam_prefix, _ = _get_tcam_prefix(*VrfObj.Spec.Vni, Direction.Tx)
@@ -2161,11 +2161,11 @@ func (p PodDecoder) translate_deleted_bp(bp *infradb.BridgePort) ([]interface{},
 		for _, vlan := range bp.Spec.LogicalBridges{
                         BrObj, err := infradb.GetLB(vlan)
                         if err != nil {
-                                log.Printf("unable to find key %s and error is %v", vlan, err)
+				log.Printf("intel-e2000: unable to find key %s and error is %v\n", vlan, err)
                                 return entries, err
                         }
                         if BrObj.Spec.VlanID > math.MaxUint16 {
-                                log.Printf("VlanID %v value passed in Logical Bridge create is greater than 16 bit value\n", BrObj.Spec.VlanID)
+				log.Printf("intel-e2000: VlanID %v value passed in Logical Bridge create is greater than 16 bit value\n", BrObj.Spec.VlanID)
                                 return entries, errors.New("VlanID value passed in Logical Bridge create is greater than 16 bit value")
                         }
                         vid := uint16(BrObj.Spec.VlanID)
@@ -2195,7 +2195,7 @@ func (p PodDecoder) translate_deleted_bp(bp *infradb.BridgePort) ([]interface{},
                         if BrObj.Svi != ""{
 				SviObj, err := infradb.GetSvi(BrObj.Svi)
                                 if err != nil {
-                                        log.Printf("unable to find key %s and error is %v", BrObj.Svi, err)
+					log.Printf("intel-e2000: unable to find key %s and error is %v\n", BrObj.Svi, err)
 					return entries, err
                                 }
                                 //To VRF SVI
@@ -2219,7 +2219,7 @@ func (p PodDecoder) translate_deleted_bp(bp *infradb.BridgePort) ([]interface{},
         } else if (bp.Spec.Ptype == infradb.Access){
 			BrObj, err := infradb.GetLB(bp.Spec.LogicalBridges[0])
                         if err != nil {
-                                log.Printf("unable to find key %s and error is %v", bp.Spec.LogicalBridges[0], err)
+				log.Printf("intel-e2000: unable to find key %s and error is %v\n", bp.Spec.LogicalBridges[0], err)
                                 return entries, err
                         }
                         var dst_mac_addr = *bp.Spec.MacAddress
@@ -2287,7 +2287,7 @@ func (p PodDecoder) translate_deleted_bp(bp *infradb.BridgePort) ([]interface{},
                         if BrObj.Svi != ""{
 				SviObj, err := infradb.GetSvi(BrObj.Svi)
                                 if err != nil {
-                                        log.Printf("unable to find key %s and error is %v", BrObj.Svi, err)
+					log.Printf("intel-e2000: unable to find key %s and error is %v\n", BrObj.Svi, err)
 					return entries, err
                                 }
                                 var svi_mac = *SviObj.Spec.MacAddress
@@ -2317,15 +2317,14 @@ func(p PodDecoder) translate_added_svi(svi *infradb.Svi) ([]interface{}, error){
         var entries []interface{}
 	BrObj, err := infradb.GetLB(svi.Spec.LogicalBridge)
 	if err != nil {
-		log.Printf("unable to find key %s and error is %v", svi.Spec.LogicalBridge, err)
+		log.Printf("intel-e2000: unable to find key %s and error is %v\n", svi.Spec.LogicalBridge, err)
 		return entries, err
 	}
-	fmt.Println("PodDecoder:", BrObj.BridgePorts)
 	for k, v := range BrObj.BridgePorts {
 		if !v {
 			PortObj, err := infradb.GetBP(k)
 			if err != nil {
-				log.Printf("unable to find key %s and error is %v", k, err)
+				log.Printf("intel-e2000: unable to find key %s and error is %v\n", k, err)
 				return entries, err
 			}
 			port, err := strconv.Atoi(PortObj.Metadata.VPort)
@@ -2334,7 +2333,7 @@ func(p PodDecoder) translate_added_svi(svi *infradb.Svi) ([]interface{}, error){
 			}
 			VrfObj, err := infradb.GetVrf(svi.Spec.Vrf)
 			if err != nil {
-				log.Printf("unable to find key %s and error is %v", svi.Spec.Vrf, err)
+				log.Printf("intel-e2000: unable to find key %s and error is %v", svi.Spec.Vrf, err)
 				return entries, err
 			}
 			var tcam_prefix , _ = _get_tcam_prefix(*VrfObj.Spec.Vni, Direction.Tx)
@@ -2380,14 +2379,14 @@ func(p PodDecoder) translate_deleted_svi(svi *infradb.Svi) ([]interface{},error)
 	var entries []interface{}
 	BrObj, err := infradb.GetLB(svi.Spec.LogicalBridge)
 	if err != nil {
-		log.Printf("unable to find key %s and error is %v", svi.Spec.LogicalBridge, err)
+		log.Printf("intel-e2000: unable to find key %s and error is %v\n", svi.Spec.LogicalBridge, err)
 		return entries, err
 	}
         for k, v := range BrObj.BridgePorts {
                 if !v {
                         PortObj, err := infradb.GetBP(k)
                         if err != nil {
-                                log.Printf("unable to find key %s and error is %v", k, err)
+				log.Printf("intel-e2000: unable to find key %s and error is %v\n", k, err)
                                 return entries, err
                         }
                         port, err := strconv.Atoi(PortObj.Metadata.VPort)

@@ -15,7 +15,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"os"
 	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	nm "github.com/opiproject/opi-evpn-bridge/pkg/netlink"
 	eb "github.com/opiproject/opi-evpn-bridge/pkg/netlink/event_bus"
@@ -44,7 +43,7 @@ func getMac(dev string) string {
 	cmd := exec.Command("ip", "-d", "-j", "link", "show", dev)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Printf("ipu: Error running command: %v", err)
+		log.Printf("intel-e2000: Error running command: %v\n", err)
 		return ""
 	}
 
@@ -52,7 +51,7 @@ func getMac(dev string) string {
 		Address string `json:"address"`
 	}
 	if err := json.Unmarshal(out, &links); err != nil {
-		log.Printf("ipu: Error unmarshaling JSON: %v", err)
+		log.Printf("intel-e2000: Error unmarshaling JSON: %v\n", err)
 		return ""
 	}
 
@@ -96,7 +95,7 @@ func startSubscriber(eventBus *eb.EventBus, eventType string) {
 		for {
 			select {
 			case event := <-subscriber.Ch:
-				log.Printf("ipu: Subscriber for %s received event: %s\n", eventType, event)
+				log.Printf("intel-e2000: Subscriber for %s received event: %s\n", eventType, event)
 				switch eventType {
 				case "route_added":
 					handleRouteAdded(event)
@@ -137,9 +136,11 @@ func handleRouteAdded(route interface{}) {
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.Add_entry(e)
-			GlobalLogger.Printf("Table : %v\n err : %v\n",e.Tablename, er)
+			if er != nil{
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry:-", e)
+			log.Printf("intel-e2000: Entry is not of type p4client.TableEntry:- %v\n", e)
 		}
 	}
 }
@@ -150,18 +151,23 @@ func handleRouteUpdated(route interface{}) {
 	entries = L3.translate_deleted_route(routeData)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
-			p4client.Del_entry(e)
+			er := p4client.Del_entry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error deleting entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = append(entries, L3.translate_added_route(routeData))
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.Add_entry(e)
-			GlobalLogger.Printf("Table : %v\n err : %v\n",e.Tablename, er)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -171,9 +177,12 @@ func handleRouteDeleted(route interface{}) {
 	entries = L3.translate_deleted_route(routeData)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
-			p4client.Del_entry(e)
+			er := p4client.Del_entry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error deleting entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -186,18 +195,22 @@ func handleNexthopAdded(nexthop interface{}) {
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.Add_entry(e)
-			GlobalLogger.Printf("Table : %v\n err : %v\n",e.Tablename, er)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Vxlan.translate_added_nexthop(nexthopData)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.Add_entry(e)
-			GlobalLogger.Printf("Table : %v\n err : %v\n",e.Tablename, er)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -207,35 +220,45 @@ func handleNexthopUpdated(nexthop interface{}) {
 	entries = L3.translate_deleted_nexthop(nexthopData)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
-			p4client.Del_entry(e)
+			er := p4client.Del_entry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error deleting entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Vxlan.translate_deleted_nexthop(nexthopData)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
-			p4client.Del_entry(e)
+			er := p4client.Del_entry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error deleting entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = L3.translate_added_nexthop(nexthopData)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.Add_entry(e)
-			GlobalLogger.Printf("Table : %v\n err : %v\n",e.Tablename, er)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Vxlan.translate_added_nexthop(nexthopData)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.Add_entry(e)
-			GlobalLogger.Printf("Table : %v\n err : %v\n",e.Tablename, er)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -246,17 +269,23 @@ func handleNexthopDeleted(nexthop interface{}) {
 	entries = L3.translate_deleted_nexthop(nexthopData)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
-			p4client.Del_entry(e)
+			er := p4client.Del_entry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error deleting entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Vxlan.translate_deleted_nexthop(nexthopData)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
-			p4client.Del_entry(e)
+			er := p4client.Del_entry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error deleting entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -267,18 +296,22 @@ func handleFbdEntryAdded(fbdEntry interface{}) {
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.Add_entry(e)
-			GlobalLogger.Printf("Table : %v\n err : %v\n",e.Tablename, er)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Pod.translate_added_fdb(fbdEntryData)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.Add_entry(e)
-			GlobalLogger.Printf("Table : %v\n err : %v\n",e.Tablename, er)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -289,17 +322,23 @@ func handleFbdEntryUpdated(fdbEntry interface{}) {
 	entries = Vxlan.translate_deleted_fdb(fbdEntryData)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
-			p4client.Del_entry(e)
+			er := p4client.Del_entry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error deleting entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Pod.translate_deleted_fdb(fbdEntryData)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
-			p4client.Del_entry(e)
+			er := p4client.Del_entry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error deleting entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 
@@ -307,18 +346,22 @@ func handleFbdEntryUpdated(fdbEntry interface{}) {
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.Add_entry(e)
-			GlobalLogger.Printf("Table : %v\n err : %v\n",e.Tablename, er)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Pod.translate_added_fdb(fbdEntryData)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.Add_entry(e)
-			GlobalLogger.Printf("Table : %v\n err : %v\n",e.Tablename, er)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -328,17 +371,23 @@ func handleFbdEntryDeleted(fdbEntry interface{}) {
 	entries = Vxlan.translate_deleted_fdb(fbdEntryData)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
-			p4client.Del_entry(e)
+			er := p4client.Del_entry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error deleting entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Pod.translate_deleted_fdb(fbdEntryData)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
-			p4client.Del_entry(e)
+			er := p4client.Del_entry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error deleting entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -351,18 +400,22 @@ func handleL2NexthopAdded(l2NextHop interface{}) {
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.Add_entry(e)
-			GlobalLogger.Printf("Table : %v\n err : %v\n",e.Tablename, er)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Pod.translate_added_l2_nexthop(l2NextHopData)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.Add_entry(e)
-			GlobalLogger.Printf("Table : %v\n err : %v\n",e.Tablename, er)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -372,35 +425,45 @@ func handleL2NexthopUpdated(l2NextHop interface{}) {
 	entries = Vxlan.translate_deleted_l2_nexthop(l2NextHopData)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
-			p4client.Del_entry(e)
+			er := p4client.Del_entry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error deleting entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Pod.translate_deleted_l2_nexthop(l2NextHopData)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
-			p4client.Del_entry(e)
+			er := p4client.Del_entry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error deleting entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Vxlan.translate_deleted_l2_nexthop(l2NextHopData)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.Add_entry(e)
-			GlobalLogger.Printf("Table : %v\n err : %v\n",e.Tablename, er)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Pod.translate_deleted_l2_nexthop(l2NextHopData)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.Add_entry(e)
-			GlobalLogger.Printf("Table : %v\n err : %v\n",e.Tablename, er)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("iintel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -411,18 +474,23 @@ func handleL2NexthopDeleted(l2NextHop interface{}) {
 	entries = Vxlan.translate_deleted_l2_nexthop(l2NextHopData)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
-			p4client.Del_entry(e)
+			er := p4client.Del_entry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error deleting entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 	entries = Pod.translate_deleted_l2_nexthop(l2NextHopData)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.Add_entry(e)
-			GlobalLogger.Printf("Table : %v\n err : %v\n",e.Tablename, er)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -431,19 +499,19 @@ func handleL2NexthopDeleted(l2NextHop interface{}) {
 func (h *ModuleipuHandler) HandleEvent(eventType string, objectData *eventbus.ObjectData) {
 	switch eventType {
 	case "vrf":
-		log.Printf("ipu: recevied %s %s\n", eventType, objectData.Name)
+		log.Printf("intel-e2000: recevied %s %s\n", eventType, objectData.Name)
 		handlevrf(objectData)
 	case "logical-bridge":
-		log.Printf("ipu: recevied %s %s\n", eventType, objectData.Name)
+		log.Printf("inyel-e2000: recevied %s %s\n", eventType, objectData.Name)
 		handlelb(objectData)
 	case "bridge-port":
-		log.Printf("ipu: recevied %s %s\n", eventType, objectData.Name)
+		log.Printf("intel-e2000: recevied %s %s\n", eventType, objectData.Name)
 		handlebp(objectData)
 	case "svi":
-		log.Printf("ipu: recevied %s %s\n", eventType, objectData.Name)
+		log.Printf("intel-e2000: recevied %s %s\n", eventType, objectData.Name)
 		handlesvi(objectData)
 	default:
-		log.Println("ipu: error: Unknown event type %s", eventType)
+		log.Println("intel-e2000: error: Unknown event type %s", eventType)
 	}
 }
 
@@ -451,14 +519,14 @@ func handlevrf(objectData *eventbus.ObjectData) {
 	var comp common.Component
 	VRF, err := infradb.GetVrf(objectData.Name)
 	if err != nil {
-		log.Printf("ipu: GetVRF error: %s %s\n", err, objectData.Name)
+		log.Printf("intel-e2000: GetVRF error: %s %s\n", err, objectData.Name)
 		return
 	} else {
-		log.Printf("ipu : GetVRF Name: %s\n", VRF.Name)
+		log.Printf("intel-e2000 : GetVRF Name: %s\n", VRF.Name)
 	}
 	if objectData.ResourceVersion != VRF.ResourceVersion {
-		log.Printf("ipu: Mismatch in resoruce version %+v\n and VRF resource version %+v\n", objectData.ResourceVersion, VRF.ResourceVersion)
-		comp.Name = "ipu"
+		log.Printf("intel-e2000: Mismatch in resoruce version %+v\n and VRF resource version %+v\n", objectData.ResourceVersion, VRF.ResourceVersion)
+		comp.Name = "intel-e2000"
 		comp.CompStatus = common.ComponentStatusError
 		if comp.Timer == 0 { // wait timer is 2 powerof natural numbers ex : 1,2,3...
 			comp.Timer = 2 * time.Second
@@ -471,7 +539,7 @@ func handlevrf(objectData *eventbus.ObjectData) {
 
 	if len(VRF.Status.Components) != 0 {
 		for i := 0; i < len(VRF.Status.Components); i++ {
-			if VRF.Status.Components[i].Name == "ipu" {
+			if VRF.Status.Components[i].Name == "intel-e2000" {
 				comp = VRF.Status.Components[i]
 			}
 		}
@@ -481,7 +549,7 @@ func handlevrf(objectData *eventbus.ObjectData) {
 		if status == true {
 			comp.Details = details
 			comp.CompStatus = common.ComponentStatusSuccess
-			comp.Name = "ipu"
+			comp.Name = "intel-e2000"
 			comp.Timer = 0
 		} else {
 			if comp.Timer == 0 { // wait timer is 2 powerof natural numbers ex : 1,2,3...
@@ -489,27 +557,27 @@ func handlevrf(objectData *eventbus.ObjectData) {
 			} else {
 				comp.Timer = comp.Timer * 2 * time.Second
 			}
-			comp.Name = "ipu"
+			comp.Name = "intel-e2000"
 			comp.CompStatus = common.ComponentStatusError
 		}
-		log.Printf("ipu: %+v\n", comp)
+		log.Printf("intel-e2000: %+v\n", comp)
 		infradb.UpdateVrfStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, VRF.Metadata, comp)
 	} else {
 		status := tear_down_vrf(VRF)
 		if status == true {
 			comp.CompStatus = common.ComponentStatusSuccess
-			comp.Name = "ipu"
+			comp.Name = "intel-e2000"
 			comp.Timer = 0
 		} else {
 			comp.CompStatus = common.ComponentStatusError
-			comp.Name = "ipu"
+			comp.Name = "intel-e2000"
 			if comp.Timer == 0 { // wait timer is 2 powerof natural numbers ex : 1,2,3...
 				comp.Timer = 2
 			} else {
 				comp.Timer = comp.Timer * 2
 			}
 		}
-		log.Printf("ipu: %+v\n", comp)
+		log.Printf("intel-e2000: %+v\n", comp)
 		infradb.UpdateVrfStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
 	}
 }
@@ -518,21 +586,21 @@ func handlelb(objectData *eventbus.ObjectData) {
         var comp common.Component
         LB, err := infradb.GetLB(objectData.Name)
         if err != nil {
-                log.Printf("ipu: GetLB error: %s %s\n", err, objectData.Name)
+                log.Printf("intel-e2000: GetLB error: %s %s\n", err, objectData.Name)
                 return
         } else {
-		log.Printf("ipu: GetLB Name: %s\n", LB.Name)
+		log.Printf("intel-e2000: GetLB Name: %s\n", LB.Name)
         }
 	if len(LB.Status.Components) != 0 {
 		for i := 0; i < len(LB.Status.Components); i++ {
-			if LB.Status.Components[i].Name == "ipu" {
+			if LB.Status.Components[i].Name == "intel-e2000" {
 				comp = LB.Status.Components[i]
 			}
 		}
 	}
 	if LB.Status.LBOperStatus != infradb.LogicalBridgeOperStatusToBeDeleted {
 		status := set_up_lb(LB)
-		comp.Name = "ipu"
+		comp.Name = "intel-e2000"
 		if status == true {
 			comp.Details = ""
 			comp.CompStatus = common.ComponentStatusSuccess
@@ -545,11 +613,11 @@ func handlelb(objectData *eventbus.ObjectData) {
 			}
 			comp.CompStatus = common.ComponentStatusError
 		}
-		log.Printf("ipu: %+v \n", comp)
+		log.Printf("intel-e2000: %+v \n", comp)
 		infradb.UpdateLBStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
 	} else {
 		status := tear_down_lb(LB)
-		comp.Name = "ipu"
+		comp.Name = "intel-e2000"
 		if status == true {
 			comp.CompStatus = common.ComponentStatusSuccess
 			comp.Timer = 0
@@ -561,7 +629,7 @@ func handlelb(objectData *eventbus.ObjectData) {
 				comp.Timer = comp.Timer * 2
 			}
 		}
-		log.Printf("ipu: %+v\n", comp)
+		log.Printf("intel-e2000: %+v\n", comp)
 		infradb.UpdateLBStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
 	}
 }
@@ -570,21 +638,21 @@ func handlebp(objectData *eventbus.ObjectData){
 	var comp common.Component
 	BP, err := infradb.GetBP(objectData.Name)
 	if err != nil {
-		log.Printf("ipu: GetBP error: %s\n", err)
+		log.Printf("intel-e2000: GetBP error: %s\n", err)
 		return
 	} else {
-                log.Printf("ipu: GetBP Name: %s\n", BP.Name)
+                log.Printf("intel-e2000: GetBP Name: %s\n", BP.Name)
         }
 	if (len(BP.Status.Components) != 0 ){
 		for i:=0;i<len(BP.Status.Components);i++ {
-			if (BP.Status.Components[i].Name == "ipu") {
+			if (BP.Status.Components[i].Name == "intel-e2000") {
 				comp = BP.Status.Components[i]
 			}
 		}
 	}
 	if (BP.Status.BPOperStatus !=infradb.BridgePortOperStatusToBeDeleted){
 		status := set_up_bp(BP)
-		comp.Name= "ipu"
+		comp.Name= "intel-e2000"
 		if (status == true) {
 			comp.Details = ""
 			comp.CompStatus= common.ComponentStatusSuccess
@@ -597,11 +665,11 @@ func handlebp(objectData *eventbus.ObjectData){
 			}
 			comp.CompStatus = common.ComponentStatusError
 		}
-		log.Printf("ipu: %+v \n",comp)
+		log.Printf("intel-e2000: %+v \n",comp)
 		infradb.UpdateBPStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationID,nil,comp)
 	}else {
 		status := tear_down_bp(BP)
-		comp.Name= "ipu"
+		comp.Name= "intel-e2000"
 		if (status == true) {
 			comp.CompStatus= common.ComponentStatusSuccess
 			comp.Timer = 0
@@ -613,7 +681,7 @@ func handlebp(objectData *eventbus.ObjectData){
 			}
 			comp.CompStatus = common.ComponentStatusError
 		}
-		log.Printf("ipu: %+v \n",comp)
+		log.Printf("intel-e2000: %+v \n",comp)
 		infradb.UpdateBPStatus(objectData.Name,objectData.ResourceVersion,objectData.NotificationID,nil,comp)
 	}
 }
@@ -622,14 +690,14 @@ func handlesvi(objectData *eventbus.ObjectData) {
 	var comp common.Component
 	SVI, err := infradb.GetSvi(objectData.Name)
 	if err != nil {
-		log.Printf("ipu: GetSvi error: %s %s\n", err, objectData.Name)
+		log.Printf("intel-e2000: GetSvi error: %s %s\n", err, objectData.Name)
 		return
 	} else {
-		log.Printf("IPU : GetSvi Name: %s\n", SVI.Name)
+		log.Printf("intel-e2000 : GetSvi Name: %s\n", SVI.Name)
 	}
 	if (objectData.ResourceVersion != SVI.ResourceVersion){
-		log.Printf("IPU: Mismatch in resoruce version %+v\n and SVI resource version %+v\n", objectData.ResourceVersion, SVI.ResourceVersion)
-		comp.Name= "ipu"
+		log.Printf("intel-e2000: Mismatch in resoruce version %+v\n and SVI resource version %+v\n", objectData.ResourceVersion, SVI.ResourceVersion)
+		comp.Name= "intl-e2000"
 		comp.CompStatus= common.ComponentStatusError
 		if comp.Timer ==0 {
 			comp.Timer=2 * time.Second
@@ -641,14 +709,14 @@ func handlesvi(objectData *eventbus.ObjectData) {
 	}
 	if len(SVI.Status.Components) != 0 {
 		for i := 0; i < len(SVI.Status.Components); i++ {
-			if SVI.Status.Components[i].Name == "ipu" {
+			if SVI.Status.Components[i].Name == "intel-e2000" {
 				comp = SVI.Status.Components[i]
 			}
 		}
 	}
 	if SVI.Status.SviOperStatus != infradb.SviOperStatusToBeDeleted {
 		details, status := set_up_svi(SVI)
-		comp.Name = "ipu"
+		comp.Name = "intel-e2000"
 		if status == true {
 			comp.Details = details
 			comp.CompStatus = common.ComponentStatusSuccess
@@ -661,11 +729,11 @@ func handlesvi(objectData *eventbus.ObjectData) {
 			}
 			comp.CompStatus = common.ComponentStatusError
 		}
-		log.Printf("IPU: %+v \n", comp)
+		log.Printf("intel-e2000: %+v \n", comp)
 		infradb.UpdateSviStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
 	} else {
 		status := tear_down_svi(SVI)
-		comp.Name = "ipu"
+		comp.Name = "intel-e2000"
 		if status == true {
 			comp.CompStatus = common.ComponentStatusSuccess
 			comp.Timer = 0
@@ -677,7 +745,7 @@ func handlesvi(objectData *eventbus.ObjectData) {
 				comp.Timer = comp.Timer * 2
 			}
 		}
-		log.Printf("IPU: %+v \n", comp)
+		log.Printf("intel-e2000: %+v \n", comp)
 		infradb.UpdateSviStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
 	}
 }
@@ -691,9 +759,11 @@ func offload_vrf(VRF *infradb.Vrf) (string, bool) {
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.Add_entry(e)
-			GlobalLogger.Printf("Table : %v\n err : %v\n",e.Tablename, er)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry:-", e)
+			log.Println("ntel-e2000: Entry is not of type p4client.TableEntry:-", e)
 			return "", false
 		}
 	}
@@ -707,9 +777,11 @@ func set_up_lb(LB *infradb.LogicalBridge) (bool) {
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.Add_entry(e)
-			GlobalLogger.Printf("Table : %v\n err : %v\n",e.Tablename, er)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry:-", e)
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry:-", e)
 			return false
 		}
 	}
@@ -725,9 +797,11 @@ func set_up_bp(BP *infradb.BridgePort)(bool) {
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.Add_entry(e)
-			GlobalLogger.Printf("Table : %v\n err : %v\n",e.Tablename, er)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry:-", e)
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry:-", e)
 			return false
 		}
 	}
@@ -743,9 +817,11 @@ func set_up_svi(SVI *infradb.Svi) (string, bool) {
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.Add_entry(e)
-			GlobalLogger.Printf("Table : %v\n err : %v\n",e.Tablename, er)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry:-", e)
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry:-", e)
 			return "", false
 		}
 	}
@@ -760,9 +836,12 @@ func tear_down_vrf(VRF *infradb.Vrf) bool {
 	entries = Vxlan.translate_deleted_vrf(VRF)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
-			p4client.Del_entry(e)
+			er := p4client.Del_entry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 			return false
 		}
 	}
@@ -775,9 +854,12 @@ func tear_down_lb(LB *infradb.LogicalBridge) bool {
 	entries = Vxlan.translate_deleted_lb(LB)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
-			p4client.Del_entry(e)
+			er := p4client.Del_entry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 			return false
 		}
 	}
@@ -792,9 +874,12 @@ func tear_down_bp(BP *infradb.BridgePort) bool {
 	}
         for _, entry := range entries {
                 if e, ok := entry.(p4client.TableEntry); ok {
-                        p4client.Del_entry(e)
+			er := p4client.Del_entry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
                 } else {
-                        log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
                         return false
                 }
         }
@@ -809,33 +894,19 @@ func tear_down_svi(SVI *infradb.Svi) bool {
 	}
         for _, entry := range entries {
                 if e, ok := entry.(p4client.TableEntry); ok {
-                        p4client.Del_entry(e)
+			er := p4client.Del_entry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
                 } else {
-                        log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
                         return false
                 }
         }
         return true
 }
-func InitLocalLogFile() {
-	var err error
-	LocalLogFile, err = os.OpenFile("p4rules.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		log.Fatal("Error opening local log file:", err)
-	}
-	GlobalLogger = log.New(LocalLogFile, "GlobalLogger: ", log.LstdFlags)
-}
-
-func CloseLocalLogFile() {
-	if LocalLogFile != nil {
-		LocalLogFile.Close()
-	}
-}
-var LocalLogFile *os.File
-var GlobalLogger *log.Logger
 func Init() {
 	// Netlink Listener
-	InitLocalLogFile()
 	startSubscriber(nm.EventBus, "route_added")
 
 	startSubscriber(nm.EventBus, "route_updated")
@@ -854,7 +925,7 @@ func Init() {
 
 	eb := eventbus.EBus
 	for _, subscriberConfig := range config.GlobalConfig.Subscribers {
-		if subscriberConfig.Name == "ipu" {
+		if subscriberConfig.Name == "intel-e2000" {
 			for _, eventType := range subscriberConfig.Events {
 				eb.StartSubscriber(subscriberConfig.Name, eventType, subscriberConfig.Priority, &ModuleipuHandler{})
 			}
@@ -863,24 +934,24 @@ func Init() {
 	// Setup p4runtime connection
 	Conn, err := grpc.Dial(defaultAddr, grpc.WithInsecure())
 	if err != nil {
-		log.Fatalf("Cannot connect to server: %v", err)
+		log.Fatalf("intel-e2000: Cannot connect to server: %v\n", err)
 	}
 
 	err1 := p4client.NewP4RuntimeClient(config.GlobalConfig.P4.Config.BinFile, config.GlobalConfig.P4.Config.P4infoFile, Conn)
 	if err1 != nil {
-		log.Fatalf("Failed to create P4Runtime client: %v", err1)
+		log.Fatalf("intel-e2000: Failed to create P4Runtime client: %v\n", err1)
 	}
 	// add static rules into the pipeline of representators read from config
 	representors := make(map[string][2]string)
 	for k, v := range config.GlobalConfig.P4.Representors {
 		vsi, mac, err := ids_of(v.(string))
 		if err != nil {
-			log.Println("Error:", err)
+			log.Println("intel-e2000: Error:", err)
 			return
 		}
 		representors[k] = [2]string{vsi, mac}
 	}
-	log.Println(" REPRESENTORS %+v", representors)
+	log.Println("intel-e2000: REPRESENTORS %+v\n", representors)
 	L3 = L3.L3DecoderInit(representors)
 	Pod = Pod.PodDecoderInit(representors)
 	// decoders = []interface{}{L3, Vxlan, Pod}
@@ -889,18 +960,22 @@ func Init() {
 	for _, entry := range L3entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.Add_entry(e)
-			GlobalLogger.Printf("Table : %v\n err : %v\n",e.Tablename, er)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 	Podentries := Pod.Static_additions()
 	for _, entry := range Podentries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.Add_entry(e)
-			GlobalLogger.Printf("Table : %v\n err : %v\n",e.Tablename, er)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 }
@@ -909,17 +984,23 @@ func Exit() {
 	L3entries := L3.Static_deletions()
 	for _, entry := range L3entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
-			p4client.Del_entry(e)
+			er := p4client.Del_entry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 	Podentries := Pod.Static_deletions()
 	for _, entry := range Podentries {
 		if e, ok := entry.(p4client.TableEntry); ok {
-			p4client.Del_entry(e)
+			er := p4client.Del_entry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n",e.Tablename, er)
+			}
 		} else {
-			log.Println("Entry is not of type p4client.TableEntry")
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 		}
 	}
 }
