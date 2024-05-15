@@ -585,9 +585,8 @@ func handlevrf(objectData *eventbus.ObjectData) {
 		}
 	}
 	if vrf.Status.VrfOperStatus != infradb.VrfOperStatusToBeDeleted {
-		details, status := offloadVrf(vrf)
+		status := offloadVrf(vrf)
 		if status {
-			comp.Details = details
 			comp.CompStatus = common.ComponentStatusSuccess
 
 			comp.Name = intele2000Str
@@ -784,10 +783,9 @@ func handlesvi(objectData *eventbus.ObjectData) {
 		}
 	}
 	if svi.Status.SviOperStatus != infradb.SviOperStatusToBeDeleted {
-		details, status := setUpSvi(svi)
+		status := setUpSvi(svi)
 		comp.Name = intele2000Str
 		if status {
-			comp.Details = details
 			comp.CompStatus = common.ComponentStatusSuccess
 			comp.Timer = 0
 		} else {
@@ -827,9 +825,9 @@ func handlesvi(objectData *eventbus.ObjectData) {
 }
 
 // offloadVrf  offload the vrf events
-func offloadVrf(vrf *infradb.Vrf) (string, bool) {
+func offloadVrf(vrf *infradb.Vrf) bool {
 	if path.Base(vrf.Name) == grdStr {
-		return "", true
+		return true
 	}
 
 	entries := Vxlan.translateAddedVrf(vrf)
@@ -841,10 +839,10 @@ func offloadVrf(vrf *infradb.Vrf) (string, bool) {
 			}
 		} else {
 			log.Println("ntel-e2000: Entry is not of type p4client.TableEntry:-", e)
-			return "", false
+			return false
 		}
 	}
-	return "", true
+	return true
 }
 
 // setUpLb  set up the logical bridge
@@ -886,11 +884,11 @@ func setUpBp(bp *infradb.BridgePort) bool {
 }
 
 // setUpSvi  set up the svi
-func setUpSvi(svi *infradb.Svi) (string, bool) {
+func setUpSvi(svi *infradb.Svi) bool {
 	// var entries []interface{}
 	entries, err := Pod.translateAddedSvi(svi)
 	if err != nil {
-		return "", false
+		return false
 	}
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
@@ -900,10 +898,10 @@ func setUpSvi(svi *infradb.Svi) (string, bool) {
 			}
 		} else {
 			log.Println("intel-e2000: Entry is not of type p4client.TableEntry:-", e)
-			return "", false
+			return false
 		}
 	}
-	return "", true
+	return true
 }
 
 // tearDownVrf  tear down the vrf

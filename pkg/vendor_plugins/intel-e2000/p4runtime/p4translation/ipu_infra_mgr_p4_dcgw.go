@@ -158,10 +158,10 @@ func (i IDPool) getUsedID(keyType uint32, key []interface{}) uint32 {
 }
 
 // putID replaces the mod ptr
-func (i IDPool) putID(keyType uint32, key []interface{}, ptrID uint32) error {
+func (i IDPool) putID(keyType uint32, key []interface{}) error {
 	// var fullKey interface{}
 	var fullKey interface{} = fmt.Sprintf("%d%d", keyType, key)
-	ptrID = ptrPool._inUseIDs[fullKey]
+	ptrID := ptrPool._inUseIDs[fullKey]
 	if ptrID == 0 {
 		return fmt.Errorf("TODO") // or log
 	}
@@ -608,11 +608,12 @@ func _toEgressVsi(vsiID int) int {
 func _directionsOf(entry interface{}) []int {
 	var directions []int
 	var direction int
-	switch entry.(type) {
+
+	switch e := entry.(type) {
 	case netlink_polling.RouteStruct:
-		direction, _ = entry.(netlink_polling.RouteStruct).Metadata["direction"].(int)
+		direction, _ = e.Metadata["direction"].(int)
 	case netlink_polling.FdbEntryStruct:
-		direction, _ = entry.(netlink_polling.FdbEntryStruct).Metadata["direction"].(int)
+		direction, _ = e.Metadata["direction"].(int)
 	}
 	if direction == netlink_polling.TX || direction == netlink_polling.RXTX {
 		directions = append(directions, Direction.Tx)
@@ -667,7 +668,7 @@ func _deleteTcamEntry(vrfID uint32, direction int) ([]interface{}, uint32) {
 	if tidx != 0 {
 		refCount = trieIndexPool.refCount(EntryType.trieIn, []interface{}{tcam}, RefCountOp.DECREMENT)
 		if refCount == 0 {
-			err := trieIndexPool.putID(EntryType.trieIn, []interface{}{tcam}, tidx)
+			err := trieIndexPool.putID(EntryType.trieIn, []interface{}{tcam})
 			if err != nil {
 				log.Println(err)
 			}
@@ -1320,7 +1321,7 @@ func (l L3Decoder) translateDeletedNexthop(nexthop netlink_polling.NexthopStruct
 	default:
 		return entries
 	}
-	err := ptrPool.putID(EntryType.l3NH, key, modPtr)
+	err := ptrPool.putID(EntryType.l3NH, key)
 	if err != nil {
 		log.Println(err)
 	}
@@ -1840,7 +1841,7 @@ func (v VxlanDecoder) translateDeletedNexthop(nexthop netlink_polling.NexthopStr
 				Priority: int32(0),
 			},
 		})
-	err := ptrPool.putID(EntryType.l3NH, key, modPtr)
+	err := ptrPool.putID(EntryType.l3NH, key)
 	if err != nil {
 		log.Println(err)
 	}
@@ -1913,7 +1914,7 @@ func (v VxlanDecoder) translateDeletedL2Nexthop(nexthop netlink_polling.L2Nextho
 
 	var modPtr = ptrPool.getID(EntryType.l2Nh, key)
 	var neighbor = nexthop.ID
-	err := ptrPool.putID(EntryType.l2Nh, key, modPtr)
+	err := ptrPool.putID(EntryType.l2Nh, key)
 	if err != nil {
 		log.Println(err)
 	}
@@ -2515,11 +2516,11 @@ func (p PodDecoder) translateDeletedBp(bp *infradb.BridgePort) ([]interface{}, e
 			log.Printf("no SVI for VLAN {vid} on BP {vsi}, skipping entry for SVI table")
 		}
 	}
-	err = ptrPool.putID(EntryType.BP, []interface{}{port}, modPtr)
+	err = ptrPool.putID(EntryType.BP, []interface{}{port})
 	if err != nil {
 		log.Println(err)
 	}
-	err = ptrPool.putID(EntryType.BP, []interface{}{*bp.Spec.MacAddress}, modPtr)
+	err = ptrPool.putID(EntryType.BP, []interface{}{*bp.Spec.MacAddress})
 	if err != nil {
 		log.Println(err)
 	}
@@ -2816,7 +2817,7 @@ func (p PodDecoder) translateDeletedL2Nexthop(nexthop netlink_polling.L2NexthopS
 	var key []interface{}
 	key = append(key, nexthop.Key.Dev, nexthop.Key.VlanID, nexthop.Key.Dst)
 
-	err := ptrPool.putID(EntryType.l2Nh, key, modPtr)
+	err := ptrPool.putID(EntryType.l2Nh, key)
 	if err != nil {
 		log.Println(err)
 	}

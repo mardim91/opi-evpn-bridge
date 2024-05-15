@@ -839,6 +839,7 @@ type NeighList struct {
 	NS []NeighStruct
 }
 
+// nolint
 func neighborAnnotate(neighbor NeighStruct) NeighStruct {
 	neighbor.Metadata = make(map[interface{}]interface{})
 	if strings.HasPrefix(neighbor.Dev, path.Base(neighbor.VrfName)) && neighbor.Protocol != zebraStr {

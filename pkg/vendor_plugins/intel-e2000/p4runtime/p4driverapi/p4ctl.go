@@ -261,7 +261,11 @@ func NewP4RuntimeClient(binPath string, p4infoPath string, conn *grpc.ClientConn
 
 	P4RtC = client.NewClient(c, defaultDeviceID, electionID)
 	arbitrationCh := make(chan bool)
-	go P4RtC.Run(stopCh, arbitrationCh, nil)
+
+	errs := make(chan error, 1)
+	go func() {
+		errs <- P4RtC.Run(stopCh, arbitrationCh, nil)
+	}()
 
 	waitCh := make(chan struct{})
 
@@ -287,6 +291,8 @@ func NewP4RuntimeClient(binPath string, p4infoPath string, conn *grpc.ClientConn
 		select {
 		case <-Ctx2.Done():
 			logr.Fatalf("Could not become the primary client within %v", timeout)
+		case <-errs:
+			logr.Fatalf("Could not get the client within %v", timeout)
 		case <-waitCh:
 		}
 	}()
