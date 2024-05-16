@@ -892,11 +892,11 @@ func neighborAnnotate(neighbor NeighStruct) NeighStruct {
 			}
 		}
 		if LB.Spec.Vni != nil {
-			vid, err := strconv.ParseInt(vID, 10, 64)
+			vid, err := strconv.Atoi(vID)
 			if err != nil {
 				panic(err)
 			}
-			fdbEntry := LatestFDB[FDBKey{int(vid), neighbor.Neigh0.HardwareAddr.String()}]
+			fdbEntry := LatestFDB[FDBKey{vid, neighbor.Neigh0.HardwareAddr.String()}]
 			neighbor.Metadata["l2_nh"] = fdbEntry.Nexthop
 			neighbor.Type = VXLAN // confirm this later
 		}
