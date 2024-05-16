@@ -1369,7 +1369,7 @@ func (l L3Decoder) StaticAdditions() []interface{} {
 	},
 	)
 	for _, port := range l._grpcPorts {
-		var peerVsi, err = strconv.ParseUint(port.peer["vsi"], 10, 32)
+		var peerVsi, err = strconv.ParseInt(port.peer["vsi"], 10, 64)
 		if err != nil {
 			panic(err)
 		}
@@ -2078,7 +2078,9 @@ func (p PodDecoder) translateAddedBp(bp *infradb.BridgePort) ([]interface{}, err
 	var modPtr = ptrPool.getID(EntryType.BP, []interface{}{port})
 	var ignorePtr = ModPointer.ignorePtr
 	var mac = *bp.Spec.MacAddress
-
+	if p._portMuxVsi < 0 || p._portMuxVsi > math.MaxUint16 {
+		panic(err)
+	}
 	if bp.Spec.Ptype == infradb.Trunk {
 		var modPtrD = ptrPool.getID(EntryType.BP, []interface{}{mac})
 		entries = append(entries, p4client.TableEntry{
@@ -2365,7 +2367,9 @@ func (p PodDecoder) translateDeletedBp(bp *infradb.BridgePort) ([]interface{}, e
 	var modPtr = ptrPool.getID(EntryType.BP, []interface{}{port})
 	var mac = *bp.Spec.MacAddress
 	var modPtrD = ptrPool.getID(EntryType.BP, []interface{}{mac})
-
+	if p._portMuxVsi < 0 || p._portMuxVsi > math.MaxUint16 {
+		panic(err)
+	}
 	if bp.Spec.Ptype == infradb.Trunk {
 		entries = append(entries, p4client.TableEntry{
 			// From MUX
