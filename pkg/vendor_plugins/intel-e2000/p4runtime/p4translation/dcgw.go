@@ -628,7 +628,10 @@ func _directionsOf(entry interface{}) []int {
 func _addTcamEntry(vrfID uint32, direction int) (p4client.TableEntry, uint32) {
 	tcamPrefix := fmt.Sprintf("%d%d", vrfID, direction)
 	var tblentry p4client.TableEntry
-	var tcam, _ = strconv.Atoi(tcamPrefix)
+	var tcam, err = strconv.ParseUint(tcamPrefix, 10, 32)
+	if err != nil {
+		panic(err)
+	}
 	var tidx = trieIndexPool.getUsedID(EntryType.trieIn, []interface{}{tcam})
 	if tidx == 0 {
 		tidx = trieIndexPool.getID(EntryType.trieIn, []interface{}{tcam})
@@ -655,14 +658,18 @@ func _addTcamEntry(vrfID uint32, direction int) (p4client.TableEntry, uint32) {
 // _getTcamPrefix get the tcam prefix value
 func _getTcamPrefix(vrfID uint32, direction int) (int, error) {
 	tcamPrefix := fmt.Sprintf("%d%d", vrfID, direction)
-	return strconv.Atoi(tcamPrefix)
+	val, err := strconv.ParseInt(tcamPrefix, 10, 32)
+	return int(val), err
 }
 
 // _deleteTcamEntry deletes the tcam entry
 func _deleteTcamEntry(vrfID uint32, direction int) ([]interface{}, uint32) {
 	tcamPrefix := fmt.Sprintf("%d%d", vrfID, direction)
 	var tblentry []interface{}
-	var tcam, _ = strconv.Atoi(tcamPrefix)
+	var tcam, err = strconv.ParseUint(tcamPrefix, 10, 32)
+	if err != nil {
+		panic(err)
+	}
 	var tidx = trieIndexPool.getUsedID(EntryType.trieIn, []interface{}{tcam})
 	var refCount uint32
 	if tidx != 0 {
@@ -696,7 +703,11 @@ type PhyPort struct {
 // PhyPortInit initializes the phy port
 func (p PhyPort) PhyPortInit(id int, vsi string, mac string) PhyPort {
 	p.id = id
-	p.vsi, _ = strconv.Atoi(vsi)
+	val, err := strconv.ParseInt(vsi, 10, 32)
+	if err != nil {
+		panic(err)
+	}
+	p.vsi = int(val)
 	p.mac = mac
 
 	return p
@@ -731,7 +742,11 @@ type GrpcPairPort struct {
 
 // GrpcPairPortInit get the vsi+16
 func (g GrpcPairPort) GrpcPairPortInit(vsi string, mac string) GrpcPairPort {
-	g.vsi, _ = strconv.Atoi(vsi)
+	val, err := strconv.ParseInt(vsi, 10, 32)
+	if err != nil {
+		panic(err)
+	}
+	g.vsi = int(val)
 	g.mac = mac
 	return g
 }
@@ -768,7 +783,10 @@ func (l L3Decoder) L3DecoderInit(representors map[string][2]string) L3Decoder {
 // setMuxVsi set the mux vsi
 func (l L3Decoder) setMuxVsi(representors map[string][2]string) uint16 {
 	a := representors["vrf_mux"][0]
-	var muxVsi, _ = strconv.Atoi(a)
+	var muxVsi, err = strconv.ParseUint(a, 10, 16)
+	if err != nil {
+		panic(err)
+	}
 	return uint16(muxVsi)
 }
 
@@ -1351,7 +1369,10 @@ func (l L3Decoder) StaticAdditions() []interface{} {
 	},
 	)
 	for _, port := range l._grpcPorts {
-		var peerVsi, _ = strconv.Atoi(port.peer["vsi"])
+		var peerVsi, err = strconv.ParseUint(port.peer["vsi"], 10, 32)
+		if err != nil {
+			panic(err)
+		}
 		var peerDa, _ = net.ParseMAC(port.peer["mac"])
 		var portDa, _ = net.ParseMAC(port.mac)
 		entries = append(entries, p4client.TableEntry{
@@ -1365,7 +1386,7 @@ func (l L3Decoder) StaticAdditions() []interface{} {
 			},
 			Action: p4client.Action{
 				ActionName: "linux_networking_control.fwd_to_port",
-				Params:     []interface{}{uint32(_toEgressVsi(peerVsi))},
+				Params:     []interface{}{uint32(_toEgressVsi(int(peerVsi)))},
 			},
 		},
 			p4client.TableEntry{
@@ -1558,11 +1579,14 @@ type VxlanDecoder struct {
 
 // VxlanDecoderInit initialize vxlan decoder
 func (v VxlanDecoder) VxlanDecoderInit(representors map[string][2]string) VxlanDecoder {
-	var muxVsi, _ = strconv.Atoi(representors["vrf_mux"][0])
+	var muxVsi, err = strconv.ParseInt(representors["vrf_mux"][0], 10, 32)
+	if err != nil {
+		panic(err)
+	}
 	s := VxlanDecoder{
 		vxlanUDPPort: 4789,
 		_defaultVsi:  0xb,
-		_muxVsi:      muxVsi,
+		_muxVsi:      int(muxVsi),
 	}
 	return s
 }
@@ -1578,7 +1602,10 @@ func (v VxlanDecoder) translateAddedVrf(vrf *infradb.Vrf) []interface{} {
 	if !_isL3vpnEnabled(vrf) {
 		return entries
 	}
-	var tcamPrefix, _ = _getTcamPrefix(*vrf.Spec.Vni, Direction.Rx)
+	var tcamPrefix, err = _getTcamPrefix(*vrf.Spec.Vni, Direction.Rx)
+	if err != nil {
+		return entries
+	}
 	G, _ := infradb.GetVrf(vrf.Name)
 	var detail map[string]interface{}
 	var Rmac net.HardwareAddr
@@ -2018,12 +2045,17 @@ func (p PodDecoder) PodDecoderInit(representors map[string][2]string) PodDecoder
 	p.portMuxIDs = representors["port_mux"]
 	p.vrfMuxIDs = representors["vrf_mux"]
 
-	var portMuxVsi, _ = strconv.Atoi(p.portMuxIDs[0])
-	var vrfMuxVsi, _ = strconv.Atoi(p.vrfMuxIDs[0])
-
-	p._portMuxVsi = portMuxVsi
+	portMuxVsi, err := strconv.ParseInt(p.portMuxIDs[0], 10, 32)
+	if err != nil {
+		panic(err)
+	}
+	vrfMuxVsi, err := strconv.ParseInt(p.vrfMuxIDs[0], 10, 32)
+	if err != nil {
+		panic(err)
+	}
+	p._portMuxVsi = int(portMuxVsi)
 	p._portMuxMac = p.portMuxIDs[1]
-	p._vrfMuxVsi = vrfMuxVsi
+	p._vrfMuxVsi = int(vrfMuxVsi)
 	p._vrfMuxMac = p.vrfMuxIDs[1]
 	p.floodModPtr = ModPointer.l2FloodingPtr
 	p.floodNhID = uint16(0)
@@ -2032,17 +2064,17 @@ func (p PodDecoder) PodDecoderInit(representors map[string][2]string) PodDecoder
 
 // translateAddedBp translate the added bp
 //
-//nolint:funlen
+//nolint:funlen,gocognit
 func (p PodDecoder) translateAddedBp(bp *infradb.BridgePort) ([]interface{}, error) {
 	var entries = make([]interface{}, 0)
 
 	var portMuxVsiOut = _toEgressVsi(p._portMuxVsi)
-	port, err := strconv.Atoi(bp.Metadata.VPort)
+	port, err := strconv.ParseUint(bp.Metadata.VPort, 10, 16)
 	if err != nil {
 		return entries, err
 	}
 	var vsi = port
-	var vsiOut = _toEgressVsi(vsi)
+	var vsiOut = _toEgressVsi(int(vsi))
 	var modPtr = ptrPool.getID(EntryType.BP, []interface{}{port})
 	var ignorePtr = ModPointer.ignorePtr
 	var mac = *bp.Spec.MacAddress
@@ -2061,7 +2093,7 @@ func (p PodDecoder) translateAddedBp(bp *infradb.BridgePort) ([]interface{}, err
 			},
 			Action: p4client.Action{
 				ActionName: "linux_networking_control.pop_stag_vlan",
-				Params:     []interface{}{modPtrD, vsiOut},
+				Params:     []interface{}{modPtrD, uint32(vsiOut)},
 			},
 		},
 			// From Rx-to-Tx-recirculate (pass 3) entry
@@ -2088,7 +2120,7 @@ func (p PodDecoder) translateAddedBp(bp *infradb.BridgePort) ([]interface{}, err
 				},
 				Action: p4client.Action{
 					ActionName: "linux_networking_control.l2_fwd",
-					Params:     []interface{}{vsiOut},
+					Params:     []interface{}{uint32(vsiOut)},
 				},
 			},
 			p4client.TableEntry{
@@ -2158,7 +2190,10 @@ func (p PodDecoder) translateAddedBp(bp *infradb.BridgePort) ([]interface{}, err
 					log.Printf("intel-e2000: unable to find key %s and error is %v\n", SviObj.Spec.Vrf, err)
 					return entries, err
 				}
-				var tcamPrefix, _ = _getTcamPrefix(*VrfObj.Spec.Vni, Direction.Tx)
+				tcamPrefix, err := _getTcamPrefix(*VrfObj.Spec.Vni, Direction.Tx)
+				if err != nil {
+					return entries, err
+				}
 				// To VRF SVI
 				var sviMac = *SviObj.Spec.MacAddress
 				entries = append(entries, p4client.TableEntry{
@@ -2206,7 +2241,7 @@ func (p PodDecoder) translateAddedBp(bp *infradb.BridgePort) ([]interface{}, err
 			},
 			Action: p4client.Action{
 				ActionName: "linux_networking_control.pop_ctag_stag_vlan",
-				Params:     []interface{}{modPtrD, vsiOut},
+				Params:     []interface{}{modPtrD, uint32(vsiOut)},
 			},
 		},
 			p4client.TableEntry{
@@ -2233,7 +2268,7 @@ func (p PodDecoder) translateAddedBp(bp *infradb.BridgePort) ([]interface{}, err
 				},
 				Action: p4client.Action{
 					ActionName: "linux_networking_control.l2_fwd",
-					Params:     []interface{}{vsiOut},
+					Params:     []interface{}{uint32(vsiOut)},
 				},
 			},
 			// To MUX PORT
@@ -2290,7 +2325,10 @@ func (p PodDecoder) translateAddedBp(bp *infradb.BridgePort) ([]interface{}, err
 				log.Printf("intel-e2000: unable to find key %s and error is %v\n", SviObj.Spec.Vrf, err)
 				return entries, err
 			}
-			var tcamPrefix, _ = _getTcamPrefix(*VrfObj.Spec.Vni, Direction.Tx)
+			tcamPrefix, err := _getTcamPrefix(*VrfObj.Spec.Vni, Direction.Tx)
+			if err != nil {
+				return entries, err
+			}
 			var sviMac = *SviObj.Spec.MacAddress
 			entries = append(entries, p4client.TableEntry{
 				// From MUX
@@ -2319,7 +2357,7 @@ func (p PodDecoder) translateAddedBp(bp *infradb.BridgePort) ([]interface{}, err
 //nolint:funlen
 func (p PodDecoder) translateDeletedBp(bp *infradb.BridgePort) ([]interface{}, error) {
 	var entries []interface{}
-	port, err := strconv.Atoi(bp.Metadata.VPort)
+	port, err := strconv.ParseUint(bp.Metadata.VPort, 10, 16)
 	if err != nil {
 		return entries, err
 	}
@@ -2545,7 +2583,7 @@ func (p PodDecoder) translateAddedSvi(svi *infradb.Svi) ([]interface{}, error) {
 				log.Printf("intel-e2000: unable to find key %s and error is %v\n", k, err)
 				return entries, err
 			}
-			port, err := strconv.Atoi(PortObj.Metadata.VPort)
+			port, err := strconv.ParseUint(PortObj.Metadata.VPort, 10, 16)
 			if err != nil {
 				return entries, err
 			}
@@ -2554,7 +2592,10 @@ func (p PodDecoder) translateAddedSvi(svi *infradb.Svi) ([]interface{}, error) {
 				log.Printf("intel-e2000: unable to find key %s and error is %v", svi.Spec.Vrf, err)
 				return entries, err
 			}
-			var tcamPrefix, _ = _getTcamPrefix(*VrfObj.Spec.Vni, Direction.Tx)
+			tcamPrefix, err := _getTcamPrefix(*VrfObj.Spec.Vni, Direction.Tx)
+			if err != nil {
+				return entries, err
+			}
 			if PortObj.Spec.Ptype == infradb.Access {
 				entries = append(entries, p4client.TableEntry{
 					Tablename: portInSviAccess,
@@ -2610,7 +2651,7 @@ func (p PodDecoder) translateDeletedSvi(svi *infradb.Svi) ([]interface{}, error)
 				log.Printf("unable to find key %s and error is %v", k, err)
 				return entries, err
 			}
-			port, err := strconv.Atoi(PortObj.Metadata.VPort)
+			port, err := strconv.ParseUint(PortObj.Metadata.VPort, 10, 16)
 			if err != nil {
 				return entries, err
 			}

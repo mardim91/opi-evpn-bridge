@@ -850,7 +850,10 @@ func neighborAnnotate(neighbor NeighStruct) NeighStruct {
 		var BP *infradb.BridgePort
 		vID := strings.Split(s[0], "-")[1]
 		lbs, _ := infradb.GetAllLBs()
-		vlanID, _ := strconv.Atoi(vID)
+		vlanID, err := strconv.ParseUint(vID,10,32)
+		if err != nil {
+			panic(err)
+		}
 		for _, lb := range lbs {
 			if lb.Spec.VlanID == uint32(vlanID) {
 				LB = lb
@@ -878,7 +881,10 @@ func neighborAnnotate(neighbor NeighStruct) NeighStruct {
 		var LB *infradb.LogicalBridge
 		vID := strings.Split(s[0], "-")[1]
 		lbs, _ := infradb.GetAllLBs()
-		vlanID, _ := strconv.Atoi(vID)
+		vlanID, err := strconv.ParseUint(vID,10,32)
+		if err != nil {
+			panic(err)
+		}
 		for _, lb := range lbs {
 			if lb.Spec.VlanID == uint32(vlanID) {
 				LB = lb
@@ -886,7 +892,7 @@ func neighborAnnotate(neighbor NeighStruct) NeighStruct {
 			}
 		}
 		if LB.Spec.Vni != nil {
-			fdbEntry := LatestFDB[FDBKey{vlanID, neighbor.Neigh0.HardwareAddr.String()}]
+			fdbEntry := LatestFDB[FDBKey{int(vlanID), neighbor.Neigh0.HardwareAddr.String()}]
 			neighbor.Metadata["l2_nh"] = fdbEntry.Nexthop
 			neighbor.Type = VXLAN // confirm this later
 		}
