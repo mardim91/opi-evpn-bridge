@@ -19,6 +19,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 // Netlink represents limited subset of functions from netlink package
@@ -73,7 +74,16 @@ type NetlinkWrapper struct {
 
 // NewNetlinkWrapper creates initialized instance of NetlinkWrapper
 func NewNetlinkWrapper() *NetlinkWrapper {
-	return &NetlinkWrapper{tracer: otel.Tracer("")}
+	return NewNetlinkWrapperWithArgs(true)
+}
+
+func NewNetlinkWrapperWithArgs(enableTracer bool) *NetlinkWrapper {
+	netlinkWrapper := &NetlinkWrapper{}
+	netlinkWrapper.tracer = noop.NewTracerProvider().Tracer("")
+	if enableTracer {
+		netlinkWrapper.tracer = otel.Tracer("")
+	}
+	return netlinkWrapper
 }
 
 // build time check that struct implements interface

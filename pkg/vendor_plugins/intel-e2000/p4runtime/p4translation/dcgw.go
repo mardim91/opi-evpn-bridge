@@ -685,7 +685,7 @@ func _deleteTcamEntry(vrfID uint32, direction int) ([]interface{}, uint32) {
 					FieldValue: map[string][2]interface{}{
 						"user_meta.cmeta.tcam_prefix": {uint32(tcam), "ternary"},
 					},
-					Priority: int32(1),
+					Priority: int32(tidx),
 				},
 			})
 		}
@@ -840,7 +840,7 @@ func (l L3Decoder) getVrfID(route netlink_polling.RouteStruct) uint32 {
 		return 0
 	}
 
-	return *route.Vrf.Spec.Vni
+	return *route.Vrf.Metadata.RoutingTable[0]
 }
 
 // _l3HostRoute gets the l3 host route
@@ -849,7 +849,6 @@ func (l L3Decoder) _l3HostRoute(route netlink_polling.RouteStruct, delete string
 	var directions = _directionsOf(route)
 	var host = route.Route0.Dst
 	var entries = make([]interface{}, 0)
-
 	if delete == trueStr {
 		for _, dir := range directions {
 			entries = append(entries, p4client.TableEntry{
@@ -878,7 +877,7 @@ func (l L3Decoder) _l3HostRoute(route netlink_polling.RouteStruct, delete string
 				},
 				Action: p4client.Action{
 					ActionName: "linux_networking_control.set_neighbor",
-					Params:     []interface{}{uint16(_p4NexthopID(route.Nexthops[0], dir))},
+					Params:     []interface{}{uint16(_p4NexthopID(*route.Nexthops[0], dir))},
 				},
 			})
 		}
@@ -901,7 +900,7 @@ func (l L3Decoder) _l3HostRoute(route netlink_polling.RouteStruct, delete string
 				Tablename: l3P2PRtHost,
 				TableField: p4client.TableField{
 					FieldValue: map[string][2]interface{}{
-						"vrf":       {_bigEndian16(vrfID), "exact"},
+						"vrf":       {bigEndian16(vrfID), "exact"},
 						"direction": {uint16(Direction.Rx), "exact"},
 						"dst_ip":    {host, "exact"},
 					},
@@ -909,7 +908,7 @@ func (l L3Decoder) _l3HostRoute(route netlink_polling.RouteStruct, delete string
 				},
 				Action: p4client.Action{
 					ActionName: "linux_networking_control.set_p2p_neighbor",
-					Params:     []interface{}{uint16(_p4NexthopID(route.Nexthops[0], Direction.Rx))},
+					Params:     []interface{}{uint16(_p4NexthopID(*route.Nexthops[0], Direction.Rx))},
 				},
 			})
 		}
@@ -937,7 +936,7 @@ func (l L3Decoder) _l3Route(route netlink_polling.RouteStruct, delete string) []
 						"ipv4_table_lpm_root1": {tIdx, "ternary"},
 						"dst_ip":               {net.ParseIP(addr), "lpm"},
 					},
-					Priority: int32(0),
+					Priority: int32(1),
 				},
 			})
 		} else {
@@ -952,11 +951,11 @@ func (l L3Decoder) _l3Route(route netlink_polling.RouteStruct, delete string) []
 						"ipv4_table_lpm_root1": {tIdx, "ternary"},
 						"dst_ip":               {net.ParseIP(addr), "lpm"},
 					},
-					Priority: int32(0),
+					Priority: int32(1),
 				},
 				Action: p4client.Action{
 					ActionName: "linux_networking_control.set_neighbor",
-					Params:     []interface{}{uint16(_p4NexthopID(route.Nexthops[0], Direction.Rx))},
+					Params:     []interface{}{uint16(_p4NexthopID(*route.Nexthops[0], Direction.Rx))},
 				},
 			})
 		}
@@ -971,7 +970,7 @@ func (l L3Decoder) _l3Route(route netlink_polling.RouteStruct, delete string) []
 						"ipv4_table_lpm_root2": {tidx, "ternary"},
 						"dst_ip":               {net.ParseIP(addr), "lpm"},
 					},
-					Priority: int32(0),
+					Priority: int32(1),
 				},
 			})
 		} else {
@@ -982,11 +981,11 @@ func (l L3Decoder) _l3Route(route netlink_polling.RouteStruct, delete string) []
 						"ipv4_table_lpm_root2": {tidx, "ternary"},
 						"dst_ip":               {net.ParseIP(addr), "lpm"},
 					},
-					Priority: int32(0),
+					Priority: int32(1),
 				},
 				Action: p4client.Action{
 					ActionName: "linux_networking_control.set_p2p_neighbor",
-					Params:     []interface{}{uint16(_p4NexthopID(route.Nexthops[0], Direction.Rx))},
+					Params:     []interface{}{uint16(_p4NexthopID(*route.Nexthops[0], Direction.Rx))},
 				},
 			})
 		}
@@ -1033,7 +1032,6 @@ func (l L3Decoder) translateAddedNexthop(nexthop netlink_polling.NexthopStruct) 
 	nhID := _p4NexthopID(nexthop, Direction.Tx)
 
 	var entries = make([]interface{}, 0)
-
 	switch nexthop.NhType {
 	case netlink_polling.PHY:
 		// if nexthop.NhType == netlink_polling.PHY {
@@ -1132,11 +1130,15 @@ func (l L3Decoder) translateAddedNexthop(nexthop netlink_polling.NexthopStruct) 
 	case netlink_polling.SVI:
 		var smac, _ = net.ParseMAC(nexthop.Metadata["smac"].(string))
 		var dmac, _ = net.ParseMAC(nexthop.Metadata["dmac"].(string))
-		var vlanID = nexthop.Metadata["vlanID"]
-		var vport = _toEgressVsi(nexthop.Metadata["egress_vport"].(int))
-		var Type = nexthop.Metadata["portType"]
+		var vlanID = nexthop.Metadata["vlanID"].(uint32)
+		vp, err := strconv.Atoi(nexthop.Metadata["egress_vport"].(string))
+		if err != nil {
+			panic(err)
+		}
+		var vport = _toEgressVsi(vp)
+		var Type = nexthop.Metadata["portType"].(infradb.BridgePortType)
 		switch Type {
-		case ipuDB.TRUNK:
+		case infradb.Trunk:
 
 			entries = append(entries, p4client.TableEntry{
 				Tablename: pushMacVlan,
@@ -1148,7 +1150,7 @@ func (l L3Decoder) translateAddedNexthop(nexthop netlink_polling.NexthopStruct) 
 				},
 				Action: p4client.Action{
 					ActionName: "linux_networking_control.update_smac_dmac_vlan",
-					Params:     []interface{}{smac, dmac, 0, 1, vlanID.(uint16)},
+					Params:     []interface{}{smac, dmac, 0, 1, uint16(vlanID)},
 				},
 			},
 				p4client.TableEntry{
@@ -1166,7 +1168,7 @@ func (l L3Decoder) translateAddedNexthop(nexthop netlink_polling.NexthopStruct) 
 					},
 				})
 		// } else if Type == ipuDB.ACCESS {
-		case ipuDB.ACCESS:
+		case infradb.Access:
 			entries = append(entries, p4client.TableEntry{
 				Tablename: macMod,
 				TableField: p4client.TableField{
@@ -1287,9 +1289,9 @@ func (l L3Decoder) translateDeletedNexthop(nexthop netlink_polling.NexthopStruct
 			})
 	// } else if nexthop.NhType == netlink_polling.SVI {
 	case netlink_polling.SVI:
-		var Type = nexthop.Metadata["portType"]
+		var Type = nexthop.Metadata["portType"].(infradb.BridgePortType)
 		switch Type {
-		case ipuDB.TRUNK:
+		case infradb.Trunk:
 			// if Type == ipuDB.TRUNK {
 			entries = append(entries, p4client.TableEntry{
 				Tablename: pushMacVlan,
@@ -1311,7 +1313,7 @@ func (l L3Decoder) translateDeletedNexthop(nexthop netlink_polling.NexthopStruct
 					},
 				})
 		// } else if Type == ipuDB.ACCESS {
-		case ipuDB.ACCESS:
+		case infradb.Access:
 			entries = append(entries, p4client.TableEntry{
 				Tablename: macMod,
 				TableField: p4client.TableField{
@@ -1602,7 +1604,7 @@ func (v VxlanDecoder) translateAddedVrf(vrf *infradb.Vrf) []interface{} {
 	if !_isL3vpnEnabled(vrf) {
 		return entries
 	}
-	var tcamPrefix, err = _getTcamPrefix(*vrf.Spec.Vni, Direction.Rx)
+	var tcamPrefix, err = _getTcamPrefix(*vrf.Metadata.RoutingTable[0], Direction.Rx)
 	if err != nil {
 		return entries
 	}
@@ -1643,7 +1645,7 @@ func (v VxlanDecoder) translateAddedVrf(vrf *infradb.Vrf) []interface{} {
 		},
 		Action: p4client.Action{
 			ActionName: "linux_networking_control.pop_vxlan_set_vrf_id",
-			Params:     []interface{}{ModPointer.ignorePtr, uint32(tcamPrefix), uint32(_toEgressVsi(v._defaultVsi)), *vrf.Spec.Vni},
+			Params:     []interface{}{ModPointer.ignorePtr, uint32(tcamPrefix), uint32(_toEgressVsi(v._defaultVsi)), *vrf.Metadata.RoutingTable[0]},
 		},
 	})
 	return entries
@@ -1766,7 +1768,7 @@ func (v VxlanDecoder) translateAddedNexthop(nexthop netlink_polling.NexthopStruc
 		},
 		Action: p4client.Action{
 			ActionName: "linux_networking_control.omac_vxlan_imac_push",
-			Params:     []interface{}{smac, dmac, net.IP(srcAddr.(string)), net.IP(dstAddr.(string)), v.vxlanUDPPort, vni.(uint32), innerSmacAddr, innerDmacAddr},
+			Params:     []interface{}{smac, dmac, net.ParseIP(srcAddr.(string)), net.ParseIP(dstAddr.(string)), v.vxlanUDPPort, vni.(uint32), innerSmacAddr, innerDmacAddr},
 		},
 	},
 		p4client.TableEntry{
@@ -1904,14 +1906,14 @@ func (v VxlanDecoder) translateAddedL2Nexthop(nexthop netlink_polling.L2NexthopS
 		},
 		Action: p4client.Action{
 			ActionName: "linux_networking_control.omac_vxlan_push",
-			Params:     []interface{}{srcMac, dstMac, net.IP(srcIP.(string)), net.ParseIP(dstIP.(string)), v.vxlanUDPPort, vni.(uint32)},
+			Params:     []interface{}{srcMac, dstMac, net.ParseIP(srcIP.(string)), net.ParseIP(dstIP.(string)), v.vxlanUDPPort, vni.(uint32)},
 		},
 	},
 		p4client.TableEntry{
 			Tablename: l2Nh,
 			TableField: p4client.TableField{
 				FieldValue: map[string][2]interface{}{
-					"neighbor":    {_bigEndian16(neighbor), "exact"},
+					"neighbor":    {uint16(neighbor), "exact"},
 					"bit32_zeros": {uint32(0), "exact"},
 				},
 				Priority: int32(0),
@@ -1958,7 +1960,7 @@ func (v VxlanDecoder) translateDeletedL2Nexthop(nexthop netlink_polling.L2Nextho
 			Tablename: l2Nh,
 			TableField: p4client.TableField{
 				FieldValue: map[string][2]interface{}{
-					"neighbor":    {_bigEndian16(neighbor), "exact"},
+					"neighbor":    {uint16(neighbor), "exact"},
 					"bit32_zeros": {uint32(0), "exact"},
 				},
 				Priority: int32(0),
@@ -1982,7 +1984,7 @@ func (v VxlanDecoder) translateAddedFdb(fdb netlink_polling.FdbEntryStruct) []in
 			Tablename: l2Fwd,
 			TableField: p4client.TableField{
 				FieldValue: map[string][2]interface{}{
-					"vlan_id":   {_bigEndian16(fdb.VlanID), "exact"},
+					"vlan_id":   {uint16(fdb.VlanID), "exact"},
 					"da":        {mac, "exact"},
 					"direction": {uint16(dir), "exact"},
 				},
@@ -2017,7 +2019,7 @@ func (v VxlanDecoder) translateDeletedFdb(fdb netlink_polling.FdbEntryStruct) []
 			Tablename: l2Fwd,
 			TableField: p4client.TableField{
 				FieldValue: map[string][2]interface{}{
-					"vlan_id":   {_bigEndian16(fdb.VlanID), "exact"},
+					"vlan_id":   {uint16(fdb.VlanID), "exact"},
 					"da":        {mac, "exact"},
 					"direction": {uint16(dir), "exact"},
 				},
@@ -2103,7 +2105,7 @@ func (p PodDecoder) translateAddedBp(bp *infradb.BridgePort) ([]interface{}, err
 				Tablename: popStag,
 				TableField: p4client.TableField{
 					FieldValue: map[string][2]interface{}{
-						"mod_blob_ptr": {modPtrD, "exact"},
+						"meta.common.mod_blob_ptr": {modPtrD, "exact"},
 					},
 					Priority: int32(0),
 				},
@@ -2129,13 +2131,13 @@ func (p PodDecoder) translateAddedBp(bp *infradb.BridgePort) ([]interface{}, err
 				Tablename: podOutTrunk,
 				TableField: p4client.TableField{
 					FieldValue: map[string][2]interface{}{
-						"meta.common.mod_blob_ptr": {modPtrD, "exact"},
+						"meta.common.mod_blob_ptr": {modPtr, "exact"},
 					},
 					Priority: int32(0),
 				},
 				Action: p4client.Action{
 					ActionName: "linux_networking_control.vlan_push_trunk",
-					Params:     []interface{}{0, 0, uint32(vsi)},
+					Params:     []interface{}{uint16(0), uint16(0), uint32(vsi)},
 				},
 			})
 		for _, vlan := range bp.Spec.LogicalBridges {
@@ -2192,7 +2194,7 @@ func (p PodDecoder) translateAddedBp(bp *infradb.BridgePort) ([]interface{}, err
 					log.Printf("intel-e2000: unable to find key %s and error is %v\n", SviObj.Spec.Vrf, err)
 					return entries, err
 				}
-				tcamPrefix, err := _getTcamPrefix(*VrfObj.Spec.Vni, Direction.Tx)
+				tcamPrefix, err := _getTcamPrefix(*VrfObj.Metadata.RoutingTable[0], Direction.Tx)
 				if err != nil {
 					return entries, err
 				}
@@ -2203,15 +2205,15 @@ func (p PodDecoder) translateAddedBp(bp *infradb.BridgePort) ([]interface{}, err
 					Tablename: portInSviTrunk,
 					TableField: p4client.TableField{
 						FieldValue: map[string][2]interface{}{
-							"vsi": {uint16(p._portMuxVsi), "exact"},
-							"vid": {uint16(vsi), "exact"},
+							"vsi": {uint16(vsi), "exact"},
+							"vid": {vid, "exact"},
 							"da":  {sviMac, "exact"},
 						},
 						Priority: int32(0),
 					},
 					Action: p4client.Action{
 						ActionName: "linux_networking_control.pop_vlan_set_vrf_id",
-						Params:     []interface{}{ignorePtr, uint32(tcamPrefix), uint32(0), uint16(*VrfObj.Spec.Vni)},
+						Params:     []interface{}{ignorePtr, uint32(tcamPrefix), uint32(0), uint16(*VrfObj.Metadata.RoutingTable[0])},
 					},
 				})
 			} else {
@@ -2327,7 +2329,7 @@ func (p PodDecoder) translateAddedBp(bp *infradb.BridgePort) ([]interface{}, err
 				log.Printf("intel-e2000: unable to find key %s and error is %v\n", SviObj.Spec.Vrf, err)
 				return entries, err
 			}
-			tcamPrefix, err := _getTcamPrefix(*VrfObj.Spec.Vni, Direction.Tx)
+			tcamPrefix, err := _getTcamPrefix(*VrfObj.Metadata.RoutingTable[0], Direction.Tx)
 			if err != nil {
 				return entries, err
 			}
@@ -2344,7 +2346,7 @@ func (p PodDecoder) translateAddedBp(bp *infradb.BridgePort) ([]interface{}, err
 				},
 				Action: p4client.Action{
 					ActionName: "linux_networking_control.set_vrf_id_tx",
-					Params:     []interface{}{uint32(tcamPrefix), uint32(0), uint16(*VrfObj.Spec.Vni)},
+					Params:     []interface{}{uint32(tcamPrefix), uint32(0), uint16(*VrfObj.Metadata.RoutingTable[0])},
 				},
 			})
 		} else {
@@ -2387,7 +2389,7 @@ func (p PodDecoder) translateDeletedBp(bp *infradb.BridgePort) ([]interface{}, e
 				Tablename: popStag,
 				TableField: p4client.TableField{
 					FieldValue: map[string][2]interface{}{
-						"mod_blob_ptr": {modPtrD, "exact"},
+						"meta.common.mod_blob_ptr": {modPtrD, "exact"},
 					},
 					Priority: int32(0),
 				},
@@ -2405,7 +2407,7 @@ func (p PodDecoder) translateDeletedBp(bp *infradb.BridgePort) ([]interface{}, e
 				Tablename: podOutTrunk,
 				TableField: p4client.TableField{
 					FieldValue: map[string][2]interface{}{
-						"meta.common.mod_blob_ptr": {modPtrD, "exact"},
+						"meta.common.mod_blob_ptr": {modPtr, "exact"},
 					},
 					Priority: int32(0),
 				},
@@ -2457,8 +2459,8 @@ func (p PodDecoder) translateDeletedBp(bp *infradb.BridgePort) ([]interface{}, e
 					Tablename: portInSviTrunk,
 					TableField: p4client.TableField{
 						FieldValue: map[string][2]interface{}{
-							"vsi": {uint16(p._portMuxVsi), "exact"},
-							"vid": {uint16(vsi), "exact"},
+							"vsi": {uint16(vsi), "exact"},
+							"vid": {vid, "exact"},
 							"da":  {sviMac, "exact"},
 						},
 						Priority: int32(0),
@@ -2596,7 +2598,7 @@ func (p PodDecoder) translateAddedSvi(svi *infradb.Svi) ([]interface{}, error) {
 				log.Printf("intel-e2000: unable to find key %s and error is %v", svi.Spec.Vrf, err)
 				return entries, err
 			}
-			tcamPrefix, err := _getTcamPrefix(*VrfObj.Spec.Vni, Direction.Tx)
+			tcamPrefix, err := _getTcamPrefix(*VrfObj.Metadata.RoutingTable[0], Direction.Tx)
 			if err != nil {
 				return entries, err
 			}
@@ -2612,7 +2614,7 @@ func (p PodDecoder) translateAddedSvi(svi *infradb.Svi) ([]interface{}, error) {
 					},
 					Action: p4client.Action{
 						ActionName: "linux_networking_control.set_vrf_id_tx",
-						Params:     []interface{}{uint32(tcamPrefix), uint32(0), uint16(*VrfObj.Spec.Vni)},
+						Params:     []interface{}{uint32(tcamPrefix), uint32(0), uint16(*VrfObj.Metadata.RoutingTable[0])},
 					},
 				})
 			} else if PortObj.Spec.Ptype == infradb.Trunk {
@@ -2701,7 +2703,7 @@ func (p PodDecoder) translateAddedFdb(fdb netlink_polling.FdbEntryStruct) []inte
 			Tablename: l2Fwd,
 			TableField: p4client.TableField{
 				FieldValue: map[string][2]interface{}{
-					"vlan_id":   {_bigEndian16(fdb.VlanID), "exact"},
+					"vlan_id":   {uint16(fdb.VlanID), "exact"},
 					"da":        {fdbMac, "exact"},
 					"direction": {uint16(dir), "exact"},
 				},
@@ -2734,7 +2736,7 @@ func (p PodDecoder) translateDeletedFdb(fdb netlink_polling.FdbEntryStruct) []in
 			Tablename: l2Fwd,
 			TableField: p4client.TableField{
 				FieldValue: map[string][2]interface{}{
-					"vlan_id":   {_bigEndian16(fdb.VlanID), "exact"},
+					"vlan_id":   {uint16(fdb.VlanID), "exact"},
 					"da":        {fdbMac, "exact"},
 					"direction": {uint16(dir), "exact"},
 				},
@@ -2753,25 +2755,27 @@ func (p PodDecoder) translateAddedL2Nexthop(nexthop netlink_polling.L2NexthopStr
 		return entries
 	}
 	var neighbor = nexthop.ID
-	var portType = nexthop.Metadata["portType"]
-	var portID = nexthop.Metadata["vport_id"]
-
-	if portType == ipuDB.ACCESS {
+	var portType = nexthop.Metadata["portType"].(infradb.BridgePortType)
+	var portID, err = strconv.Atoi(nexthop.Metadata["vport_id"].(string))
+	if err != nil {
+		panic(err)
+	}
+	if portType == infradb.Access {
 		entries = append(entries, p4client.TableEntry{
 			Tablename: l2Nh,
 			TableField: p4client.TableField{
 				FieldValue: map[string][2]interface{}{
-					"neighbor":    {_bigEndian16(neighbor), "exact"},
+					"neighbor":    {uint16(neighbor), "exact"},
 					"bit32_zeros": {uint32(0), "exact"},
 				},
 				Priority: int32(0),
 			},
 			Action: p4client.Action{
 				ActionName: "linux_networking_control.fwd_to_port",
-				Params:     []interface{}{uint32(_toEgressVsi(portID.(int)))},
+				Params:     []interface{}{uint32(_toEgressVsi(portID))},
 			},
 		})
-	} else if portType == ipuDB.TRUNK {
+	} else if portType == infradb.Trunk {
 		var key []interface{}
 		key = append(key, nexthop.Key.Dev, nexthop.Key.VlanID, nexthop.Key.Dst)
 
@@ -2793,14 +2797,14 @@ func (p PodDecoder) translateAddedL2Nexthop(nexthop netlink_polling.L2NexthopStr
 				Tablename: l2Nh,
 				TableField: p4client.TableField{
 					FieldValue: map[string][2]interface{}{
-						"neighbor":    {_bigEndian16(neighbor), "exact"},
+						"neighbor":    {uint16(neighbor), "exact"},
 						"bit32_zeros": {uint32(0), "exact"},
 					},
 					Priority: int32(0),
 				},
 				Action: p4client.Action{
 					ActionName: "linux_networking_control.push_vlan",
-					Params:     []interface{}{modPtr, uint32(_toEgressVsi(portID.(int)))},
+					Params:     []interface{}{modPtr, uint32(_toEgressVsi(portID))},
 				},
 			})
 	}
@@ -2821,20 +2825,20 @@ func (p PodDecoder) translateDeletedL2Nexthop(nexthop netlink_polling.L2NexthopS
 		return entries
 	}
 	var neighbor = nexthop.ID
-	var portType = nexthop.Metadata["portType"]
+	var portType = nexthop.Metadata["portType"].(infradb.BridgePortType)
 
-	if portType == ipuDB.ACCESS {
+	if portType == infradb.Access {
 		entries = append(entries, p4client.TableEntry{
 			Tablename: l2Nh,
 			TableField: p4client.TableField{
 				FieldValue: map[string][2]interface{}{
-					"neighbor":    {_bigEndian16(neighbor), "exact"},
+					"neighbor":    {uint16(neighbor), "exact"},
 					"bit32_zeros": {uint32(0), "exact"},
 				},
 				Priority: int32(0),
 			},
 		})
-	} else if portType == ipuDB.TRUNK {
+	} else if portType == infradb.Trunk {
 		var key []interface{}
 		key = append(key, nexthop.Key.Dev, nexthop.Key.VlanID, nexthop.Key.Dst)
 
@@ -2852,7 +2856,7 @@ func (p PodDecoder) translateDeletedL2Nexthop(nexthop netlink_polling.L2NexthopS
 				Tablename: l2Nh,
 				TableField: p4client.TableField{
 					FieldValue: map[string][2]interface{}{
-						"neighbor":    {_bigEndian16(neighbor), "exact"},
+						"neighbor":    {uint16(neighbor), "exact"},
 						"bit32_zeros": {uint32(0), "exact"},
 					},
 					Priority: int32(0),
