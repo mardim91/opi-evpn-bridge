@@ -23,6 +23,7 @@ import (
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriberframework/eventbus"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
+	"github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/intel-e2000/p4runtime/p4translation"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
@@ -33,10 +34,10 @@ import (
 type ModulelgmHandler struct{}
 
 // RoutingTableMax max value of routing table
-const RoutingTableMax = 4000
+//const RoutingTableMax = 4000
 
 // RoutingTableMin min value of routing table
-const RoutingTableMin = 1000
+//const RoutingTableMin = 1000
 
 // lgmComp string constant
 const lgmComp string = "lgm"
@@ -47,11 +48,23 @@ const brStr string = "br-"
 // vxlanStr string constant
 const vxlanStr string = "vxlan-"
 
-// GenerateRouteTable range specification, note that min <= max
-func GenerateRouteTable() uint32 {
-	return uint32(rand.Intn(RoutingTableMax-RoutingTableMin+1) + RoutingTableMin) //nolint:gosec
+var Rtpool p4translation.IDPool
+
+// ModPointer structure of  mod ptr definitions
+var RoutengTable_range = struct {
+	RoutingTableMin, RoutingTableMax uint32
+}{
+	RoutingTableMin: 1000,
+	RoutingTableMax: 4000,
 }
 
+/*
+// GenerateRouteTable range specification, note that min <= max
+func GenerateRouteTable() uint32 {
+	return
+	//return uint32(rand.Intn(RoutingTableMax-RoutingTableMin+1) + RoutingTableMin) //nolint:gosec
+}
+*/
 // run runs the commands
 func run(cmd []string, flag bool) (string, int) {
 	var out []byte
@@ -315,6 +328,8 @@ var ctx context.Context
 // nlink variable wrapper
 var nlink utils.Netlink
 
+var Route_table_Gen utils.IdPool
+
 // Init initializes the config, logger and subscribers
 func Init() {
 	eb := eventbus.EBus
@@ -329,6 +344,8 @@ func Init() {
 	defaultVtep = config.GlobalConfig.LinuxFrr.DefaultVtep
 	ipMtu = config.GlobalConfig.LinuxFrr.IPMtu
 	ctx = context.Background()
+	Route_table_Gen = utils.IDPoolInit("RTtable", RoutengTable_range.RoutingTableMin, RoutengTable_range.RoutingTableMax)
+	fmt.Printf("routing table %+v\n", Route_table_Gen)
 	nlink = utils.NewNetlinkWrapper()
 	// Set up the static configuration parts
 	_, err := nlink.LinkByName(ctx, brTenant)
@@ -430,7 +447,9 @@ func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 	vrf.Metadata.RoutingTable[0] = new(uint32)
 	var routingTable uint32
 	for {
-		routingTable = GenerateRouteTable()
+		var key interface{}
+		//key = append(key, nexthop.Key.Dev, nexthop.Key.VlanID, nexthop.Key.Dst)
+		routingTable, _ = Route_table_Gen.GetID(key, 0)
 		isBusy, err := routingTableBusy(routingTable)
 		if err != nil {
 			log.Printf("LGM : Error occurred when checking if routing table %d is busy: %+v\n", routingTable, err)

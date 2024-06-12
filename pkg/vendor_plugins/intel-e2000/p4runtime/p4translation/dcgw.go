@@ -19,6 +19,7 @@ import (
 
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	netlink_polling "github.com/opiproject/opi-evpn-bridge/pkg/netlink"
+	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 	p4client "github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/intel-e2000/p4runtime/p4driverapi"
 	binarypack "github.com/roman-kachanovsky/go-binary-pack/binary-pack"
 )
@@ -72,6 +73,7 @@ var EntryType = struct {
 	l3NH:   1,
 	l2Nh:   2,
 	trieIn: 3,
+	//rtIndex: 4,
 }
 
 // ModPointer structure of  mod ptr definitions
@@ -109,6 +111,7 @@ var ipuDB = struct {
 	ACCESS: 1,
 }
 
+/*
 // IDPool structure maintaining mod ptr pool
 type IDPool struct {
 	_inUseIDs     map[interface{}]uint32
@@ -123,77 +126,15 @@ func (i IDPool) IDPoolInit(min uint32, max uint32) IDPool {
 	}
 	return i
 }
-
+*/
 // PtrPool of type IDPool
-var PtrPool IDPool
+//var PtrPool utils.IdPool
 
 // ptrPool initialized variable
-var ptrPool = PtrPool.IDPoolInit(ModPointer.ptrMinRange, ModPointer.ptrMaxRange)
+var ptrPool = utils.IDPoolInit("mod_ptr", ModPointer.ptrMinRange, ModPointer.ptrMaxRange)
 
 // trieIndexPool initialized variable
-var trieIndexPool = PtrPool.IDPoolInit(TrieIndex.triIdxMinRange, TrieIndex.triIdxMaxRange)
-
-// getID get the mod ptr id from pool
-func (i IDPool) getID(keyType uint32, key []interface{}) uint32 {
-	// var fullKey interface{}
-	var fullKey interface{} = fmt.Sprintf("%d%d", keyType, key)
-	ptrID := ptrPool._inUseIDs[fullKey]
-	if ptrID == 0 {
-		ptrID = ptrPool._availableIDs[0]
-		ptrPool._availableIDs = ptrPool._availableIDs[1:]
-		if ptrPool._inUseIDs == nil {
-			ptrPool._inUseIDs = make(map[interface{}]uint32)
-		}
-		ptrPool._inUseIDs[fullKey] = ptrID
-	}
-	return ptrID
-}
-
-// getUsedID get the mod ptr id from pool
-func (i IDPool) getUsedID(keyType uint32, key []interface{}) uint32 {
-	// var fullKey interface{}
-	var fullKey interface{} = fmt.Sprintf("%d%d", keyType, key)
-	ptrID := ptrPool._inUseIDs[fullKey]
-	return ptrID
-}
-
-// putID replaces the mod ptr
-func (i IDPool) putID(keyType uint32, key []interface{}) error {
-	// var fullKey interface{}
-	var fullKey interface{} = fmt.Sprintf("%d%d", keyType, key)
-	ptrID := ptrPool._inUseIDs[fullKey]
-	if ptrID == 0 {
-		return fmt.Errorf("TODO") // or log
-	}
-	delete(ptrPool._inUseIDs, fullKey)
-	ptrPool._availableIDs = append(ptrPool._availableIDs, ptrID)
-	return nil
-}
-
-// refCount get the reference count
-func (i IDPool) refCount(keyType uint32, key []interface{}, op int) uint32 {
-	// var fullKey interface{}
-	var refCount uint32
-	var fullKey interface{} = fmt.Sprintf("%d%d", keyType, key)
-	for key := range i._refCount {
-		if key == fullKey {
-			refCount = i._refCount[fullKey]
-			switch op {
-			case RefCountOp.RESET:
-				refCount = 1
-			case RefCountOp.INCREMENT:
-				refCount++
-			case RefCountOp.DECREMENT:
-				refCount--
-			}
-			i._refCount[fullKey] = refCount
-		} else {
-			i._refCount[fullKey] = 1
-			return uint32(1)
-		}
-	}
-	return refCount
-}
+var trieIndexPool = PtrPool.IDPoolInit("trie_index", TrieIndex.triIdxMinRange, TrieIndex.triIdxMaxRange)
 
 // Table of type string
 type Table string
