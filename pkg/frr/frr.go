@@ -30,6 +30,8 @@ import (
 // frrComp string constant
 const frrComp string = "frr"
 
+var pame bool = true
+
 // ModulefrrHandler empty structure
 type ModulefrrHandler struct{}
 
@@ -127,6 +129,12 @@ func handlevrf(objectData *eventbus.ObjectData) {
 	vrf, err := infradb.GetVrf(objectData.Name)
 	if err != nil {
 		log.Printf("GetVRF error: %s %s\n", err, objectData.Name)
+		comp.Name = frrComp
+		comp.CompStatus = common.ComponentStatusError
+		err := infradb.UpdateVrfStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
+		if err != nil {
+		        log.Printf("error in updating vrf status: %s\n", err)
+		}
 		return
 	}
 
@@ -327,6 +335,13 @@ func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 		return "", true
 	}
 	if !reflect.ValueOf(vrf.Spec.Vni).IsZero() {
+		// Dimtiris
+		if pame {
+		        time.Sleep(133 * time.Second)
+		        pame = false
+	        }
+		//return "", false
+		//Dimitris
 		// Configure the vrf in FRR and set up BGP EVPN for it
 		vrfName := fmt.Sprintf("vrf %s", vrf.Name)
 		vniID := fmt.Sprintf("vni %s", strconv.Itoa(int(*vrf.Spec.Vni)))
