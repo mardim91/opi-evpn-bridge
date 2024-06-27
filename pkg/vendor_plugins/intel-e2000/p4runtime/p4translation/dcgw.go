@@ -958,7 +958,7 @@ func (l L3Decoder) _l3Route(route netlink_polling.RouteStruct, delete string) []
 		}
 	}
 	if path.Base(route.Vrf.Name) == grdStr && route.Nexthops[0].NhType == netlink_polling.PHY {
-		tidx := trieIndexPool.getUsedID(EntryType.trieIn, []interface{}{TcamPrefix.P2P})
+		tidx,_ := trieIndexPool.GetID([]interface{}{TcamPrefix.P2P},0)
 		if delete == trueStr {
 			entries = append(entries, p4client.TableEntry{
 				Tablename: l3P2PRt,
@@ -1342,7 +1342,7 @@ func (l L3Decoder) translateDeletedNexthop(nexthop netlink_polling.NexthopStruct
 		return entries
 	}
 	err,_ := ptrPool.Release_id(key,0)
-	if err != nil {
+	if err != 0 {
 		log.Println(err)
 	}
 	return entries
@@ -1464,7 +1464,7 @@ func (l L3Decoder) StaticAdditions() []interface{} {
 			})
 	}
 	tidx,_ := trieIndexPool.GetID([]interface{}{TcamPrefix.P2P},0)
-	trieIndexPool.refCount(EntryType.trieIn, []interface{}{TcamPrefix.P2P}, RefCountOp.RESET)
+	//trieIndexPool.refCount(EntryType.trieIn, []interface{}{TcamPrefix.P2P}, RefCountOp.RESET)
 	entries = append(entries, p4client.TableEntry{
 		Tablename: tcamEntries2,
 		TableField: p4client.TableField{
@@ -1874,7 +1874,7 @@ func (v VxlanDecoder) translateDeletedNexthop(nexthop netlink_polling.NexthopStr
 		})
 	//err := ptrPool.putID(EntryType.l3NH, key)
 	err,_ := ptrPool.Release_id(key,0)
-	if err != nil {
+	if err != 0 {
 		log.Println(err)
 	}
 	return entries
@@ -1949,7 +1949,7 @@ func (v VxlanDecoder) translateDeletedL2Nexthop(nexthop netlink_polling.L2Nextho
 	var modPtr,_ = ptrPool.GetID(key,0)
 	var neighbor = nexthop.ID
 	err,_ := ptrPool.Release_id(key,0)
-	if err != nil {
+	if err != 0 {
 		log.Println(err)
 	}
 	entries = append(entries, p4client.TableEntry{
@@ -2565,13 +2565,13 @@ func (p PodDecoder) translateDeletedBp(bp *infradb.BridgePort) ([]interface{}, e
 			log.Printf("no SVI for VLAN {vid} on BP {vsi}, skipping entry for SVI table")
 		}
 	}
-	err,_ = ptrPool.Release_id([]interface{}{port},0)
-	if err != nil {
-		log.Println(err)
+	err1,_ := ptrPool.Release_id([]interface{}{port},0)
+	if err1 != 0 {
+		log.Println(err1)
 	}
-	err,_ = ptrPool.Release_id([]interface{}{*bp.Spec.MacAddress},0)
-	if err != nil {
-		log.Println(err)
+	err1,_ = ptrPool.Release_id([]interface{}{*bp.Spec.MacAddress},0)
+	if err1 != 0 {
+		log.Println(err1)
 	}
 	return entries, nil
 }
@@ -2872,7 +2872,7 @@ func (p PodDecoder) translateDeletedL2Nexthop(nexthop netlink_polling.L2NexthopS
 	key = append(key, nexthop.Key.Dev, nexthop.Key.VlanID, nexthop.Key.Dst)
 
 	err,_ := ptrPool.Release_id( key,0)
-	if err != nil {
+	if err != 0 {
 		log.Println(err)
 	}
 	return entries
