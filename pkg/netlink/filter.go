@@ -107,7 +107,7 @@ func preFilterMac(f *FdbEntryStruct) bool {
 
 // preFilterRoute pre filter the routes
 func preFilterRoute(r *RouteStruct) bool {
-	if checkRtype(r.NlType) && !r.Route0.Dst.IP.IsLoopback() && r.Route0.Dst.IP.String() != "0.0.0.0" {
+	if checkRtype(r.NlType) && !r.Route0.Dst.IP.IsLoopback() && r.Route0.Dst.IP.String() != "0.0.0.0" && grdDefaultRoute {
 		return true
 	}
 

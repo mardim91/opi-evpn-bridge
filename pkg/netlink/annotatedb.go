@@ -113,10 +113,10 @@ func (fdb *FdbEntryStruct) annotate() *FdbEntryStruct {
 // annotate function annonates the entries
 func (route *RouteStruct) annotate() *RouteStruct {
 	route.Metadata = make(map[interface{}]interface{})
-	for i := 0; i < len(route.Nexthops); i++ {
+	/*for i := 0; i < len(route.Nexthops); i++ {
 		nexthop := route.Nexthops[i]
 		route.Metadata["nh_ids"] = nexthop.ID
-	}
+	}*/
 	if route.Vrf.Spec.Vni != nil {
 		route.Metadata["vrf_id"] = *route.Vrf.Spec.Vni
 	} else {
@@ -152,14 +152,15 @@ func (route *RouteStruct) annotate() *RouteStruct {
 // nolint
 func (nexthop *NexthopStruct) annotate() *NexthopStruct {
 	nexthop.Metadata = make(map[interface{}]interface{})
-	var phyFlag bool
+	/*var phyFlag bool
 	phyFlag = false
 	for k := range phyPorts {
 		if NameIndex[nexthop.nexthop.LinkIndex] == k {
 			phyFlag = true
 		}
-	}
-	if (nexthop.nexthop.Gw != nil && !nexthop.nexthop.Gw.IsUnspecified()) && nexthop.nexthop.LinkIndex != 0 && strings.HasPrefix(NameIndex[nexthop.nexthop.LinkIndex], path.Base(nexthop.Vrf.Name)+"-") && !nexthop.Local {
+	}*/
+	//if (nexthop.nexthop.Gw != nil && !nexthop.nexthop.Gw.IsUnspecified()) && nexthop.nexthop.LinkIndex != 0 && strings.HasPrefix(NameIndex[nexthop.nexthop.LinkIndex], path.Base(nexthop.Vrf.Name)+"-") && !nexthop.Local {
+	if nexthop.NhType == VRFNEIGHBOR {
 		nexthop.NhType = SVI
 		link, _ := vn.LinkByName(NameIndex[nexthop.nexthop.LinkIndex])
 		if nexthop.Neighbor != nil {
@@ -192,8 +193,9 @@ func (nexthop *NexthopStruct) annotate() *NexthopStruct {
 				log.Printf("netlink: Failed to gather data for nexthop on physical port\n")
 			}
 		}
-	} else if (nexthop.nexthop.Gw != nil && !nexthop.nexthop.Gw.IsUnspecified()) && phyFlag && !nexthop.Local {
-		nexthop.NhType = PHY
+		//} else if (nexthop.nexthop.Gw != nil && !nexthop.nexthop.Gw.IsUnspecified()) && phyFlag && !nexthop.Local {
+	} else if nexthop.NhType == PHY {
+		//nexthop.NhType = PHY
 		link1, _ := vn.LinkByName(NameIndex[nexthop.nexthop.LinkIndex])
 		if link1 == nil {
 			return nexthop
@@ -209,8 +211,9 @@ func (nexthop *NexthopStruct) annotate() *NexthopStruct {
 			nexthop.Resolved = false
 			log.Printf("netlink: Failed to gather data for nexthop on physical port")
 		}
-	} else if (nexthop.nexthop.Gw != nil && !nexthop.nexthop.Gw.IsUnspecified()) && NameIndex[nexthop.nexthop.LinkIndex] == fmt.Sprintf("br-%s", path.Base(nexthop.Vrf.Name)) && !nexthop.Local {
-		nexthop.NhType = VXLAN
+		//} else if (nexthop.nexthop.Gw != nil && !nexthop.nexthop.Gw.IsUnspecified()) && NameIndex[nexthop.nexthop.LinkIndex] == fmt.Sprintf("br-%s", path.Base(nexthop.Vrf.Name)) && !nexthop.Local {
+	} else if nexthop.NhType == VXLAN {
+		//nexthop.NhType = VXLAN
 		G, _ := infradb.GetVrf(nexthop.Vrf.Name)
 		var detail map[string]interface{}
 		var Rmac net.HardwareAddr
@@ -238,9 +241,9 @@ func (nexthop *NexthopStruct) annotate() *NexthopStruct {
 		}
 		vtepip := G.Spec.VtepIP.IP
 		nexthop.Metadata["local_vtep_ip"] = vtepip.String()
-		nexthop.Metadata["remote_vtep_ip"] = nexthop.nexthop.Gw.String()
+		//nexthop.Metadata["remote_vtep_ip"] = nexthop.nexthop.Gw.String()
 		nexthop.Metadata["vni"] = *nexthop.Vrf.Spec.Vni
-		if nexthop.Neighbor != nil {
+		/*if nexthop.Neighbor != nil {
 			nexthop.Metadata["inner_dmac"] = nexthop.Neighbor.Neigh0.HardwareAddr.String()
 			G, err := infradb.GetVrf("//network.opiproject.org/vrfs/GRD")
 			if err == nil {
@@ -263,9 +266,17 @@ func (nexthop *NexthopStruct) annotate() *NexthopStruct {
 			}
 		} else {
 			nexthop.Resolved = false
+		}*/
+		r, ok := lookupRoute(nexthop.nexthop.Gw, G)
+		if ok {
+			phyNh := r.Nexthops[0]
+			link, _ := vn.LinkByName(NameIndex[phyNh.nexthop.LinkIndex])
+			nexthop.Metadata["phy_smac"] = link.Attrs().HardwareAddr.String()
+			nexthop.Metadata["egress_vport"] = phyPorts[NameIndex[phyNh.nexthop.LinkIndex]]
+			nexthop.Metadata["phy_dmac"] = nexthop.Neighbor.Neigh0.HardwareAddr.String() // link.Attrs().HardwareAddr.String()
 		}
-	} else {
-		nexthop.NhType = ACC
+	} else if nexthop.NhType == ACC {
+		//nexthop.NhType = ACC
 		link1, err := vn.LinkByName("rep-" + path.Base(nexthop.Vrf.Name))
 		if err != nil {
 			log.Printf("netlink: Error in getting rep information: %v\n", err)
@@ -281,6 +292,8 @@ func (nexthop *NexthopStruct) annotate() *NexthopStruct {
 		} else {
 			nexthop.Metadata["vlanID"] = *nexthop.Vrf.Metadata.RoutingTable[0] //*nexthop.Vrf.Spec.Vni
 		}
+	} else {
+		nexthop.Resolved = false
 	}
 	return nexthop
 }

@@ -273,8 +273,8 @@ func Initialize() {
 		return
 	}
 	defaultVtep = config.GlobalConfig.LinuxFrr.DefaultVtep
-	portMux = config.GlobalConfig.LinuxFrr.PortMux
-	vrfMux = config.GlobalConfig.LinuxFrr.VrfMux
+	portMux = config.GlobalConfig.Interfaces.PortMux
+	vrfMux = config.GlobalConfig.Interfaces.VrfMux
 	log.Printf(" frr vtep: %+v port-mux %+v vrf-mux: +%v", defaultVtep, portMux, vrfMux)
 	// Subscribe to InfraDB notifications
 	subscribeInfradb(&config.GlobalConfig)

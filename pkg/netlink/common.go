@@ -23,8 +23,14 @@ var EventBus = eb.NewEventBus()
 // pollInterval variable
 var pollInterval int
 
-// dbphyPortslock variable
+// phyPorts variable
 var phyPorts = make(map[string]int)
+
+// grd default route bool variable
+var grdDefaultRoute bool
+
+// enable ecmp bool variable
+var enableEcmp bool
 
 // stopMonitoring variable
 var stopMonitoring atomic.Value
@@ -168,6 +174,7 @@ const ( // Route direction
 // Nexthop type
 const ( // NexthopStruct TYPE & L2NEXTHOP TYPE & FDBentry
 	PHY = iota
+	VRFNEIGHBOR
 	SVI
 	ACC
 	VXLAN
@@ -271,6 +278,7 @@ type nexthopKey struct {
 	Dst     string
 	Dev     int
 	Local   bool
+	Weight  int
 }
 
 // fdbKey structure key for sorting theFDB entries

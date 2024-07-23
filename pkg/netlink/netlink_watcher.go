@@ -100,12 +100,15 @@ func Initialize() {
 	pollInterval = config.GlobalConfig.Netlink.PollInterval
 	log.Printf("netlink: poll interval: %v", pollInterval)
 	nlEnabled := config.GlobalConfig.Netlink.Enabled
+
+	grdDefaultRoute = config.GlobalConfig.Netlink.GrdDefaultRoute
+	enableEcmp = config.GlobalConfig.Netlink.EnableEcmp
 	if !nlEnabled {
 		log.Printf("netlink: netlink_monitor disabled")
 		return
 	}
-	for i := 0; i < len(config.GlobalConfig.Netlink.PhyPorts); i++ {
-		phyPorts[config.GlobalConfig.Netlink.PhyPorts[i].Name] = config.GlobalConfig.Netlink.PhyPorts[i].Vsi
+	for i := 0; i < len(config.GlobalConfig.Interfaces.PhyPorts); i++ {
+		phyPorts[config.GlobalConfig.Interfaces.PhyPorts[i].Rep] = config.GlobalConfig.Interfaces.PhyPorts[i].Vsi
 	}
 	getlink()
 	ctx = context.Background()

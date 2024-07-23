@@ -358,19 +358,35 @@ func deleteNH(nexthop []*NexthopStruct) []*NexthopStruct {
 
 // addNexthop adds the nexthop
 func addNexthop(nexthop *NexthopStruct, r *RouteStruct) *RouteStruct {
+	if len(r.Nexthops) == 0 && enableEcmp {
+		log.Printf("ECMP disabled: Ignoring additional nexthop of route")
+		return nil
+	}
 	ch := checkNhDB(nexthop.Key)
 	if ch {
 		NH0 := latestNexthop[nexthop.Key]
 		// Links route with existing nexthop
 		NH0.RouteRefs = append(NH0.RouteRefs, r)
 		r.Nexthops = append(r.Nexthops, NH0)
-	} else {
-		// Create a new nexthop entry
+	} else if nexthop.Resolved {
 		nexthop.RouteRefs = append(nexthop.RouteRefs, r)
 		nexthop.ID = NHAssignID(nexthop.Key)
-		nexthop = tryResolve(nexthop)
-		latestNexthop[nexthop.Key] = nexthop
-		r.Nexthops = append(r.Nexthops, nexthop)
+		nexthops := tryResolve(nexthop)
+		for _, nexthop := range nexthops {
+			latestNexthop[nexthop.Key] = nexthop
+			r.Nexthops = append(r.Nexthops, nexthop)
+		}
+	} else {
+		// Create a new nexthop entry
+		//nexthop.RouteRefs = append(nexthop.RouteRefs, r)
+		//	nexthop.ID = NHAssignID(nexthop.Key)
+		nexthops := tryResolve(nexthop)
+		for _, nexthop := range nexthops {
+			//latestNexthop[nexthop.Key] = nexthop
+			//r.Nexthops = append(r.Nexthops, nexthop)
+			addNexthop(nexthop, r)
+		}
+
 	}
 	return r
 }
@@ -411,7 +427,24 @@ func NHParse(v *infradb.Vrf, rc routeCmdInfo) *NexthopStruct {
 	if rc.Weight >= 0 {
 		nh.Weight = rc.Weight
 	}
-	nh.Key = nexthopKey{nh.Vrf.Name, nh.nexthop.Gw.String(), nh.nexthop.LinkIndex, nh.Local}
+	var phyFlag bool
+	phyFlag = false
+	for k := range phyPorts {
+		if NameIndex[nh.nexthop.LinkIndex] == k {
+			phyFlag = true
+		}
+	}
+
+	if rc.Dst != "" && phyFlag && !nh.Local {
+		nh.NhType = PHY
+	} else if rc.Dst != "" && NameIndex[nh.nexthop.LinkIndex] == fmt.Sprintf("%s", path.Base(nh.Vrf.Name)) && !nh.Local {
+		nh.NhType = VRFNEIGHBOR
+	} else if rc.Dst != "" && NameIndex[nh.nexthop.LinkIndex] == fmt.Sprintf("br-%s", path.Base(nh.Vrf.Name)) && !nh.Local {
+		nh.NhType = VXLAN
+	} else {
+		nh.NhType = ACC
+	}
+	nh.Key = nexthopKey{nh.Vrf.Name, nh.nexthop.Gw.String(), nh.nexthop.LinkIndex, nh.Local, nh.Weight}
 	return &nh
 }
 
@@ -455,22 +488,78 @@ func checkNhDB(nhKey nexthopKey) bool {
 }
 
 // tryResolve resolves the neighbor
-func tryResolve(nexhthopSt *NexthopStruct) *NexthopStruct {
+func tryResolve(nexhthopSt *NexthopStruct) []*NexthopStruct {
+	var retNexthopSt []*NexthopStruct
 	if !reflect.ValueOf(nexhthopSt.nexthop.Gw).IsZero() {
 		// Nexthops with a gateway IP need resolution of that IP
 		neighborKey := neighKey{Dst: nexhthopSt.nexthop.Gw.String(), VrfName: nexhthopSt.Vrf.Name, Dev: nexhthopSt.nexthop.LinkIndex}
 		ch := checkNeigh(neighborKey)
-		if ch && latestNeighbors[neighborKey].Type != IGNORE {
-			nexhthopSt.Resolved = true
-			nh := latestNeighbors[neighborKey]
-			nexhthopSt.Neighbor = &nh
+
+		if ch {
+			if nexhthopSt.NhType == VXLAN {
+				nexhthopSt.Metadata["remote_vtep_ip"] = nexhthopSt.nexthop.Gw
+				nh := latestNeighbors[neighborKey]
+				nexhthopSt.Metadata["inner_dmac"] = nh.Neigh0.HardwareAddr
+				//nexhthopSt.Metadata["inner_dmac"] = nexhthopSt.Neighbor.Neigh0.HardwareAddr
+				VRF, _ := infradb.GetVrf("//network.opiproject.org/vrfs/GRD")
+				r, ok := lookupRoute(nexhthopSt.nexthop.Gw, VRF)
+				if ok {
+					for _, n := range r.Nexthops {
+						arrofNeigh := tryResolve(n)
+						if len(arrofNeigh) != 0 {
+							nexthopSt := nexhthopSt
+							nexthopSt.nexthop.Gw = n.nexthop.Gw
+							nexthopSt.nexthop.LinkIndex = n.nexthop.LinkIndex
+							nexthopSt.Key = nexthopKey{nexthopSt.Vrf.Name, nexthopSt.nexthop.Gw.String(), nexthopSt.nexthop.LinkIndex, nexthopSt.Local, nexthopSt.Weight}
+							nexthopSt.Neighbor = n.Neighbor
+							nexthopSt.Weight = n.Weight
+							nexthopSt.RouteRefs = n.RouteRefs
+							nexthopSt.Metadata = n.Metadata
+							nexthopSt.Resolved = true
+							retNexthopSt = append(retNexthopSt, nexthopSt)
+						}
+					}
+				}
+				return retNexthopSt
+			} else {
+				if nexhthopSt.NhType >= 0 {
+					nexhthopSt.Resolved = true
+					nh := latestNeighbors[neighborKey]
+					nexhthopSt.Neighbor = &nh
+					retNexthopSt = append(retNexthopSt, nexhthopSt)
+					return retNexthopSt
+				} else {
+					nexhthopSt.Resolved = false
+					nexhthopSt.Neighbor = nil
+					return nil
+				}
+			}
 		} else {
 			nexhthopSt.Resolved = false
+			nexhthopSt.Neighbor = nil
+			return nil
 		}
 	} else {
 		nexhthopSt.Resolved = true
+		retNexthopSt = append(retNexthopSt, nexhthopSt)
+		return retNexthopSt
 	}
-	return nexhthopSt
+
+	/*
+	   	if ch && latestNeighbors[neighborKey].Type != IGNORE {
+	   			nexhthopSt.Resolved = true
+	   			nh := latestNeighbors[neighborKey]
+	   			nexhthopSt.Neighbor = &nh
+	   		} else {
+	   			nexhthopSt.Resolved = false
+	   		}
+	   	} else {
+
+	   		nexhthopSt.Resolved = true
+	   	}
+
+	   return nexhthopSt
+	*/
 }
 
 // NHAssignID returns the nexthop id
