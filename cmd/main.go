@@ -41,7 +41,6 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	ci_linux "github.com/opiproject/opi-evpn-bridge/pkg/LinuxCIModule"
 	gen_linux "github.com/opiproject/opi-evpn-bridge/pkg/LinuxGeneralModule"
-	intel_e2000_linux "github.com/opiproject/opi-evpn-bridge/pkg/LinuxVendorModule/intele2000"
 	frr "github.com/opiproject/opi-evpn-bridge/pkg/frr"
 	netlink "github.com/opiproject/opi-evpn-bridge/pkg/netlink"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -69,7 +68,6 @@ var rootCmd = &cobra.Command{
 		switch config.GlobalConfig.Buildenv {
 		case intelStr:
 			gen_linux.Initialize()
-			intel_e2000_linux.Initialize()
 			frr.Initialize()
 		case "ci":
 			gen_linux.Initialize()
@@ -137,7 +135,6 @@ func cleanUp() {
 	switch config.GlobalConfig.Buildenv {
 	case intelStr:
 		gen_linux.DeInitialize()
-		intel_e2000_linux.DeInitialize()
 		frr.DeInitialize()
 		netlink.DeInitialize()
 	case "ci":
