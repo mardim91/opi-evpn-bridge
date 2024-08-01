@@ -44,8 +44,6 @@ import (
 	intel_e2000_linux "github.com/opiproject/opi-evpn-bridge/pkg/LinuxVendorModule/intele2000"
 	frr "github.com/opiproject/opi-evpn-bridge/pkg/frr"
 	netlink "github.com/opiproject/opi-evpn-bridge/pkg/netlink"
-	"github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/intel-e2000/p4runtime/p4driverapi"
-	ipu_vendor "github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/intel-e2000/p4runtime/p4translation"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 )
 
@@ -73,8 +71,6 @@ var rootCmd = &cobra.Command{
 			gen_linux.Initialize()
 			intel_e2000_linux.Initialize()
 			frr.Initialize()
-			ipu_vendor.Initialize()
-
 		case "ci":
 			gen_linux.Initialize()
 			ci_linux.Initialize()
@@ -144,9 +140,6 @@ func cleanUp() {
 		intel_e2000_linux.DeInitialize()
 		frr.DeInitialize()
 		netlink.DeInitialize()
-		ipu_vendor.DeInitialize()
-		close(p4driverapi.StopCh)
-
 	case "ci":
 		gen_linux.DeInitialize()
 		ci_linux.DeInitialize()
