@@ -47,14 +47,18 @@ type IdPool struct {
 func IDPoolInit(name string, min uint32, max uint32) IdPool {
 	var id IdPool
 	id.name = name
+	id._unused_ids = make([]uint32, 0)
 	for j := min; j <= (max + 1); j++ {
 		id._unused_ids = append(id._unused_ids, j)
 	}
 	id._size = len(id._unused_ids)
+	id._ids_in_use = make(map[interface{}]uint32)
+	id._ids_for_reuse = make(map[interface{}]uint32)
+	id._refs = make(map[uint32][]interface{})
 	return id
 }
 
-func (Ip IdPool) _assign_id(key interface{}) uint32 {
+func (Ip *IdPool) _assign_id(key interface{}) uint32 {
 	// Check if there was an id assigned for that key earlier
 	id := Ip._ids_for_reuse[key]
 	if !reflect.ValueOf(id).IsZero() {
@@ -86,14 +90,14 @@ func (Ip IdPool) _assign_id(key interface{}) uint32 {
 }
 
 // getID get the mod ptr id from pool
-func (IP IdPool) GetID(key interface{}, ref interface{}) (uint32, uint32) {
+func (IP *IdPool) GetID(key interface{}, ref interface{}) (uint32, uint32) {
 	id := IP._ids_in_use[key]
 	if reflect.ValueOf(id).IsZero() {
 		// Assign a free id for the key
 		id = IP._assign_id(key)
 	}
 	if reflect.ValueOf(ref).IsZero() {
-		log.Printf("assigning id for ref {ref}")
+		log.Printf("assigning id for ref %v", ref)
 		ref_set := IP._refs[id]
 		if reflect.ValueOf(ref_set).IsZero() {
 			ref_set = append(ref_set, ref)
@@ -101,7 +105,7 @@ func (IP IdPool) GetID(key interface{}, ref interface{}) (uint32, uint32) {
 			return id, uint32(len(ref_set))
 		}
 	} else {
-		log.Printf("{self}: assigning id {id} for {key}")
+		log.Printf("assigning id %v for key %v and ref %v", id, key, ref)
 	}
 	return id, uint32(0)
 }
@@ -119,12 +123,12 @@ func delete_ref(ref_set []interface{}, ref interface{}) []interface{} {
 }
 
 // refCount get the reference count
-func (IP IdPool) Release_id(key interface{}, ref interface{}) (uint32, uint32) {
+func (IP *IdPool) Release_id(key interface{}, ref interface{}) (uint32, uint32) {
 	//with self._lock:
-	log.Printf("{self}: releasing id for {key}")
+	log.Printf("releasing id for key %v", key)
 	id := IP._ids_in_use[key]
 	if reflect.ValueOf(ref).IsZero() {
-		log.Printf("{self}: No id to release for key {key}")
+		log.Printf("No id to release for key %v", key)
 		return 0, 0
 	}
 	ref_set := IP._refs[id]
@@ -134,7 +138,7 @@ func (IP IdPool) Release_id(key interface{}, ref interface{}) (uint32, uint32) {
 	}
 	if !reflect.ValueOf(ref_set).IsZero() {
 		// No (remaining) references, release id
-		log.Printf("{self}: id {id} has been released")
+		log.Printf("id %v has been released", id)
 		delete(IP._ids_in_use, key)
 		if !reflect.ValueOf(ref_set).IsZero() {
 			delete(IP._refs, id)
@@ -142,7 +146,7 @@ func (IP IdPool) Release_id(key interface{}, ref interface{}) (uint32, uint32) {
 		// Store released id for future reassignment
 		IP._ids_for_reuse[key] = id
 	} else {
-		log.Printf("{self}: Keep id. {len(ref_set)} remaining references")
+		log.Printf("Keep id. %v remaining references", len(ref_set))
 	}
 	if !reflect.ValueOf(ref).IsZero() {
 		return id, uint32(len(ref_set))

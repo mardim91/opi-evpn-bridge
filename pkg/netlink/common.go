@@ -326,7 +326,7 @@ type nHRouteInfo struct {
 }
 
 // routeCmdInfo structure
-type routeCmdInfo struct {
+type RouteCmdInfo struct {
 	Type     string
 	Dst      string
 	Nhid     int
@@ -390,6 +390,7 @@ type NexthopStruct struct {
 	Neighbor  *neighStruct
 	NhType    int
 	Metadata  map[interface{}]interface{}
+	Dir       int
 }
 
 // --------------------------------------------------------------------------

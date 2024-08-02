@@ -64,8 +64,8 @@ func notify_changes(new_db map[interface{}]interface{}, old_db map[interface{}]i
 				}
 			}
 			if event.EventType == ROUTE {
-				notifyAddDel(v1, event.Operation.Delete)
-				notifyAddDel(v2, event.Operation.Add)
+				notifyAddDel(v2, event.Operation.Delete)
+				notifyAddDel(v1, event.Operation.Add)
 			} else {
 				notifyAddDel(v1, event.Operation.Update)
 			}

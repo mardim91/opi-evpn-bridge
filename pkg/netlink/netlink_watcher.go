@@ -113,7 +113,6 @@ func Initialize() {
 	getlink()
 	ctx = context.Background()
 	nlink = utils.NewNetlinkWrapperWithArgs(config.GlobalConfig.Tracer)
-	// stopMonitoring = false
 	stopMonitoring.Store(false)
 	go monitorNetlink() // monitor Thread started
 }

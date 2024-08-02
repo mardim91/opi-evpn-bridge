@@ -1,6 +1,8 @@
 package netlink
 
-import vn "github.com/vishvananda/netlink"
+import (
+	vn "github.com/vishvananda/netlink"
+)
 
 // nolint
 func applyInstallFilters() {
@@ -59,8 +61,10 @@ func installFilterRoute(routeSt *RouteStruct) bool {
 			nh = append(nh, n)
 		}
 	}
+
 	routeSt.Nexthops = nh
 	keep := checkRtype(routeSt.NlType) && len(nh) != 0 && routeSt.Route0.Dst.IP.String() != "0.0.0.0"
+
 	return keep
 }
 
@@ -107,7 +111,7 @@ func preFilterMac(f *FdbEntryStruct) bool {
 
 // preFilterRoute pre filter the routes
 func preFilterRoute(r *RouteStruct) bool {
-	if checkRtype(r.NlType) && !r.Route0.Dst.IP.IsLoopback() && r.Route0.Dst.IP.String() != "0.0.0.0" && grdDefaultRoute {
+	if checkRtype(r.NlType) && !r.Route0.Dst.IP.IsLoopback() && r.Route0.Dst.IP.String() != "0.0.0.0" && !grdDefaultRoute {
 		return true
 	}
 

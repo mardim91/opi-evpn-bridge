@@ -366,6 +366,7 @@ func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 		_, err := Frr.FrrZebraCmd(ctx, fmt.Sprintf("configure terminal\n %s\n %s\n exit-vrf\n exit", vrfName, vniID))
 		// fmt.Printf("FrrZebraCmd: %v:%v", data, err)
 		if err != nil {
+			log.Printf("FRR: failed to configure vrf %s and vni %s",vrfName, vniID)
 			return "", false
 		}
 		log.Printf("FRR: Executed frr config t %s %s exit-vrf exit\n", vrfName, vniID)
@@ -376,12 +377,13 @@ func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 		} else {
 			LbiP = fmt.Sprintf("%+v", vrf.Spec.LoopbackIP.IP)
 		}
-		_, err = Frr.FrrBgpCmd(ctx, fmt.Sprintf("configure terminal\n router bgp 65000 vrf %s\n bgp router-id %s\n no bgp ebgp-requires-policy\n no bgp hard-administrative-reset\n no bgp graceful-restart notification\n address-family ipv4 unicast\n redistribute connected\n redistribute static\n exit-address-family\n address-family l2vpn evpn\n advertise ipv4 unicast\n exit-address-family\n exit", path.Base(vrf.Name), LbiP))
+		_, err = Frr.FrrBgpCmd(ctx, fmt.Sprintf("configure terminal\n router bgp 65011 vrf %s\n bgp router-id %s\n no bgp ebgp-requires-policy\n no bgp hard-administrative-reset\n no bgp graceful-restart notification\n address-family ipv4 unicast\n redistribute connected\n redistribute static\n exit-address-family\n address-family l2vpn evpn\n advertise ipv4 unicast\n exit-address-family\n exit", path.Base(vrf.Name), LbiP))
 		if err != nil {
+			log.Printf("FRR: failed to configure router bgp vrf %s and vni %s",vrfName, vniID)
 			return "", false
 		}
 
-		log.Printf("FRR: Executed config t bgpVrfName router bgp 65000 vrf %s bgp_route_id %s no bgp ebgp-requires-policy exit-vrf exit\n", vrf.Name, LbiP)
+		log.Printf("FRR: Executed config t bgpVrfName router bgp 65011 vrf %s bgp_route_id %s no bgp ebgp-requires-policy exit-vrf exit\n", vrf.Name, LbiP)
 		// Update the vrf with attributes from FRR
 		cmd := fmt.Sprintf("show bgp l2vpn evpn vni %d json", *vrf.Spec.Vni)
 		cp, err := Frr.FrrBgpCmd(ctx, cmd)
@@ -449,7 +451,7 @@ func setUpSvi(svi *infradb.Svi) bool {
 		// gwIP := fmt.Sprintf("%s", svi.Spec.GatewayIPs[0].IP.To4())
 		gwIP := string(svi.Spec.GatewayIPs[0].IP.To4())
 		RemoteAs := fmt.Sprintf("%d", *svi.Spec.RemoteAs)
-		bgpVrfName := fmt.Sprintf("router bgp 65000 vrf %s\n", path.Base(svi.Spec.Vrf))
+		bgpVrfName := fmt.Sprintf("router bgp 65011 vrf %s\n", path.Base(svi.Spec.Vrf))
 		neighlink := fmt.Sprintf("neighbor %s peer-group\n", linkSvi)
 		neighlinkRe := fmt.Sprintf("neighbor %s remote-as %s\n", linkSvi, RemoteAs)
 		neighlinkGw := fmt.Sprintf("neighbor %s update-source %s\n", linkSvi, gwIP)
@@ -478,14 +480,14 @@ func tearDownSvi(svi *infradb.Svi) bool {
 	}
 	linkSvi := fmt.Sprintf("%+v-%+v", path.Base(svi.Spec.Vrf), BrObj.Spec.VlanID)
 	if svi.Spec.EnableBgp && !reflect.ValueOf(svi.Spec.GatewayIPs).IsZero() {
-		bgpVrfName := fmt.Sprintf("router bgp 65000 vrf %s", path.Base(svi.Spec.Vrf))
+		bgpVrfName := fmt.Sprintf("router bgp 65011 vrf %s", path.Base(svi.Spec.Vrf))
 		noNeigh := fmt.Sprintf("no neighbor %s peer-group", linkSvi)
 		data, err := Frr.FrrBgpCmd(ctx, fmt.Sprintf("configure terminal\n %s\n %s\n exit", bgpVrfName, noNeigh))
 		if err != nil || checkFrrResult(data, false) {
 			log.Printf("FRR: Error in conf Delete vrf/VNI command %s\n", data)
 			return false
 		}
-		log.Printf("FRR: Executed vtysh -c conf t -c router bgp 65000 vrf %s -c no  neighbor %s peer-group -c exit\n", path.Base(svi.Spec.Vrf), linkSvi)
+		log.Printf("FRR: Executed vtysh -c conf t -c router bgp 65011 vrf %s -c no  neighbor %s peer-group -c exit\n", path.Base(svi.Spec.Vrf), linkSvi)
 		return true
 	}
 	return true
@@ -509,7 +511,7 @@ func tearDownVrf(vrf *infradb.Vrf) bool {
 	// Clean up FRR last
 	if !reflect.ValueOf(vrf.Spec.Vni).IsZero() {
 		log.Printf("FRR Deleted event")
-		delCmd1 := fmt.Sprintf("no router bgp 65000 vrf %s", path.Base(vrf.Name))
+		delCmd1 := fmt.Sprintf("no router bgp 65011 vrf %s", path.Base(vrf.Name))
 		delCmd2 := fmt.Sprintf("no vrf %s", path.Base(vrf.Name))
 		_, err = Frr.FrrBgpCmd(ctx, fmt.Sprintf("configure terminal\n %s\n exit\n", delCmd1))
 		if err != nil {

@@ -267,13 +267,15 @@ func (nexthop *NexthopStruct) annotate() *NexthopStruct {
 		} else {
 			nexthop.Resolved = false
 		}*/
-		r, ok := lookupRoute(nexthop.nexthop.Gw, G)
-		if ok {
-			phyNh := r.Nexthops[0]
-			link, _ := vn.LinkByName(NameIndex[phyNh.nexthop.LinkIndex])
-			nexthop.Metadata["phy_smac"] = link.Attrs().HardwareAddr.String()
-			nexthop.Metadata["egress_vport"] = phyPorts[NameIndex[phyNh.nexthop.LinkIndex]]
-			nexthop.Metadata["phy_dmac"] = nexthop.Neighbor.Neigh0.HardwareAddr.String() // link.Attrs().HardwareAddr.String()
+		if nexthop.Neighbor.Type == PHY {
+			r, ok := lookupRoute(nexthop.nexthop.Gw, G)
+			if ok {
+				phyNh := r.Nexthops[0]
+				link, _ := vn.LinkByName(NameIndex[phyNh.nexthop.LinkIndex])
+				nexthop.Metadata["phy_smac"] = link.Attrs().HardwareAddr.String()
+				nexthop.Metadata["egress_vport"] = phyPorts[NameIndex[phyNh.nexthop.LinkIndex]]
+				nexthop.Metadata["phy_dmac"] = nexthop.Neighbor.Neigh0.HardwareAddr.String() // link.Attrs().HardwareAddr.String()
+			}
 		}
 	} else if nexthop.NhType == ACC {
 		//nexthop.NhType = ACC
@@ -390,7 +392,7 @@ func lookupRoute(dst net.IP, v *infradb.Vrf) (*RouteStruct, bool) {
 	//  if there is no match in the DB.
 	var CP string
 	var err error
-	var RouteData []routeCmdInfo
+	var RouteData []RouteCmdInfo
 	if v.Spec.Vni != nil {
 		CP, err = nlink.RouteLookup(ctx, dst.String(), path.Base(v.Name))
 	} else {
@@ -411,7 +413,7 @@ func lookupRoute(dst net.IP, v *infradb.Vrf) (*RouteStruct, bool) {
 		CPs = append(CPs, string(rawMsg))
 	}
 	for i := 0; i < len(CPs); i++ {
-		var ri routeCmdInfo
+		var ri RouteCmdInfo
 		err := json.Unmarshal([]byte(CPs[i]), &ri)
 		if err != nil {
 			log.Println("error-", err)
