@@ -35,67 +35,57 @@ func notifyDBChanges() {
 	notifyDBCompChanges[L2NexthopKey, *L2NexthopStruct](latestL2Nexthop, l2Nexthops, L2NEXTHOP, l2NexthopOperations)
 }
 
-// Filterable method for each type
-type Filterable interface {
-	ShouldFilter() bool
+// dboperations interface
+type dboperations interface {
+	annotate()
+	filter() bool
 }
 
-// applyInstallFilters install the filters
-func applyInstallFilters() {
-	filterMap(latestRoutes, func(r *RouteStruct) bool { return r.installFilterRoute() })
-	filterMap(latestNexthop, func(n *NexthopStruct) bool { return n.installFilterNH() })
-	filterMap(latestFDB, func(f *FdbEntryStruct) bool { return f.installFilterFDB() })
-	filterMap(latestL2Nexthop, func(l *L2NexthopStruct) bool { return l.installFilterL2N() })
+type genericDB[K comparable, V dboperations] struct {
+	compDB map[K]V
 }
 
-// filterMap install the filters
-func filterMap[K comparable, V Filterable](m map[K]V, shouldFilter func(V) bool) {
-	for key, value := range m {
-		if !shouldFilter(value) {
-			delete(m, key)
+func newGenericDB[K comparable, V dboperations](data map[K]V) *genericDB[K, V] {
+	return &genericDB[K, V]{compDB: data}
+}
+
+func (db *genericDB[K, V]) annotate() {
+	for key, value := range db.compDB {
+		value.annotate()
+		db.compDB[key] = value
+	}
+}
+
+func (db *genericDB[K, V]) filter() {
+	for key, value := range db.compDB {
+		if !value.filter() {
+			delete(db.compDB, key)
 		}
 	}
 }
 
-// ShouldFilter method for each type
-func (route *RouteStruct) ShouldFilter() bool {
-	return route.installFilterRoute()
-}
+// annotateAndFilterDB  annonates and filters the latest db updates
+func annotateAndFilterDB() {
+	latestNexthopDB := newGenericDB(latestNexthop)
+	latestNexthopDB.annotate()
+	latestNexthopDB.filter()
 
-// ShouldFilter method for each type
-func (nexthop *NexthopStruct) ShouldFilter() bool {
-	return nexthop.installFilterNH()
-}
+	latestRoutesDB := newGenericDB(latestRoutes)
+	latestRoutesDB.annotate()
+	latestRoutesDB.filter()
 
-// ShouldFilter method for each type
-func (fdb *FdbEntryStruct) ShouldFilter() bool {
-	return fdb.installFilterFDB()
-}
+	latestFdbDB := newGenericDB(latestFDB)
+	latestFdbDB.annotate()
+	latestFdbDB.filter()
 
-// ShouldFilter method for each type
-func (l *L2NexthopStruct) ShouldFilter() bool {
-	return l.installFilterL2N()
-}
+	latestL2NexthopDB := newGenericDB(latestL2Nexthop)
+	latestL2NexthopDB.annotate()
+	latestL2NexthopDB.filter()
 
-// Annotatable interface
-type Annotatable interface {
-	annotate()
-}
-
-// annotateMap  annonates the latest db map updates
-func annotateMap[K comparable, V Annotatable](m map[K]V) {
-	for key, value := range m {
-		value.annotate()
-		m[key] = value
-	}
-}
-
-// annotateDBEntries  annonates the latest db updates
-func annotateDBEntries() {
-	annotateMap(latestNexthop)
-	annotateMap(latestRoutes)
-	annotateMap(latestFDB)
-	annotateMap(latestL2Nexthop)
+	latestNexthop = latestNexthopDB.compDB
+	latestRoutes = latestRoutesDB.compDB
+	latestFDB = latestFdbDB.compDB
+	latestL2Nexthop = latestL2NexthopDB.compDB
 }
 
 // readLatestNetlinkState reads the latest netlink state
@@ -116,10 +106,8 @@ func readLatestNetlinkState() {
 func resyncWithKernel() {
 	// Build a new DB snapshot from netlink and other sources
 	readLatestNetlinkState()
-	// Annotate the latest DB entries
-	annotateDBEntries()
-	// Filter the latest DB to retain only entries to be installed
-	applyInstallFilters()
+	// Annotate and filter the latest DB entries
+	annotateAndFilterDB()
 	// Compute changes between current and latest DB versions and inform subscribers about the changes
 	notifyDBChanges()
 	routes = latestRoutes
