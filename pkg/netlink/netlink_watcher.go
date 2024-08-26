@@ -99,7 +99,7 @@ func readLatestNetlinkState() {
 	for i := 0; i < len(m); i++ {
 		m[i].addFdbEntry()
 	}
-	dumpDBs()
+	//dumpDBs()
 }
 
 // resyncWithKernel fun resyncs with kernal db
@@ -174,17 +174,20 @@ func Initialize() {
 	pollInterval = config.GlobalConfig.Netlink.PollInterval
 	log.Printf("netlink: poll interval: %v", pollInterval)
 	nlEnabled := config.GlobalConfig.Netlink.Enabled
+
+	grdDefaultRoute = config.GlobalConfig.Netlink.GrdDefaultRoute
+	enableEcmp = config.GlobalConfig.Netlink.EnableEcmp
+
 	if !nlEnabled {
 		log.Printf("netlink: netlink_monitor disabled")
 		return
 	}
-	for i := 0; i < len(config.GlobalConfig.Netlink.PhyPorts); i++ {
-		phyPorts[config.GlobalConfig.Netlink.PhyPorts[i].Name] = config.GlobalConfig.Netlink.PhyPorts[i].Vsi
+	for i := 0; i < len(config.GlobalConfig.Interfaces.PhyPorts); i++ {
+		phyPorts[config.GlobalConfig.Interfaces.PhyPorts[i].Rep] = config.GlobalConfig.Interfaces.PhyPorts[i].Vsi
 	}
 	getlink()
 	ctx = context.Background()
 	nlink = utils.NewNetlinkWrapperWithArgs(config.GlobalConfig.Tracer)
-	// stopMonitoring = false
 	stopMonitoring.Store(false)
 	go monitorNetlink() // monitor Thread started
 }

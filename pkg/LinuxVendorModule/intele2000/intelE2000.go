@@ -416,8 +416,8 @@ func Initialize() {
 			}
 		}
 	}
-	portMux = config.GlobalConfig.LinuxFrr.PortMux
-	vrfMux = config.GlobalConfig.LinuxFrr.VrfMux
+	portMux = config.GlobalConfig.Interfaces.PortMux
+	vrfMux = config.GlobalConfig.Interfaces.VrfMux
 	ipMtu = config.GlobalConfig.LinuxFrr.IPMtu
 	brTenant = "br-tenant"
 	ctx = context.Background()

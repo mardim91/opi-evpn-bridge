@@ -421,10 +421,10 @@ func CheckRdup(tmpKey RouteKey) bool {
 // annotate function annonates the entries
 func (route *RouteStruct) annotate() {
 	route.Metadata = make(map[interface{}]interface{})
-	for i := 0; i < len(route.Nexthops); i++ {
+	/*	for i := 0; i < len(route.Nexthops); i++ {
 		nexthop := route.Nexthops[i]
 		route.Metadata["nh_ids"] = nexthop.ID
-	}
+	}*/
 	if route.Vrf.Spec.Vni != nil {
 		route.Metadata["vrf_id"] = *route.Vrf.Spec.Vni
 	} else {
@@ -540,7 +540,8 @@ func (route *RouteStruct) filter() bool {
 
 // preFilterRoute pre filter the routes
 func (route *RouteStruct) preFilterRoute() bool {
-	if checkRtype(route.NlType) && !route.Route0.Dst.IP.IsLoopback() && route.Route0.Dst.IP.String() != "0.0.0.0" {
+	if checkRtype(route.NlType) && !route.Route0.Dst.IP.IsLoopback() && route.Route0.Dst.IP.String() != "0.0.0.0" && !grdDefaultRoute {
+		//if checkRtype(route.NlType) && !route.Route0.Dst.IP.IsLoopback() && route.Route0.Dst.IP.String() != "0.0.0.0" {
 		return true
 	}
 
