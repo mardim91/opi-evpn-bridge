@@ -324,9 +324,12 @@ func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 		vrfName := fmt.Sprintf("vrf %s", vrf.Name)
 		vniID := fmt.Sprintf("vni %s", strconv.Itoa(int(*vrf.Spec.Vni)))
 		data, err := Frr.FrrZebraCmd(ctx, fmt.Sprintf("configure terminal\n %s\n %s\n exit-vrf\n exit", vrfName, vniID))
+		if strings.Contains(data,"already configured ") {  // Trying to add other vni to existing vrf
+			return data,false
+		}
 		if err != nil || checkFrrResult(data, false) {
 			log.Printf("FRR: Error Executing frr config t %s %s exit-vrf exit data %v\n", vrfName, vniID,data)
-			return "", false
+			return data, false
 		}
 		log.Printf("FRR: Executed frr config t %s %s exit-vrf exit\n", vrfName, vniID)
 		var LbiP string
@@ -474,7 +477,10 @@ func tearDownVrf(vrf *infradb.Vrf) bool {
 		delCmd1 := fmt.Sprintf("no router bgp 65000 vrf %s", vrf.Name)
 		delCmd2 := fmt.Sprintf("no vrf %s", vrf.Name)
 		data, err = Frr.FrrBgpCmd(ctx, fmt.Sprintf("configure terminal\n %s\n exit\n", delCmd1))
-		if err != nil || checkFrrResult(data, false) {
+		if strings.Contains(data,"Can't find BGP instance") {  // Trying to delete non exist VRF return true 
+			return true 
+		}	
+		if  err != nil || checkFrrResult(data, false) {
 			log.Printf("FRR: Error  %s\n", data)
 			return false
 		}
