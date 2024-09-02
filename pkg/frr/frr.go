@@ -324,12 +324,9 @@ func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 		vrfName := fmt.Sprintf("vrf %s", vrf.Name)
 		vniID := fmt.Sprintf("vni %s", strconv.Itoa(int(*vrf.Spec.Vni)))
 		data, err := Frr.FrrZebraCmd(ctx, fmt.Sprintf("configure terminal\n %s\n %s\n exit-vrf\n exit", vrfName, vniID))
-		if strings.Contains(data,"already configured ") {  // Trying to add other vni to existing vrf
-			return data,false
-		}
 		if err != nil || checkFrrResult(data, false) {
 			log.Printf("FRR: Error Executing frr config t %s %s exit-vrf exit data %v\n", vrfName, vniID,data)
-			return data, false
+			return "", false
 		}
 		log.Printf("FRR: Executed frr config t %s %s exit-vrf exit\n", vrfName, vniID)
 		var LbiP string
@@ -356,8 +353,7 @@ func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 		L2vpnCmd := strings.Split(cp, "json")
 		L2vpnCmd = strings.Split(L2vpnCmd[1], hname)
 		cp = L2vpnCmd[0]
-		// fmt.Printf("FRR_L2vpn[0]: %s\n",cp)
-		if len(cp) != 7 {
+		if len(cp) != 7 {   // Checking CMD o/p 
 			cp = cp[3 : len(cp)-3]
 		} else {
 			log.Printf("FRR: unable to get the command %s\n", cmd)
@@ -445,6 +441,9 @@ func tearDownSvi(svi *infradb.Svi) bool {
 		bgpVrfName := fmt.Sprintf("router bgp 65000 vrf %s", path.Base(svi.Spec.Vrf))
 		noNeigh := fmt.Sprintf("no neighbor %s peer-group", linkSvi)
 		data, err := Frr.FrrBgpCmd(ctx, fmt.Sprintf("configure terminal\n %s\n %s\n exit", bgpVrfName, noNeigh))
+   	        if strings.Contains(data,"Create the peer-group first") {  // Trying to delete non exist peer-group return true
+                        return true
+                }
 		if err != nil || checkFrrResult(data, false) {
 			log.Printf("FRR: Error in conf Delete vrf/VNI command %s\n", data)
 			return false
