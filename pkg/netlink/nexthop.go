@@ -7,6 +7,7 @@ import (
 	"net"
 	"path"
 	"reflect"
+	"strings"
 
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	vn "github.com/vishvananda/netlink"
@@ -39,6 +40,9 @@ type NexthopStruct struct {
 	NhType    int
 	Metadata  map[interface{}]interface{}
 	Dir       int
+	Divisor   int
+	Value     float64
+	Hashes    []int
 }
 
 // nexthopOperations add, update, delete
@@ -73,6 +77,7 @@ const ( // NexthopStruct TYPE & L2NEXTHOP TYPE & FDBentry
 	BRIDGEPORT
 	OTHER
 	IGNORE
+	ECMP
 )
 
 // checkNhDB checks the neighbor database
@@ -85,75 +90,67 @@ func checkNhDB(nhKey NexthopKey) bool {
 	return false
 }
 
+// deepCopyMetadata deep copies the metadata
+func deepCopyMetadata(originalMap map[interface{}]interface{}) map[interface{}]interface{} {
+	newMap := make(map[interface{}]interface{})
+	for key, value := range originalMap {
+		newMap[key] = value
+	}
+	return newMap
+}
+
 // tryResolve resolves the neighbor
 func (nexthop *NexthopStruct) tryResolve() []*NexthopStruct {
 	var retNexthopSt []*NexthopStruct
-
+	if nexthop.Metadata == nil {
+		nexthop.Metadata = make(map[interface{}]interface{})
+	}
 	if nexthop.nexthop.Gw != nil {
 		// Nexthops with a gateway IP need resolution of that IP
 		neighborKey := NeighKey{Dst: nexthop.nexthop.Gw.String(), VrfName: nexthop.Vrf.Name, Dev: nexthop.nexthop.LinkIndex}
 		ch := checkNeigh(neighborKey)
 		if ch {
 			if nexthop.NhType == VXLAN {
-				nexthop.Metadata["remote_vtep_ip"] = nexthop.nexthop.Gw
+				nexthop.Metadata["remote_vtep_ip"] = nexthop.nexthop.Gw.String()
 				nh := latestNeighbors[neighborKey]
-				nexthop.Metadata["inner_dmac"] = nh.Neigh0.HardwareAddr
-				//nexthop.Metadata["inner_dmac"] = nexthop.Neighbor.Neigh0.HardwareAddr
+				nexthop.Metadata["inner_dmac"] = nh.Neigh0.HardwareAddr.String()
 				VRF, _ := infradb.GetVrf("//network.opiproject.org/vrfs/GRD")
 				r, ok := lookupRoute(nexthop.nexthop.Gw, VRF)
 				if ok {
-					for _, n := range r.Nexthops {
-						arrofNeigh := n.tryResolve()
-						if len(arrofNeigh) != 0 {
-							nexthopSt := nexthop
-							nexthopSt.nexthop.Gw = n.nexthop.Gw
-							nexthopSt.nexthop.LinkIndex = n.nexthop.LinkIndex
+					for _, grdNexthop := range r.Nexthops {
+						arrayOfNexthops := grdNexthop.tryResolve()
+						if len(arrayOfNexthops) != 0 {
+							nexthopSt := *nexthop
+							nexthopSt.nexthop.Gw = grdNexthop.nexthop.Gw
+							nexthopSt.nexthop.LinkIndex = grdNexthop.nexthop.LinkIndex
 							nexthopSt.Key = NexthopKey{nexthopSt.Vrf.Name, nexthopSt.nexthop.Gw.String(), nexthopSt.nexthop.LinkIndex, nexthopSt.Local, nexthopSt.Weight}
-							nexthopSt.Neighbor = n.Neighbor
-							nexthopSt.Weight = n.Weight
-							nexthopSt.RouteRefs = n.RouteRefs
-							nexthopSt.Metadata = n.Metadata
+							nexthopSt.Neighbor = grdNexthop.Neighbor
+							nexthopSt.Weight = grdNexthop.Weight
+							nexthopSt.RouteRefs = nexthop.RouteRefs
+							nexthopSt.Metadata = deepCopyMetadata(nexthop.Metadata)
+
 							nexthopSt.Resolved = true
-							retNexthopSt = append(retNexthopSt, nexthopSt)
+							retNexthopSt = append(retNexthopSt, &nexthopSt)
 						}
 					}
 				}
 				return retNexthopSt
-			} else {
-				if nexthop.NhType >= 0 {
-					nexthop.Resolved = true
-					nh := latestNeighbors[neighborKey]
-					nexthop.Neighbor = &nh
-					retNexthopSt = append(retNexthopSt, nexthop)
-					return retNexthopSt
-				} else {
-					nexthop.Resolved = false
-					nexthop.Neighbor = nil
-					return nil
-				}
+			} else if nexthop.NhType >= 0 {
+				nexthop.Resolved = true
+				nh := latestNeighbors[neighborKey]
+				nexthop.Neighbor = &nh
+				return []*NexthopStruct{nexthop}
 			}
-		} else {
 			nexthop.Resolved = false
 			nexthop.Neighbor = nil
 			return nil
 		}
-	} else {
-		nexthop.Resolved = true
-		retNexthopSt = append(retNexthopSt, nexthop)
-		return retNexthopSt
+		nexthop.Resolved = false
+		nexthop.Neighbor = nil
+		return nil
 	}
-
-	/*	if ch && latestNeighbors[neighborKey].Type != IGNORE {
-				nexthop.Resolved = true
-				nh := latestNeighbors[neighborKey]
-				nexthop.Neighbor = &nh
-			} else {
-				nexthop.Resolved = false
-			}
-		} else {
-			nexthop.Resolved = true
-		}
-		return nexthop*/
+	nexthop.Resolved = true
+	return []*NexthopStruct{nexthop}
 }
 
 // NHAssignID returns the nexthop id
@@ -169,6 +166,8 @@ func NHAssignID(key NexthopKey) int {
 }
 
 // addNexthop adds the nexthop
+//
+//nolint
 func (nexthop *NexthopStruct) addNexthop(r *RouteStruct) *RouteStruct {
 	if len(r.Nexthops) > 0 && !enableEcmp {
 		log.Printf("ECMP disabled: Ignoring additional nexthop of route")
@@ -183,27 +182,20 @@ func (nexthop *NexthopStruct) addNexthop(r *RouteStruct) *RouteStruct {
 	} else if nexthop.Resolved {
 		nexthop.RouteRefs = append(nexthop.RouteRefs, r)
 		nexthop.ID = NHAssignID(nexthop.Key)
-		//nexthops := tryResolve(nexthop)
-		//for _, nexthop := range r.Nexthops {
 		latestNexthop[nexthop.Key] = nexthop
 		r.Nexthops = append(r.Nexthops, nexthop)
-		//}
 	} else {
-		// Create a new nexthop entry
-		//nexthop.RouteRefs = append(nexthop.RouteRefs, r)
-		//	nexthop.ID = NHAssignID(nexthop.Key)
 		nexthops := nexthop.tryResolve()
 		for _, nexthop := range nexthops {
-			//latestNexthop[nexthop.Key] = nexthop
-			//r.Nexthops = append(r.Nexthops, nexthop)
 			r = nexthop.addNexthop(r)
 		}
-
 	}
 	return r
 }
 
 // ParseNexthop parses the neighbor
+//
+//nolint
 func (nexthop *NexthopStruct) ParseNexthop(v *infradb.Vrf, rc RouteCmdInfo) {
 	var phyFlag bool
 	phyFlag = false
@@ -247,12 +239,11 @@ func (nexthop *NexthopStruct) ParseNexthop(v *infradb.Vrf, rc RouteCmdInfo) {
 			phyFlag = true
 		}
 	}
-
-	if rc.Dst != "" && phyFlag && !nexthop.Local {
+	if (nexthop.nexthop.Gw != nil && !nexthop.nexthop.Gw.IsUnspecified()) && phyFlag && !nexthop.Local {
 		nexthop.NhType = PHY
-	} else if rc.Dst != "" && nameIndex[nexthop.nexthop.LinkIndex] == fmt.Sprintf("%s", path.Base(nexthop.Vrf.Name)) && !nexthop.Local {
+	} else if (nexthop.nexthop.Gw != nil && !nexthop.nexthop.Gw.IsUnspecified()) && nexthop.nexthop.LinkIndex != 0 && strings.HasPrefix(nameIndex[nexthop.nexthop.LinkIndex], path.Base(nexthop.Vrf.Name)+"-") && !nexthop.Local {
 		nexthop.NhType = VRFNEIGHBOR
-	} else if rc.Dst != "" && nameIndex[nexthop.nexthop.LinkIndex] == fmt.Sprintf("br-%s", path.Base(nexthop.Vrf.Name)) && !nexthop.Local {
+	} else if (nexthop.nexthop.Gw != nil && !nexthop.nexthop.Gw.IsUnspecified()) && nameIndex[nexthop.nexthop.LinkIndex] == fmt.Sprintf("br-%s", path.Base(nexthop.Vrf.Name)) && !nexthop.Local {
 		nexthop.NhType = VXLAN
 	} else {
 		nexthop.NhType = ACC
@@ -262,16 +253,7 @@ func (nexthop *NexthopStruct) ParseNexthop(v *infradb.Vrf, rc RouteCmdInfo) {
 
 // nolint
 func (nexthop *NexthopStruct) annotate() {
-	nexthop.Metadata = make(map[interface{}]interface{})
-	/*var phyFlag bool
-	phyFlag = false
-	for k := range phyPorts {
-		if nameIndex[nexthop.nexthop.LinkIndex] == k {
-			phyFlag = true
-		}
-	}*/
 	if nexthop.NhType == VRFNEIGHBOR {
-		//if (nexthop.nexthop.Gw != nil && !nexthop.nexthop.Gw.IsUnspecified()) && nexthop.nexthop.LinkIndex != 0 && strings.HasPrefix(nameIndex[nexthop.nexthop.LinkIndex], path.Base(nexthop.Vrf.Name)+"-") && !nexthop.Local {
 		nexthop.NhType = SVI
 		link, _ := vn.LinkByName(nameIndex[nexthop.nexthop.LinkIndex])
 		if nexthop.Neighbor != nil {
@@ -305,12 +287,10 @@ func (nexthop *NexthopStruct) annotate() {
 				}
 			} else {
 				nexthop.Resolved = false
-				log.Printf("netlink: Failed to gather data for nexthop on physical port\n")
+				log.Printf("netlink: Failed to gather data for nexthop on physical port with nexthop is %+v\n", nexthop)
 			}
 		}
 	} else if nexthop.NhType == PHY {
-		//} else if (nexthop.nexthop.Gw != nil && !nexthop.nexthop.Gw.IsUnspecified()) && phyFlag && !nexthop.Local {
-		//nexthop.NhType = PHY
 		link1, _ := vn.LinkByName(nameIndex[nexthop.nexthop.LinkIndex])
 		if link1 == nil {
 			return
@@ -324,11 +304,9 @@ func (nexthop *NexthopStruct) annotate() {
 			}
 		} else {
 			nexthop.Resolved = false
-			log.Printf("netlink: Failed to gather data for nexthop on physical port")
+			log.Printf("netlink: Failed to gather data for nexthop on physical port with nexthop is %+v\n", nexthop)
 		}
 	} else if nexthop.NhType == VXLAN {
-		//} else if (nexthop.nexthop.Gw != nil && !nexthop.nexthop.Gw.IsUnspecified()) && nameIndex[nexthop.nexthop.LinkIndex] == fmt.Sprintf("br-%s", path.Base(nexthop.Vrf.Name)) && !nexthop.Local {
-		//	nexthop.NhType = VXLAN
 		v, _ := infradb.GetVrf(nexthop.Vrf.Name)
 		var detail map[string]interface{}
 		var rmac net.HardwareAddr
@@ -362,32 +340,7 @@ func (nexthop *NexthopStruct) annotate() {
 		}
 		vtepip := v.Spec.VtepIP.IP
 		nexthop.Metadata["local_vtep_ip"] = vtepip.String()
-		//nexthop.Metadata["remote_vtep_ip"] = nexthop.nexthop.Gw.String()
 		nexthop.Metadata["vni"] = *nexthop.Vrf.Spec.Vni
-		/*if nexthop.Neighbor != nil {
-			nexthop.Metadata["inner_dmac"] = nexthop.Neighbor.Neigh0.HardwareAddr.String()
-			v, err := infradb.GetVrf("//network.opiproject.org/vrfs/GRD")
-			if err == nil {
-				r, ok := lookupRoute(nexthop.nexthop.Gw, v)
-				if ok {
-					// For now pick the first physical nexthop (no ECMP yet)
-					phyNh := r.Nexthops[0]
-					link, _ := vn.LinkByName(nameIndex[phyNh.nexthop.LinkIndex])
-					nexthop.Metadata["phy_smac"] = link.Attrs().HardwareAddr.String()
-					nexthop.Metadata["egress_vport"] = phyPorts[nameIndex[phyNh.nexthop.LinkIndex]]
-					if phyNh.Neighbor != nil {
-						nexthop.Metadata["phy_dmac"] = phyNh.Neighbor.Neigh0.HardwareAddr.String()
-					} else {
-						// The VXLAN nexthop can only be installed when the phy_nexthops are Resolved.
-						nexthop.Resolved = false
-					}
-				}
-			} else {
-				log.Printf("netlink: No GRD found :%v\n", err)
-			}
-		} else {
-			nexthop.Resolved = false
-		}*/
 		if nexthop.Neighbor.Type == PHY {
 			r, ok := lookupRoute(nexthop.nexthop.Gw, v)
 			if ok {

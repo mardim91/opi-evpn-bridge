@@ -100,16 +100,23 @@ func annotateDBEntries() {
 
 // readLatestNetlinkState reads the latest netlink state
 func readLatestNetlinkState() {
-	vrfs, _ := infradb.GetAllVrfs()
-	for _, v := range vrfs {
-		readNeighbors(v) // viswanantha library
-		readRoutes(v)    // Viswantha library
+	grdVrf, err := infradb.GetVrf("//network.opiproject.org/vrfs/GRD")
+	if err == nil {
+		readNeighbors(grdVrf)
+		readRoutes(grdVrf)
+		vrfs, _ := infradb.GetAllVrfs()
+		for _, v := range vrfs {
+			if v.Name != grdVrf.Name {
+				readNeighbors(v) // viswanantha library
+				readRoutes(v)    // Viswantha library
+			}
+		}
+		m := readFDB()
+		for i := 0; i < len(m); i++ {
+			m[i].addFdbEntry()
+		}
 	}
-	m := readFDB()
-	for i := 0; i < len(m); i++ {
-		m[i].addFdbEntry()
-	}
-	//dumpDBs()
+	// dumpDBs()
 }
 
 // resyncWithKernel fun resyncs with kernal db

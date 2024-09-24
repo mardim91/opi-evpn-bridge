@@ -102,6 +102,14 @@ type RouteKey struct {
 	Dst   string
 }
 
+// RcNexthop structure of route nexthops
+type RcNexthop struct {
+	Gateway string
+	Dev     string
+	Flags   []string
+	Weight  int
+}
+
 // RouteCmdInfo structure
 type RouteCmdInfo struct {
 	Type     string
@@ -118,6 +126,7 @@ type RouteCmdInfo struct {
 	VRF      *infradb.Vrf
 	Table    int
 	NhInfo   NhRouteInfo // {id gateway Dev scope protocol flags}
+	Nexthops []RcNexthop
 }
 
 /*--------------------------------------------------------------------------
@@ -208,14 +217,15 @@ func (route *RouteStruct) addRoute() {
 		r0 := latestRoutes[route.Key]
 		if route.Route0.Priority >= r0.Route0.Priority {
 			// Route with lower metric exists and takes precedence
-			log.Printf("netlink: Ignoring %+v  with higher metric than %+v\n", route, r0)
+			// log.Printf("netlink: Ignoring %+v  with higher metric than %+v\n", route, r0)
 		} else {
-			log.Printf("netlink: conflicts %+v with higher metric %+v. Will ignore it", route, r0)
+			// log.Printf("netlink: conflicts %+v with higher metric %+v. Will ignore it", route, r0)
 		}
 	} else {
 		nexthops := route.Nexthops
 		route.Nexthops = []*NexthopStruct{}
 		for _, nexthop := range nexthops {
+			nexthop.Metadata = make(map[interface{}]interface{})
 			route = nexthop.addNexthop(route)
 		}
 		latestRoutes[route.Key] = route
@@ -251,9 +261,18 @@ func ParseRoute(v *infradb.Vrf, rc []RouteCmdInfo, t int) RouteList {
 			r0.Type = routeTypeLocal
 		}
 		var rs RouteStruct
-		var nh NexthopStruct
 		rs.Vrf = v
-		if r0.Nhid != 0 || r0.Gateway != "" || r0.Dev != "" {
+		if len(r0.Nexthops) > 1 {
+			for _, n := range r0.Nexthops {
+				var nh NexthopStruct
+				r0.Gateway = n.Gateway
+				r0.Dev = n.Dev
+				r0.Weight = n.Weight
+				nh.ParseNexthop(v, r0)
+				rs.Nexthops = append(rs.Nexthops, &nh)
+			}
+		} else if r0.Nhid != 0 || r0.Gateway != "" || r0.Dev != "" {
+			var nh NexthopStruct
 			nh.ParseNexthop(v, r0)
 			rs.Nexthops = append(rs.Nexthops, &nh)
 		}
@@ -338,7 +357,11 @@ func ParseRoute(v *infradb.Vrf, rc []RouteCmdInfo, t int) RouteList {
 		rs.Key = RouteKey{Table: rs.Route0.Table, Dst: rs.Route0.Dst.String()}
 		if rs.preFilterRoute() {
 			route.RS = append(route.RS, &rs)
+		} else if rs.checkRoute() {
+			rou := latestRoutes[rs.Key]
+			route.RS = append(route.RS, rou)
 		}
+
 	}
 	return route
 }
@@ -421,10 +444,6 @@ func CheckRdup(tmpKey RouteKey) bool {
 // annotate function annonates the entries
 func (route *RouteStruct) annotate() {
 	route.Metadata = make(map[interface{}]interface{})
-	/*	for i := 0; i < len(route.Nexthops); i++ {
-		nexthop := route.Nexthops[i]
-		route.Metadata["nh_ids"] = nexthop.ID
-	}*/
 	if route.Vrf.Spec.Vni != nil {
 		route.Metadata["vrf_id"] = *route.Vrf.Spec.Vni
 	} else {
@@ -541,7 +560,6 @@ func (route *RouteStruct) installFilterRoute() bool {
 // preFilterRoute pre filter the routes
 func (route *RouteStruct) preFilterRoute() bool {
 	if checkRtype(route.NlType) && !route.Route0.Dst.IP.IsLoopback() && route.Route0.Dst.IP.String() != "0.0.0.0" && !grdDefaultRoute {
-		//if checkRtype(route.NlType) && !route.Route0.Dst.IP.IsLoopback() && route.Route0.Dst.IP.String() != "0.0.0.0" {
 		return true
 	}
 
@@ -579,7 +597,7 @@ func dumpRouteDB() string {
 		} else {
 			via = n.Route0.Gw.String()
 		}
-		str := fmt.Sprintf("Route(vrf=%s dst=%s type=%s proto=%s metric=%d  via=%s dev=%s nhid= %d Table= %d)", n.Vrf.Name, n.Route0.Dst.String(), n.NlType, n.getProto(), n.Route0.Priority, via, nameIndex[n.Route0.LinkIndex], n.Nexthops[0].ID, n.Route0.Table)
+		str := fmt.Sprintf("Route(vrf=%s dst=%s type=%s proto=%s metric=%d  via=%s dev=%s nhid= %+v Table= %d)", n.Vrf.Name, n.Route0.Dst.String(), n.NlType, n.getProto(), n.Route0.Priority, via, nameIndex[n.Route0.LinkIndex], n.Nexthops, n.Route0.Table)
 		log.Println(str)
 		s += str
 		s += "\n"

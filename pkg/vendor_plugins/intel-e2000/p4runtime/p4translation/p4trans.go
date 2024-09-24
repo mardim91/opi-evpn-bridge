@@ -1062,6 +1062,8 @@ func tearDownSvi(svi *infradb.Svi) bool {
 }
 
 // Initialize function handles init functionality
+//
+//gocognit:ignore
 func Initialize() {
 	// Netlink Listener
 	startSubscriber(nm.EventBus, nm.RouteAdded)
@@ -1096,6 +1098,7 @@ func Initialize() {
 	if err1 != nil {
 		log.Printf("intel-e2000: Failed to create P4Runtime client: %v\n", err1)
 	}
+	time.Sleep(time.Second * 60)
 	// add static rules into the pipeline of representators read from config
 	representors := make(map[string][2]string)
 	/*for k, v := range config.GlobalConfig.P4.Representors {

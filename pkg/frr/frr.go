@@ -473,7 +473,7 @@ func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 		vniID := fmt.Sprintf("vni %s", strconv.Itoa(int(*vrf.Spec.Vni)))
 		data, err := Frr.FrrZebraCmd(ctx, fmt.Sprintf("configure terminal\n %s\n %s\n exit-vrf\n exit", vrfName, vniID))
 		if err != nil || checkFrrResult(data, false) {
-			log.Printf("FRR: Error Executing frr config t %s %s exit-vrf exit data %v\n", vrfName, vniID,data)
+			log.Printf("FRR: Error Executing frr config t %s %s exit-vrf exit data %v err is %v data is %v\n", vrfName, vniID, data, err, data)
 			return "", false
 		}
 		err = Frr.Save(ctx)
@@ -488,9 +488,9 @@ func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 		} else {
 			LbiP = fmt.Sprintf("%+v", vrf.Spec.LoopbackIP.IP)
 		}
-		data, err = Frr.FrrBgpCmd(ctx, fmt.Sprintf("configure terminal\n router bgp 65000 vrf %s\n bgp router-id %s\n no bgp ebgp-requires-policy\n no bgp hard-administrative-reset\n no bgp graceful-restart notification\n address-family ipv4 unicast\n redistribute connected\n redistribute static\n exit-address-family\n address-family l2vpn evpn\n advertise ipv4 unicast\n exit-address-family\n exit", vrf.Name, LbiP))
+		data, err = Frr.FrrBgpCmd(ctx, fmt.Sprintf("configure terminal\n router bgp %+v vrf %s\n bgp router-id %s\n no bgp ebgp-requires-policy\n no bgp hard-administrative-reset\n no bgp graceful-restart notification\n address-family ipv4 unicast\n redistribute connected\n redistribute static\n exit-address-family\n address-family l2vpn evpn\n advertise ipv4 unicast\n exit-address-family\n exit", localas, path.Base(vrf.Name), LbiP))
 		if err != nil || checkFrrResult(data, false) {
-			log.Printf("FRR: Error Executing config t bgpVrfName router bgp 65000 vrf %s bgp_route_id %s no bgp ebgp-requires-policy exit-vrf exit data %v \n", vrf.Name, LbiP,data)
+			log.Printf("FRR: Error Executing config t bgpVrfName router bgp %+v vrf %s bgp_route_id %s no bgp ebgp-requires-policy exit-vrf exit data %v \n", localas, vrf.Name, LbiP, data)
 			return "", false
 		}
 		err = Frr.Save(ctx)
@@ -502,7 +502,7 @@ func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 		cmd := fmt.Sprintf("show bgp l2vpn evpn vni %d json", *vrf.Spec.Vni)
 		cp, err := Frr.FrrBgpCmd(ctx, cmd)
 		if err != nil || checkFrrResult(cp, true) {
-			log.Printf("FRR Error-show bgp l2vpn evpn vni %v cp %v", err,cp )
+			log.Printf("FRR Error-show bgp l2vpn evpn vni %v cp %v", err, cp)
 		}
 		err = Frr.Save(ctx)
 		if err != nil {
@@ -512,7 +512,7 @@ func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 		L2vpnCmd := strings.Split(cp, "json")
 		L2vpnCmd = strings.Split(L2vpnCmd[1], hname)
 		cp = L2vpnCmd[0]
-		if len(cp) != 7 {   // Checking CMD o/p 
+		if len(cp) != 7 { // Checking CMD o/p
 			cp = cp[3 : len(cp)-3]
 		} else {
 			log.Printf("FRR: unable to get the command %s\n", cmd)
@@ -557,7 +557,7 @@ func setUpVrf(vrf *infradb.Vrf) (string, bool) {
 
 // checkFrrResult checks the vrf result
 func checkFrrResult(cp string, show bool) bool {
-	return ((show && reflect.ValueOf(cp).IsZero()) || strings.Contains(cp, "warning") || strings.Contains(cp, "unknown") || strings.Contains(cp, "Unknown") || strings.Contains(cp, "Warning") || strings.Contains(cp, "Ambiguous") || strings.Contains(cp, "specified does not exist") || strings.Contains(cp, "Error") )
+	return ((show && reflect.ValueOf(cp).IsZero()) || strings.Contains(cp, "warning") || strings.Contains(cp, "unknown") || strings.Contains(cp, "Unknown") || strings.Contains(cp, "Warning") || strings.Contains(cp, "Ambiguous") || strings.Contains(cp, "specified does not exist") || strings.Contains(cp, "Error"))
 }
 
 // setUpSvi sets up the svi
@@ -608,9 +608,9 @@ func tearDownSvi(svi *infradb.Svi) bool {
 		bgpVrfName := fmt.Sprintf("router bgp %+v vrf %s", localas, path.Base(svi.Spec.Vrf))
 		noNeigh := fmt.Sprintf("no neighbor %s peer-group", linkSvi)
 		data, err := Frr.FrrBgpCmd(ctx, fmt.Sprintf("configure terminal\n %s\n %s\n exit", bgpVrfName, noNeigh))
-   	        if strings.Contains(data,"Create the peer-group first") {  // Trying to delete non exist peer-group return true
-                        return true
-                }
+		if strings.Contains(data, "Create the peer-group first") { // Trying to delete non exist peer-group return true
+			return true
+		}
 		if err != nil || checkFrrResult(data, false) {
 			log.Printf("FRR: Error in conf Delete vrf/VNI command %s\n", data)
 			return false
@@ -632,29 +632,41 @@ func tearDownVrf(vrf *infradb.Vrf) bool {
 		return true
 	}
 
-	data, err := Frr.FrrZebraCmd(ctx, fmt.Sprintf("show vrf %s vni\n", vrf.Name))
-	if err != nil || checkFrrResult(data, true)  {
+	data, err := Frr.FrrZebraCmd(ctx, fmt.Sprintf("show vrf %s vni\n", path.Base(vrf.Name)))
+	if err != nil || checkFrrResult(data, true) {
 		log.Printf("tearDownVrf : failed to run the command")
 		log.Printf("FRR: Error  %s\n", data)
 		return true
 	}
+	err = Frr.Save(ctx)
+	if err != nil {
+		log.Printf("FRR(tearDownVrf): Failed to run save command: %v\n", err)
+	}
 	// Clean up FRR last
 	if !reflect.ValueOf(vrf.Spec.Vni).IsZero() {
 		log.Printf("FRR Deleted event")
-		delCmd1 := fmt.Sprintf("no router bgp 65000 vrf %s", vrf.Name)
-		delCmd2 := fmt.Sprintf("no vrf %s", vrf.Name)
+		delCmd1 := fmt.Sprintf("no router bgp %+v vrf %s", localas, path.Base(vrf.Name))
+		delCmd2 := fmt.Sprintf("no vrf %s", path.Base(vrf.Name))
 		data, err = Frr.FrrBgpCmd(ctx, fmt.Sprintf("configure terminal\n %s\n exit\n", delCmd1))
-		if strings.Contains(data,"Can't find BGP instance") {  // Trying to delete non exist VRF return true 
-			return true 
-		}	
-		if  err != nil || checkFrrResult(data, false) {
+		if strings.Contains(data, "Can't find BGP instance") { // Trying to delete non exist VRF return true
+			return true
+		}
+		if err != nil || checkFrrResult(data, false) {
 			log.Printf("FRR: Error  %s\n", data)
 			return false
 		}
+		err = Frr.Save(ctx)
+		if err != nil {
+			log.Printf("FRR(tearDownVrf): Failed to run save command: %v\n", err)
+		}
 		data, err = Frr.FrrZebraCmd(ctx, fmt.Sprintf("configure terminal\n %s\n exit\n", delCmd2))
 		if err != nil || checkFrrResult(data, false) {
-			log.Printf("FRR: Error  %s\n",data)
+			log.Printf("FRR: Error  %s\n", data)
 			return false
+		}
+		err = Frr.Save(ctx)
+		if err != nil {
+			log.Printf("FRR(tearDownVrf): Failed to run save command: %v\n", err)
 		}
 		log.Printf("FRR: Executed vtysh -c conf t -c %s -c %s -c exit\n", delCmd1, delCmd2)
 	}
