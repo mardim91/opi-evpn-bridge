@@ -5,6 +5,9 @@
 // Package infradb exposes the interface for the manipulation of the api objects
 package infradb
 
+//TODO
+//Replay db implementatitions
+
 import (
 	"errors"
 	"log"
@@ -15,6 +18,7 @@ import (
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriberframework/eventbus"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/taskmanager"
 	"github.com/opiproject/opi-evpn-bridge/pkg/storage"
+	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 	"github.com/philippgille/gokv"
 )
 
@@ -43,6 +47,10 @@ var (
 	ErrRoutingTableInUse = errors.New("the routing table is already in use")
 	// ErrVniInUse vni is in use
 	ErrVniInUse = errors.New("the VNI is already in use")
+	// ErrTunRepNotFound error for missing tunnel representor
+	ErrTunRepNotFound = errors.New("the referenced tunnel representor has not been found")
+	// ErrTunRepNotEmpty tunnel representor is not empty
+	ErrTunRepNotEmpty = errors.New("the tunnel representor is not empty")
 	// Add more error constants as needed
 )
 
@@ -826,6 +834,11 @@ func DeleteVrf(name string) error {
 		return ErrVrfNotEmpty
 	}
 
+	if len(vrf.Svis) != 0 {
+		log.Printf("DeleteVrf(): Can not delete VRF %+v. Associated with Tun Rep interfaces", vrf.Name)
+		return ErrVrfNotEmpty
+	}
+
 	for i := range subscribers {
 		vrf.Status.Components[i].CompStatus = common.ComponentStatusPending
 	}
@@ -1242,6 +1255,43 @@ func DeleteAllResources() error {
 			return errors.New("failed to delete svis")
 		}
 	}
+
+	sas, _ := GetAllSas()
+	for _, sa := range sas {
+		err := DeleteSa(sa.Name)
+		if err != nil {
+			return err
+		}
+	}
+	startTime = time.Now()
+	for {
+		s, _ := GetAllSas()
+		if len(s) == 0 {
+			break
+		}
+		if time.Since(startTime) > duration {
+			return errors.New("failed to delete SAs")
+		}
+	}
+
+	tunReps, _ := GetAllTunReps()
+	for _, tunRep := range tunReps {
+		err := DeleteTunRep(tunRep.Name)
+		if err != nil {
+			return err
+		}
+	}
+	startTime = time.Now()
+	for {
+		t, _ := GetAllTunReps()
+		if len(t) == 0 {
+			break
+		}
+		if time.Since(startTime) > duration {
+			return errors.New("failed to delete tunnel representors")
+		}
+	}
+
 	vrfs, _ := GetAllVrfs()
 	for _, vrf := range vrfs {
 		err := DeleteVrf(vrf.Name)
@@ -1514,5 +1564,684 @@ func DeleteRoutingTable(rtNum uint32) error {
 		log.Println(err)
 		return err
 	}
+	return nil
+}
+
+// CreateSa creates an infradb sa object
+func CreateSa(sa *Sa) error {
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	subscribers := eventbus.EBus.GetSubscribers("sa")
+	if len(subscribers) == 0 {
+		log.Println("CreateSa(): No subscribers for Sa objects")
+		return errors.New("no subscribers found for Sa")
+	}
+
+	log.Printf("CreateSa(): Create Sa: %+v\n", sa)
+
+	// Checking if the tunnel representor exists
+	tunRep := &TunRep{}
+	found, err := infradb.client.Get(createTunRepName(sa.Spec.IfId), tunRep)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	if !found {
+		log.Printf("CreateSa(): The tunnel representor with id %d has not been found\n", sa.Spec.IfId)
+		return ErrTunRepNotFound
+	}
+
+	sa.Vrf = tunRep.Spec.Vrf
+
+	if !sa.Spec.Inbound {
+		err = bindTunnelRepToSa(tunRep, sa)
+		if err != nil {
+			log.Printf("CreateSa(): Failed to bind SA %s to tunnel representor with id %d\n", sa.Name, sa.Spec.IfId)
+			return err
+		}
+	}
+
+	err = infradb.client.Set(sa.Name, sa)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	// Add the New Created SA to the "sas" map
+	sas := make(map[string]bool)
+	_, err = infradb.client.Get("sas", &sas)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	// The reason that we use a map and not a list is
+	// because in the delete case we can delete the sa from the
+	// map by just using the name. No need to iterate the whole list until
+	// we find the sa and then delete it.
+	sas[sa.Name] = false
+	err = infradb.client.Set("sas", &sas)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	taskmanager.TaskMan.CreateTask(sa.Name, "sa", sa.ResourceVersion, subscribers)
+
+	return nil
+}
+
+func bindTunnelRepToSa(tunRep *TunRep, sa *Sa) error {
+	if err := tunRep.bindSa(sa); err != nil {
+		return err
+	}
+
+	if err := updateTunRep(tunRep); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// GetSa returns an infradb SA object
+func GetSa(name string) (*Sa, error) {
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	Sa := Sa{}
+	found, err := infradb.client.Get(name, &Sa)
+
+	if !found {
+		return &Sa, ErrKeyNotFound
+	}
+	return &Sa, err
+}
+
+// DeleteSa deletes a SA infradb object
+func DeleteSa(name string) error {
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	subscribers := eventbus.EBus.GetSubscribers("sa")
+	if len(subscribers) == 0 {
+		log.Println("DeleteSa(): No subscribers for sa objects")
+		return errors.New("no subscribers found for sa")
+	}
+
+	sa := &Sa{}
+	found, err := infradb.client.Get(name, &sa)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return ErrKeyNotFound
+	}
+
+	// Checking if the tunnel representor exists
+	tunRep := &TunRep{}
+	found, err = infradb.client.Get(createTunRepName(sa.Spec.IfId), tunRep)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	if !found {
+		log.Printf("DeleteSa(): The tunnel representor with id %d has not been found\n", sa.Spec.IfId)
+		return ErrTunRepNotFound
+	}
+
+	for i := range subscribers {
+		sa.Status.Components[i].CompStatus = common.ComponentStatusPending
+	}
+	sa.ResourceVersion = generateVersion()
+	sa.Status.SaOperStatus = SaOperStatusToBeDeleted
+
+	if !sa.Spec.Inbound {
+		err = unbindTunnelRepToSa(tunRep, sa)
+		if err != nil {
+			log.Printf("CreateSa(): Failed to bind SA %s to tunnel representor with id %d\n", sa.Name, sa.Spec.IfId)
+			return err
+		}
+	}
+
+	err = infradb.client.Set(sa.Name, sa)
+	if err != nil {
+		return err
+	}
+
+	taskmanager.TaskMan.CreateTask(sa.Name, "sa", sa.ResourceVersion, subscribers)
+
+	return nil
+}
+
+func unbindTunnelRepToSa(tunRep *TunRep, sa *Sa) error {
+	err := tunRep.unbindSa(sa)
+	if err != nil {
+		if err == ErrTunRepNotBoundToSa {
+			return nil
+		}
+		return err
+	}
+
+	if err := updateTunRep(tunRep); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// GetAllSas returns a list of SAs from the DB
+func GetAllSas() ([]*Sa, error) {
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	sas := []*Sa{}
+	sasMap := make(map[string]bool)
+	found, err := infradb.client.Get("sas", &sasMap)
+
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+
+	if !found {
+		log.Println("GetAllSas(): No Sas have been found")
+		return nil, ErrKeyNotFound
+	}
+
+	for key := range sasMap {
+		sa := &Sa{}
+		found, err := infradb.client.Get(key, sa)
+
+		if err != nil {
+			log.Printf("GetAllSas(): Failed to get the SA %s from store: %v", key, err)
+			return nil, err
+		}
+
+		if !found {
+			log.Printf("GetAllSas(): SA %s not found", key)
+			return nil, ErrKeyNotFound
+		}
+		sas = append(sas, sa)
+	}
+
+	return sas, nil
+}
+
+// UpdateSaStatus updates the status of SA object based on the component report
+// nolint: funlen, gocognit
+func UpdateSaStatus(name string, resourceVersion string, notificationID string, saMeta *SaMetadata, component common.Component) error {
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	var allCompSuccess bool
+
+	// When we get an error from an operation to the Database then we just return it. The
+	// Task manager will just expire the task and retry.
+	sa := Sa{}
+	found, err := infradb.client.Get(name, &sa)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	if !found {
+		// No SA object has been found in the database so we will instruct TaskManager to drop the Task that is related with this status update.
+		taskmanager.TaskMan.StatusUpdated(name, "sa", sa.ResourceVersion, notificationID, true, &component)
+		log.Printf("UpdateSaStatus(): No Sa object has been found in DB with Name %s\n", name)
+		return nil
+	}
+
+	if sa.ResourceVersion != resourceVersion {
+		// SA object in the database with different resourceVersion so we will instruct TaskManager to drop the Task that is related with this status update.
+		taskmanager.TaskMan.StatusUpdated(sa.Name, "sa", sa.ResourceVersion, notificationID, true, &component)
+		log.Printf("UpdateSaStatus(): Invalid resourceVersion %s for sa %+v\n", resourceVersion, sa)
+		return nil
+	}
+
+	// Here we check if the component has asked for a replay of the DB to be taken place
+	if component.Replay {
+		// One of the components has requested a replay of the DB.
+		// The task related to the status update will be dropped.
+		log.Printf("UpdateSaStatus(): Component %s has requested a replay\n", component.Name)
+		taskmanager.TaskMan.StatusUpdated(sa.Name, "sa", sa.ResourceVersion, notificationID, true, &component)
+		go startReplayProcedure(component.Name)
+		return nil
+	}
+
+	// Set the state of the component
+	sa.setComponentState(component)
+
+	// Check if all the components are in Success state
+	allCompSuccess = sa.checkForAllSuccess()
+
+	// Parse the Metadata that has been sent from the Component
+	sa.parseMeta(saMeta)
+
+	// Is it ok to delete an object before we update the last component status to success ?
+	if allCompSuccess {
+		if sa.Status.SaOperStatus == SaOperStatusToBeDeleted {
+			err = infradb.client.Delete(sa.Name)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
+
+			// Delete SA from SAs Map
+			sas := make(map[string]bool)
+			found, err = infradb.client.Get("sas", &sas)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
+			if !found {
+				log.Println("UpdateSaStatus(): No Sas have been found")
+				return ErrKeyNotFound
+			}
+
+			delete(sas, sa.Name)
+			err = infradb.client.Set("sas", &sas)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
+
+			log.Printf("UpdateSaStatus(): SA %s has been deleted\n", name)
+		} else {
+			sa.Status.SaOperStatus = SaOperStatusUp
+			err = infradb.client.Set(sa.Name, sa)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
+			log.Printf("UpdateSaStatus(): SA %s has been updated: %+v\n", name, sa)
+		}
+	} else {
+		err = infradb.client.Set(sa.Name, sa)
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+		log.Printf("UpdateSaStatus(): SA %s has been updated: %+v\n", name, sa)
+	}
+
+	taskmanager.TaskMan.StatusUpdated(sa.Name, "sa", sa.ResourceVersion, notificationID, false, &component)
+
+	return nil
+}
+
+// CreateTunRep creates an infradb tunnel representor object
+func CreateTunRep(tunRep *TunRep) error {
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	subscribers := eventbus.EBus.GetSubscribers("tun-rep")
+	if len(subscribers) == 0 {
+		log.Println("CreateTunRep(): No subscribers for tunnel representors objects")
+		return errors.New("no subscribers found for tunnel representors")
+	}
+
+	log.Printf("CreateTunRep(): Create tunnel representor: %+v\n", tunRep)
+
+	// Checking if the VRF exists
+	vrf := Vrf{}
+	found, err := infradb.client.Get(tunRep.Spec.Vrf, &vrf)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	if !found {
+		log.Printf("CreateTunRep(): The VRF with name %+v has not been found\n", tunRep.Spec.Vrf)
+		return ErrVrfNotFound
+	}
+
+	// Store tunnel representor reference to the VRF object
+	if err := vrf.AddTunRep(tunRep.Name); err != nil {
+		log.Println(err)
+		return err
+	}
+
+	err = infradb.client.Set(vrf.Name, vrf)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	err = infradb.client.Set(tunRep.Name, tunRep)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	// Add the New Created tunnel representor to the "tunreps" map
+	tunReps := make(map[string]bool)
+	_, err = infradb.client.Get("tunreps", &tunReps)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	// The reason that we use a map and not a list is
+	// because in the delete case we can delete the TunRep from the
+	// map by just using the name. No need to iterate the whole list until
+	// we find the TunRep and then delete it.
+	tunReps[tunRep.Name] = false
+	err = infradb.client.Set("tunreps", &tunReps)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	taskmanager.TaskMan.CreateTask(tunRep.Name, "tun-rep", tunRep.ResourceVersion, subscribers)
+
+	return nil
+}
+
+// DeleteTunRep deletes a tunnel representor infradb object
+func DeleteTunRep(name string) error {
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	subscribers := eventbus.EBus.GetSubscribers("tun-rep")
+	if len(subscribers) == 0 {
+		log.Println("DeleteTunRep(): No subscribers for tunnel representor objects")
+		return errors.New("no subscribers found for tunnel representor")
+	}
+
+	tunRep := TunRep{}
+	found, err := infradb.client.Get(name, &tunRep)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return ErrKeyNotFound
+	}
+
+	if tunRep.Spec.Sa != "" {
+		log.Printf("DeleteTunRep(): Can not delete tunnel representor with id %d. Associated with SA", tunRep.Spec.IfId)
+		return ErrTunRepNotEmpty
+	}
+
+	for i := range subscribers {
+		tunRep.Status.Components[i].CompStatus = common.ComponentStatusPending
+	}
+	tunRep.ResourceVersion = generateVersion()
+	tunRep.Status.TunRepOperStatus = TunRepOperStatusToBeDeleted
+
+	err = infradb.client.Set(tunRep.Name, tunRep)
+	if err != nil {
+		return err
+	}
+
+	taskmanager.TaskMan.CreateTask(tunRep.Name, "tun-rep", tunRep.ResourceVersion, subscribers)
+
+	return nil
+}
+
+// GetTunRep returns an infradb tunnel representor object
+func GetTunRep(name string) (*TunRep, error) {
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	tunRep := TunRep{}
+	found, err := infradb.client.Get(name, &tunRep)
+
+	if !found {
+		return &tunRep, ErrKeyNotFound
+	}
+	return &tunRep, err
+}
+
+// GetAllTunReps returns a list of tunnel representors from the DB
+func GetAllTunReps() ([]*TunRep, error) {
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	tunReps := []*TunRep{}
+	tunRepsMap := make(map[string]bool)
+	found, err := infradb.client.Get("tunreps", &tunRepsMap)
+
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+
+	if !found {
+		log.Println("GetAllTunReps(): No TunReps have been found")
+		return nil, ErrKeyNotFound
+	}
+
+	for key := range tunRepsMap {
+		tunRep := &TunRep{}
+		found, err := infradb.client.Get(key, tunRep)
+
+		if err != nil {
+			log.Printf("GetAllTunReps(): Failed to get the TunRep %s from store: %v", key, err)
+			return nil, err
+		}
+
+		if !found {
+			log.Printf("GetAllTunReps(): TunRep %s not found", key)
+			return nil, ErrKeyNotFound
+		}
+		tunReps = append(tunReps, tunRep)
+	}
+
+	return tunReps, nil
+}
+
+// UpdateTunRep updates a tunnel representor infradb object
+func UpdateTunRep(tunRep *TunRep) error {
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	err := updateTunRep(tunRep)
+	if err != nil {
+		log.Printf("UpdateTunRep(): Failed to update the tunnel representor %s. Error: %+v", tunRep.Name, err)
+		return err
+	}
+
+	return nil
+}
+
+// updateTunRep is internal re-usable function independent of infradb Lock
+func updateTunRep(tunRep *TunRep) error {
+
+	subscribers := eventbus.EBus.GetSubscribers("tun-rep")
+	if len(subscribers) == 0 {
+		return errors.New("no subscribers found for Tun Rep")
+	}
+
+	// Getting the old object from the DB
+	oldTunRep := TunRep{}
+	found, err := infradb.client.Get(tunRep.Name, &oldTunRep)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return ErrKeyNotFound
+	}
+
+	//Copy the existing old versions of objects that might exist allready in the
+	//DB. This can happen when we have multiple update requests that has not been completed.
+	copy(tunRep.OldVersions, oldTunRep.OldVersions)
+
+	oldVersionName := utils.ComposeOldVersionName(oldTunRep.Name, oldTunRep.ResourceVersion)
+
+	// Add the latest old version to the list in order to be deleted together with other old versions
+	// that might exist.
+	tunRep.OldVersions = append(tunRep.OldVersions, oldVersionName)
+
+	//Remove the old SA name from the old tunRep so nobody can use it accidentally
+	oldTunRep.Spec.Sa = ""
+	//Change the name of the old version in order to save it in the DB with a different name.
+	oldTunRep.Name = oldVersionName
+	//Save the old version to the DB with the new Name
+	err = infradb.client.Set(oldTunRep.Name, oldTunRep)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	// Prepare the object for the update procedure
+	for i := range subscribers {
+		tunRep.Status.Components[i].CompStatus = common.ComponentStatusPending
+	}
+	tunRep.ResourceVersion = generateVersion()
+	tunRep.Status.TunRepOperStatus = TunRepOperStatusDown
+
+	//Save the latest version to the DB
+	err = infradb.client.Set(tunRep.Name, tunRep)
+	if err != nil {
+		return err
+	}
+
+	taskmanager.TaskMan.CreateTask(tunRep.Name, "tun-rep", tunRep.ResourceVersion, subscribers)
+
+	return nil
+}
+
+// UpdateTunRepStatus updates the status of tunnel representor object based on the component report
+// nolint: funlen
+//
+//gocognit:ignore
+func UpdateTunRepStatus(name string, resourceVersion string, notificationID string, tunRepMeta *TunRepMetadata, component common.Component) error {
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	var allCompSuccess bool
+
+	// When we get an error from an operation to the Database then we just return it. The
+	// Task manager will just expire the task and retry.
+	tunRep := TunRep{}
+	found, err := infradb.client.Get(name, &tunRep)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	if !found {
+		// No Svi object has been found in the database so we will instruct TaskManager to drop the Task that is related with this status update.
+		taskmanager.TaskMan.StatusUpdated(name, "tun-rep", tunRep.ResourceVersion, notificationID, true, &component)
+		log.Printf("UpdateTunRepStatus(): No tunnel representor object has been found in DB with Name %s\n", name)
+		return nil
+	}
+
+	if tunRep.ResourceVersion != resourceVersion {
+		// TunRep object in the database with different resourceVersion so we will instruct TaskManager to drop the Task that is related with this status update.
+		taskmanager.TaskMan.StatusUpdated(tunRep.Name, "tun-rep", tunRep.ResourceVersion, notificationID, true, &component)
+		log.Printf("UpdateTunRepStatus(): Invalid resourceVersion %s for Tun Rep %+v\n", resourceVersion, tunRep)
+		return nil
+	}
+
+	if component.Replay {
+		// One of the components has requested a replay of the DB.
+		// The task related to the status update will be dropped.
+		log.Printf("UpdateTunRepStatus(): Component %s has requested a replay\n", component.Name)
+		taskmanager.TaskMan.StatusUpdated(tunRep.Name, "tun-rep", tunRep.ResourceVersion, notificationID, true, &component)
+		go startReplayProcedure(component.Name)
+		return nil
+	}
+
+	// Set the state of the component
+	tunRep.setComponentState(component)
+
+	// Check if all the components are in Success state
+	allCompSuccess = tunRep.checkForAllSuccess()
+
+	// Parse the Metadata that has been sent from the Component
+	tunRep.parseMeta(tunRepMeta)
+
+	// Is it ok to delete an object before we update the last component status to success ?
+	// Take care of deleting the references to VRF objects after the Tun Rep has been successfully deleted
+	if allCompSuccess {
+		if tunRep.Status.TunRepOperStatus == TunRepOperStatusToBeDeleted {
+			// Delete the references from VRF objects
+
+			// Get the dependent VRF object
+			vrf := Vrf{}
+			_, err := infradb.client.Get(tunRep.Spec.Vrf, &vrf)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
+
+			// Delete the referenced TunRep from the VRF and store the VRF to the DB
+			if err := vrf.DeleteTunRep(tunRep.Name); err != nil {
+				log.Println(err)
+				return err
+			}
+
+			err = infradb.client.Set(vrf.Name, vrf)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
+
+			// Delete the TunRep object from the DB
+			err = infradb.client.Delete(tunRep.Name)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
+
+			// Delete the TunRep from the tunReps map
+			tunReps := make(map[string]bool)
+			found, err = infradb.client.Get("tunreps", &tunReps)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
+			if !found {
+				log.Println("UpdateTunRepStatus(): No tunReps have been found")
+				return ErrKeyNotFound
+			}
+
+			delete(tunReps, tunRep.Name)
+			err = infradb.client.Set("tunreps", &tunReps)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
+
+			log.Printf("UpdateTunRepStatus(): Tun Rep %s has been deleted\n", name)
+		} else {
+			// Delete the old versions after the update has finished
+			if len(tunRep.OldVersions) > 0 {
+				if err := deleteOldVersions(tunRep.OldVersions); err != nil {
+					log.Printf("UpdateTunRepStatus(): Error has occured during the deletion of old versions. Error: %+v\n", err)
+					return err
+				}
+
+				tunRep.OldVersions = nil
+			}
+			tunRep.Status.TunRepOperStatus = TunRepOperStatusUp
+			err = infradb.client.Set(tunRep.Name, tunRep)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
+			log.Printf("UpdateTunRepStatus(): Tun Rep %s has been updated: %+v\n", name, tunRep)
+		}
+	} else {
+		err = infradb.client.Set(tunRep.Name, tunRep)
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+		log.Printf("UpdateTunRepStatus(): Tun Rep %s has been updated: %+v\n", name, tunRep)
+	}
+
+	taskmanager.TaskMan.StatusUpdated(tunRep.Name, "tun-rep", tunRep.ResourceVersion, notificationID, false, &component)
+
+	return nil
+}
+
+func deleteOldVersions(oldVersions []string) error {
+	for _, oldVersionName := range oldVersions {
+		err := infradb.client.Delete(oldVersionName)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
