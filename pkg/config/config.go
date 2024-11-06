@@ -70,6 +70,19 @@ type InterfaceConfig struct {
 	PortMux  string                 `yaml:"port-mux"`
 }
 
+type TunnelConfig struct {
+	Name     string `yaml:"name"`
+	IfId     uint32 `yaml:"ifid"`
+	Ip       string `yaml:"ip"`
+	RemoteIp string `yaml:"remoteip"`
+}
+
+// IpsecConfig ipsec config structure
+type IpsecConfig struct {
+	Enabled bool           `yaml:"enabled"`
+	Tunnels []TunnelConfig `yaml:"tunnels"`
+}
+
 // NetlinkConfig netlink config structure
 type NetlinkConfig struct {
 	Enabled         bool `yaml:"enabled"`
@@ -91,6 +104,7 @@ type Config struct {
 	Subscribers []SubscriberConfig `yaml:"subscribers"`
 	Interfaces  InterfaceConfig    `yaml:"interfaces"`
 	LinuxFrr    LinuxFrrConfig     `yaml:"linuxfrr"`
+	Ipsec       IpsecConfig        `yaml:"ipsec"`
 	Netlink     NetlinkConfig      `yaml:"netlink"`
 	P4          P4Config           `yaml:"p4"`
 	LogLevel    loglevelConfig     `yaml:"loglevel"`

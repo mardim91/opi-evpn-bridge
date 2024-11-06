@@ -62,6 +62,7 @@ type Vrf struct {
 	Status          *VrfStatus
 	Metadata        *VrfMetadata
 	Svis            map[string]bool
+	TunReps         map[string]bool
 	ResourceVersion string
 }
 
@@ -76,6 +77,7 @@ func NewVrfWithArgs(name string, vni *uint32, loopbackIP, vtepIP *net.IPNet) (*V
 		Status:          &VrfStatus{},
 		Metadata:        &VrfMetadata{},
 		Svis:            make(map[string]bool),
+		TunReps:         make(map[string]bool),
 		ResourceVersion: generateVersion(),
 	}
 
@@ -165,6 +167,7 @@ func NewVrf(in *pb.Vrf) (*Vrf, error) {
 		},
 		Metadata:        &VrfMetadata{},
 		Svis:            make(map[string]bool),
+		TunReps:         make(map[string]bool),
 		ResourceVersion: generateVersion(),
 	}, nil
 }
@@ -224,6 +227,17 @@ func (in *Vrf) AddSvi(sviName string) error {
 	return nil
 }
 
+// AddTunRep adds a reference of TunRep to the VRF object
+func (in *Vrf) AddTunRep(tunRepName string) error {
+	_, ok := in.TunReps[tunRepName]
+	if ok {
+		return fmt.Errorf("AddTunRep(): The VRF %+v is already associated with this tunnel representor interface: %+v", in.Name, tunRepName)
+	}
+
+	in.TunReps[tunRepName] = false
+	return nil
+}
+
 // DeleteSvi deletes a reference of SVI from the VRF object
 func (in *Vrf) DeleteSvi(sviName string) error {
 	_, ok := in.Svis[sviName]
@@ -231,6 +245,16 @@ func (in *Vrf) DeleteSvi(sviName string) error {
 		return fmt.Errorf("DeleteSvi(): The VRF %+v has no SVI interface: %+v", in.Name, sviName)
 	}
 	delete(in.Svis, sviName)
+	return nil
+}
+
+// DeleteTunRep deletes a reference of Tunnel Representor from the VRF object
+func (in *Vrf) DeleteTunRep(tunRepName string) error {
+	_, ok := in.TunReps[tunRepName]
+	if !ok {
+		return fmt.Errorf("DeleteTunRep(): The VRF %+v has no tunnel representor interface: %+v", in.Name, tunRepName)
+	}
+	delete(in.TunReps, tunRepName)
 	return nil
 }
 

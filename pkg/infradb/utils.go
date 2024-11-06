@@ -87,10 +87,12 @@ func startReplayProcedure(componentName string) {
 func getObjectTypesToReplay(componentName string) []string {
 	objectTypesToReplay := []string{}
 
+	tunRepSubs := eventbus.EBus.GetSubscribers("tun-rep")
 	bpSubs := eventbus.EBus.GetSubscribers("bridge-port")
 	sviSubs := eventbus.EBus.GetSubscribers("svi")
 	lbSubs := eventbus.EBus.GetSubscribers("logical-bridge")
 	vrfSubs := eventbus.EBus.GetSubscribers("vrf")
+	saSubs := eventbus.EBus.GetSubscribers("sa")
 
 	for _, vrfSub := range vrfSubs {
 		if vrfSub.Name == componentName {
@@ -102,6 +104,13 @@ func getObjectTypesToReplay(componentName string) []string {
 	for _, lbSub := range lbSubs {
 		if lbSub.Name == componentName {
 			objectTypesToReplay = append(objectTypesToReplay, "logical-bridge")
+			break
+		}
+	}
+
+	for _, saSub := range saSubs {
+		if saSub.Name == componentName {
+			objectTypesToReplay = append(objectTypesToReplay, "sa")
 			break
 		}
 	}
@@ -120,6 +129,13 @@ func getObjectTypesToReplay(componentName string) []string {
 		}
 	}
 
+	for _, tunRepSub := range tunRepSubs {
+		if tunRepSub.Name == componentName {
+			objectTypesToReplay = append(objectTypesToReplay, "tun-rep")
+			break
+		}
+	}
+
 	return objectTypesToReplay
 }
 
@@ -128,10 +144,12 @@ func gatherObjectsAndSubsToReplay(componentName string, objectTypesToReplay []st
 	objectsToReplay := []interface{}{}
 	subsForReplay := [][]*eventbus.Subscriber{}
 
+	tunRepSubs := eventbus.EBus.GetSubscribers("tun-rep")
 	bpSubs := eventbus.EBus.GetSubscribers("bridge-port")
 	sviSubs := eventbus.EBus.GetSubscribers("svi")
 	lbSubs := eventbus.EBus.GetSubscribers("logical-bridge")
 	vrfSubs := eventbus.EBus.GetSubscribers("vrf")
+	saSubs := eventbus.EBus.GetSubscribers("sa")
 
 	for _, objType := range objectTypesToReplay {
 		switch objType {
@@ -194,7 +212,7 @@ func gatherObjectsAndSubsToReplay(componentName string, objectTypesToReplay []st
 					return nil, nil, ErrKeyNotFound
 				}
 
-				// tempSubs holds the subscribers list to be contacted for every VRF object each time
+				// tempSubs holds the subscribers list to be contacted for every Logical Bridge object each time
 				// for replay
 				tempSubs := lb.prepareObjectsForReplay(componentName, lbSubs)
 
@@ -204,6 +222,42 @@ func gatherObjectsAndSubsToReplay(componentName string, objectTypesToReplay []st
 				}
 				subsForReplay = append(subsForReplay, tempSubs)
 				objectsToReplay = append(objectsToReplay, lb)
+			}
+		case "sa":
+			sasMap := make(map[string]bool)
+			found, err := infradb.client.Get("sas", &sasMap)
+
+			if err != nil {
+				return nil, nil, err
+			}
+
+			if !found {
+				log.Println("gatherObjectsAndSubsToReplay(): No SAs have been found")
+				continue
+			}
+
+			for key := range sasMap {
+				sa := &Sa{}
+				found, err := infradb.client.Get(key, sa)
+				if err != nil {
+					return nil, nil, err
+				}
+
+				if !found {
+					return nil, nil, ErrKeyNotFound
+				}
+
+				// tempSubs holds the subscribers list to be contacted for every SA object each time
+				// for replay
+				tempSubs := sa.prepareObjectsForReplay(componentName, saSubs)
+
+				err = infradb.client.Set(sa.Name, sa)
+				if err != nil {
+					return nil, nil, err
+				}
+
+				subsForReplay = append(subsForReplay, tempSubs)
+				objectsToReplay = append(objectsToReplay, sa)
 			}
 		case "svi":
 			svisMap := make(map[string]bool)
@@ -227,7 +281,7 @@ func gatherObjectsAndSubsToReplay(componentName string, objectTypesToReplay []st
 					return nil, nil, ErrKeyNotFound
 				}
 
-				// tempSubs holds the subscribers list to be contacted for every VRF object each time
+				// tempSubs holds the subscribers list to be contacted for every SVI object each time
 				// for replay
 				tempSubs := svi.prepareObjectsForReplay(componentName, sviSubs)
 
@@ -260,7 +314,7 @@ func gatherObjectsAndSubsToReplay(componentName string, objectTypesToReplay []st
 					return nil, nil, ErrKeyNotFound
 				}
 
-				// tempSubs holds the subscribers list to be contacted for every VRF object each time
+				// tempSubs holds the subscribers list to be contacted for every Bridge Port object each time
 				// for replay
 				tempSubs := bp.prepareObjectsForReplay(componentName, bpSubs)
 
@@ -270,6 +324,39 @@ func gatherObjectsAndSubsToReplay(componentName string, objectTypesToReplay []st
 				}
 				subsForReplay = append(subsForReplay, tempSubs)
 				objectsToReplay = append(objectsToReplay, bp)
+			}
+		case "tun-rep":
+			tunRepsMap := make(map[string]bool)
+			found, err := infradb.client.Get("tunreps", &tunRepsMap)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			if !found {
+				log.Println("gatherObjectsAndSubsToReplay(): No tunnel representors have been found")
+				continue
+			}
+			for key := range tunRepsMap {
+				tunRep := &TunRep{}
+				found, err := infradb.client.Get(key, tunRep)
+				if err != nil {
+					return nil, nil, err
+				}
+
+				if !found {
+					return nil, nil, ErrKeyNotFound
+				}
+
+				// tempSubs holds the subscribers list to be contacted for every TunRep object each time
+				// for replay
+				tempSubs := tunRep.prepareObjectsForReplay(componentName, tunRepSubs)
+
+				err = infradb.client.Set(tunRep.Name, tunRep)
+				if err != nil {
+					return nil, nil, err
+				}
+				subsForReplay = append(subsForReplay, tempSubs)
+				objectsToReplay = append(objectsToReplay, tunRep)
 			}
 		}
 	}
@@ -285,10 +372,16 @@ func createReplayTasks(objectsToReplay []interface{}, subsForReplay [][]*eventbu
 			taskmanager.TaskMan.CreateTask(tempObj.Name, "vrf", tempObj.ResourceVersion, subsForReplay[i])
 		case *LogicalBridge:
 			taskmanager.TaskMan.CreateTask(tempObj.Name, "logical-bridge", tempObj.ResourceVersion, subsForReplay[i])
+		case *Sa:
+			taskmanager.TaskMan.CreateTask(tempObj.Name, "sa", tempObj.ResourceVersion, subsForReplay[i])
 		case *Svi:
 			taskmanager.TaskMan.CreateTask(tempObj.Name, "svi", tempObj.ResourceVersion, subsForReplay[i])
 		case *BridgePort:
 			taskmanager.TaskMan.CreateTask(tempObj.Name, "bridge-port", tempObj.ResourceVersion, subsForReplay[i])
+		case *TunRep:
+			taskmanager.TaskMan.CreateTask(tempObj.Name, "tun-rep", tempObj.ResourceVersion, subsForReplay[i])
+		default:
+			log.Printf("createReplayTasks: Unknown object type %+v\n", tempObj)
 		}
 	}
 }

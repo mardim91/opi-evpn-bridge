@@ -6,6 +6,7 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"os/exec"
@@ -80,4 +81,23 @@ func GetIPAddress(dev string) net.IPNet {
 		}
 	}
 	return *validIps[0].IPNet
+}
+
+// ComposeHandlerName this function concatenates the module name and type
+func ComposeHandlerName(moduleName, kindOfType string) string {
+	return moduleName + "." + kindOfType
+}
+
+func CheckIpAdrress(ip string) error {
+	if net.ParseIP(ip) == nil {
+		return fmt.Errorf("CheckIpAdrress(): Invalid ip address %s", ip)
+	}
+
+	return nil
+}
+
+// ComposeOldVersionName this function concatenates the name and the resourceVersion of
+// the updated object.
+func ComposeOldVersionName(name, resourceVersion string) string {
+	return name + "-" + resourceVersion
 }
