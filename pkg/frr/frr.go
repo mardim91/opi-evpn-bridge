@@ -75,6 +75,9 @@ func (h *ModulefrrHandler) HandleEvent(eventType string, objectData *eventbus.Ob
 	case "svi":
 		log.Printf("FRR recevied %s %s\n", eventType, objectData.Name)
 		handlesvi(objectData)
+	case "tun-rep":
+		log.Printf("FRR recevied %s %s\n", eventType, objectData.Name)
+		handleTunRep(objectData)
 	default:
 		log.Printf("error: Unknown event type %s", eventType)
 	}
@@ -154,6 +157,101 @@ func (h *ModuleFrrActionHandler) handlePreReplay(actionData *actionbus.ActionDat
 	}
 
 	log.Println("FRR: handlePreReplay(): The pre-replay procedure has executed successfully")
+}
+
+func handleTunRep(objectData *eventbus.ObjectData) {
+	var comp common.Component
+	tr, err := infradb.GetTunRep(objectData.Name)
+	if err != nil {
+		log.Printf("FRR: GetTunRep error: %s %s\n", err, objectData.Name)
+		comp.Name = frrComp
+		comp.CompStatus = common.ComponentStatusError
+		if comp.Timer == 0 {
+			comp.Timer = 2 * time.Second
+		} else {
+			comp.Timer *= 2
+		}
+		err := infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
+		if err != nil {
+			log.Printf("error in updating tr status: %s\n", err)
+		}
+		return
+	}
+	if objectData.ResourceVersion != tr.ResourceVersion {
+		log.Printf("FRR: Mismatch in resoruce version %+v\n and tr resource version %+v\n", objectData.ResourceVersion, tr.ResourceVersion)
+		comp.Name = frrComp
+		comp.CompStatus = common.ComponentStatusError
+		if comp.Timer == 0 {
+			comp.Timer = 2 * time.Second
+		} else {
+			comp.Timer *= 2
+		}
+		err := infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
+		if err != nil {
+			log.Printf("error in updating tr status: %s\n", err)
+		}
+		return
+	}
+	if len(tr.Status.Components) != 0 {
+		for i := 0; i < len(tr.Status.Components); i++ {
+			if tr.Status.Components[i].Name == frrComp {
+				comp = tr.Status.Components[i]
+			}
+		}
+	}
+	if tr.Status.TunRepOperStatus != infradb.TunRepOperStatusToBeDeleted {
+		var status bool
+		if len(tr.OldVersions) > 0 {
+			status = UpdateTunRep(tr)
+		} else {
+			status = setUpTunRep(tr)
+		}
+		comp.Name = frrComp
+		if status {
+			comp.Details = ""
+			comp.CompStatus = common.ComponentStatusSuccess
+			comp.Timer = 0
+		} else {
+			if comp.Timer == 0 {
+				comp.Timer = 2 * time.Second
+			} else {
+				comp.Timer *= 2
+			}
+			comp.CompStatus = common.ComponentStatusError
+		}
+		log.Printf("FRR: %+v \n", comp)
+
+		// Checking the timer to decide if we need to replay or not
+		comp.CheckReplayThreshold(replayThreshold)
+
+		err := infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
+		if err != nil {
+			log.Printf("error in updating tr status: %s\n", err)
+		}
+	} else {
+		status := tearDownTunRep(tr)
+		comp.Name = frrComp
+		if status {
+			comp.CompStatus = common.ComponentStatusSuccess
+			comp.Timer = 0
+		} else {
+			comp.CompStatus = common.ComponentStatusError
+			if comp.Timer == 0 {
+				comp.Timer = 2 * time.Second
+			} else {
+				comp.Timer *= 2
+			}
+		}
+		log.Printf("FRR: %+v\n", comp)
+
+		// Checking the timer to decide if we need to replay or not
+		comp.CheckReplayThreshold(replayThreshold)
+
+		err := infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
+		if err != nil {
+			log.Printf("error in updating tr status: %s\n", err)
+		}
+	}
 }
 
 // handlesvi handles the svi functionality
@@ -617,12 +715,40 @@ func setUpSvi(svi *infradb.Svi) bool {
 	return true
 }
 
+func setUpTunRep(tun *infradb.TunRep) bool {
+	if tun.enable_bgp && tun.Spec.RemoteIp != nil {
+		bgpVrfName := fmt.Sprintf("router bgp %+v vrf %s\n", localas, path.Base(tun.Spec.Vrf))
+		neighlinkRe := fmt.Sprintf("neighbor %s remote-as %s\n", tun.Spec.IP, tun.Spec.RemoteAs)
+		neighebgpMhop := fmt.Sprintf("neighbor %s ebgp-multihop 2\n", tun.Spec.IP)
+		neighreconfigure := fmt.Sprintf("neighbor %s soft-reconfiguration inbound\n", tun.Spec.IP)
+		neighTimer := fmt.Sprintf("neighbor %s timers 1 3\n", tun.Spec.IP)
+		var neighBfd string
+		if tun.enableBfd {
+			neighBfd = fmt.Sprintf("neighbor %s bfd\n", tun.Spec.IP)
+		} else {
+			neighBfd = ""
+		}
+
+		data, err := Frr.FrrBgpCmd(ctx, fmt.Sprintf("configure terminal\n %s bgp disable-ebgp-connected-route-check\n no bgp ebgp-requires-policy\n %s %s %s %s %s %s exit", bgpVrfName, neighlinkRe, neighebgpMhop, neighreconfigure, neighTimer, neighBfd))
+		if err != nil || checkFrrResult(data, false) {
+			log.Printf("FRR: Error in conf tun %s %s command %s\n", tun.Name, path.Base(tun.Spec.Vrf), data)
+			return false
+		}
+		err = Frr.Save(ctx)
+		if err != nil {
+			log.Printf("FRR(setUpTunRep): Failed to run save command: %v\n", err)
+		}
+		return true
+	}
+	return true
+}
+
 // tearDownSvi tears down svi
 func tearDownSvi(svi *infradb.Svi) bool {
 	// linkSvi := fmt.Sprintf("%+v-%+v", path.Base(svi.Spec.Vrf), strings.Split(path.Base(svi.Spec.LogicalBridge), "vlan")[1])
 	BrObj, err := infradb.GetLB(svi.Spec.LogicalBridge)
 	if err != nil {
-		log.Printf("LCI: unable to find key %s and error is %v", svi.Spec.LogicalBridge, err)
+		log.Printf("FRR: unable to find key %s and error is %v", svi.Spec.LogicalBridge, err)
 		return false
 	}
 	linkSvi := fmt.Sprintf("%+v-%+v", path.Base(svi.Spec.Vrf), BrObj.Spec.VlanID)
@@ -685,6 +811,24 @@ func tearDownVrf(vrf *infradb.Vrf) bool {
 			log.Printf("FRR(tearDownVrf): Failed to run save command: %v\n", err)
 		}
 		log.Printf("FRR: Executed vtysh -c conf t -c %s -c %s -c exit\n", delCmd1, delCmd2)
+	}
+	return true
+}
+
+func tearDownTunRep(tun *infradb.TunRep) bool {
+	if tun.enable_bgp && tun.Spec.RemoteIp != nil {
+		bgpVrfName := fmt.Sprintf("router bgp %+v vrf %s\n", localas, path.Base(tun.Spec.Vrf))
+		neighrem := fmt.Sprintf("no neighbor %s\n", tun.Spec.IP)
+		data, err := Frr.FrrBgpCmd(ctx, fmt.Sprintf("configure terminal\n %s %s exit", bgpVrfName, neighrem))
+		if err != nil || checkFrrResult(data, false) {
+			log.Printf("FRR: Error in conf tun %s %s command %s\n", tun.Name, path.Base(tun.Spec.Vrf), data)
+			return false
+		}
+		err = Frr.Save(ctx)
+		if err != nil {
+			log.Printf("FRR(setUpTunRep): Failed to run save command: %v\n", err)
+		}
+		return true
 	}
 	return true
 }

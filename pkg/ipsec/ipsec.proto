@@ -1,0 +1,354 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (C) 2024 Ericsson AB.
+
+syntax = "proto3";
+
+package opi_evpn_bridge.pkg.ipsec;
+
+option go_package = "github.com/opiproject/opi-evpn-bridge/pkg/ipsec/gen/go";
+
+/*
+ * protobuf definition to serve as interface between strongSwan plugin and OPI-EVPN-bridge
+ * OPI-EVPN-bridge will through xPU specific adaptation translate operations into hardware configuration
+ * These gRPC definitions are derived from libcharon/kernel/kernel_ipsec.h
+ * with the intend to make plugin as direct as possible.
+ * To make review easy some of the kernel_ipsec.h definitions are included as comments.
+ *
+ * Current version include SA handling only.
+ * Definitions includes scope beyond what is intended for the xPU to allow easy extensions.
+ *
+ */
+
+service IPSec {
+    /*
+     * Get the feature set supported by this kernel backend.
+     *
+     * @return                              ORed feature-set of backend
+     *
+     *   kernel_feature_t (*get_features)(kernel_ipsec_t *this);
+     */
+    rpc GetFeatures (Features) returns (Features) {}
+
+    /*
+     * Get a SPI from the kernel.
+     *
+     * @param src           source address of SA
+     * @param dst           destination address of SA
+     * @param protocol      protocol for SA (ESP/AH)
+     * @param spi           allocated spi
+     * @return              SUCCESS if operation completed
+     *
+     *
+     *   status_t (*get_spi)(kernel_ipsec_t *this, host_t *src, host_t *dst,
+     *                                          uint8_t protocol, uint32_t *spi);
+     */
+    rpc GetSPI (GetSPIReq) returns (GetSPIResp) {}
+
+    /*
+     * Add an SA to the SAD.
+     *
+     * This function does install a single SA for a single protocol in one
+     * direction.
+     *
+     * @param id                    data identifying this SA
+     * @param data                  data for this SA
+     * @return                              SUCCESS if operation completed
+     *
+     *   status_t (*add_sa)(kernel_ipsec_t *this, kernel_ipsec_sa_id_t *id,
+     *                                      kernel_ipsec_add_sa_t *data);
+     */
+    rpc AddSA (AddSAReq) returns (AddSAResp) {}
+
+    /*
+     * Update the hosts on an installed SA.
+     *
+     * We cannot directly update the destination address as the kernel
+     * requires the spi, the protocol AND the destination address (and family)
+     * to identify SAs. Therefore if the destination address changed we
+     * create a new SA and delete the old one.
+     *
+     * @param id                    data identifying this SA
+     * @param data                  updated data for this SA
+     * @return                              SUCCESS if operation completed, NOT_SUPPORTED if
+     *                                              the kernel interface can't update the SA
+     *
+     *  status_t (*update_sa)(kernel_ipsec_t *this, kernel_ipsec_sa_id_t *id,
+     *                                             kernel_ipsec_update_sa_t *data);
+     */
+    rpc UpdateSA (UpdateSAReq) returns (UpdateSAResp) {}
+
+
+    /*
+     * Query the number of bytes processed by an SA from the SAD.
+     *
+     * @param id                    data identifying this SA
+     * @param data                  data to query the SA
+     * @param[out] bytes    the number of bytes processed by SA
+     * @param[out] packets  number of packets processed by SA
+     * @param[out] time             last (monotonic) time of SA use
+     * @return                              SUCCESS if operation completed
+     *
+     *  status_t (*query_sa)(kernel_ipsec_t *this, kernel_ipsec_sa_id_t *id,
+     *                                           kernel_ipsec_query_sa_t *data, uint64_t *bytes,
+     *                                           uint64_t *packets, time_t *time);
+     */
+    rpc QuerySA (QuerySAReq) returns (QuerySAResp) {}
+
+
+    /*
+     * Delete a previously installed SA from the SAD.
+     *
+     * @param id                    data identifying this SA
+     * @param data                  data to delete the SA
+     * @return                              SUCCESS if operation completed
+     *
+     *  status_t (*del_sa)(kernel_ipsec_t *this, kernel_ipsec_sa_id_t *id,
+     *                                      kernel_ipsec_del_sa_t *data);
+     */
+    rpc DeleteSA (DeleteSAReq) returns (DeleteSAResp) {}
+
+    /*
+     * Flush all SAs from the SAD.
+     *
+     * @return                              SUCCESS if operation completed
+     *
+     *  status_t (*flush_sas)(kernel_ipsec_t *this);
+     */
+    rpc FlushSAs (FlushSAsReq) returns (FlushSAsResp) {}
+}
+
+message Features {
+    uint32 features                 = 1;
+}
+message GetSPIReq {
+    string src                      = 1;
+    string dst                      = 2;
+    uint32 protocol                 = 3;
+}
+message GetSPIResp{
+    Status stat                     = 1;
+    uint32 spi                      = 2;
+}
+message AddSAReq{
+    SAIdentifier sa_id              = 1;
+    AddSAReqData sa_data            = 2;
+}
+message AddSAResp {
+    Status stat                     = 1;
+}
+message UpdateSAReq {
+    SAIdentifier sa_id              = 1;
+    UpdateSAReqData sa_data         = 2;
+}
+message UpdateSAResp {
+    Status stat                     = 1;
+}
+message QuerySAReq {
+    SAIdentifier sa_id              = 1;
+    /* cpi omitted */
+}
+message QuerySAResp {
+    Status stat                     = 1;
+    uint64 bytes                    = 2;
+    uint64 packets                  = 3;
+    uint32 time                     = 4;
+}
+message DeleteSAReq {
+    SAIdentifier sa_id              = 1;
+    /* cpi omitted */
+}
+message DeleteSAResp {
+    Status stat                     = 1;
+}
+message FlushSAsReq {}
+message FlushSAsResp {
+    Status stat                     = 1;
+}
+
+
+message SAIdentifier {
+        /** Source address or hostname */
+    string src                      = 1;
+        /** Destination address or hostname */
+    string dst                      = 2;
+        /** SPI */
+    uint32 spi                      = 3;
+        /** Protocol (ESP/AH) */
+    IPSecProtocol proto             = 4;
+        /** Optional interface ID */
+        /* Mandatory for IPU */
+    uint32 if_id                    = 5;
+}
+
+
+message AddSAReqData {
+        /** Reqid */
+    uint32 reqid                        = 1;
+        /** Mode (tunnel, transport...) */
+    IPSecMode mode                      = 2;
+        /** List of source traffic selectors */
+    TrafficSelectors src_ts             = 3;
+        /** List of destination traffic selectors */
+    TrafficSelectors dst_ts             = 4;
+        /** Network interface restricting policy */
+    string interface                    = 5;
+        /** Lifetime configuration */
+    LifeTimeCfg lifetime                   = 6;
+        /** Encryption algorithm */
+    CryptoAlgorithm enc_alg             = 7;
+        /** Encryption key */
+    bytes enc_key                       = 8;
+        /** Integrity protection algorithm */
+    IntegAlgorithm int_alg              = 9;
+        /** Integrity protection key */
+    bytes int_key                       = 10;
+        /** Anti-replay window size */
+    uint32 replay_window                = 11;
+        /** Traffic Flow Confidentiality padding */
+    uint32 tfc                          = 12;
+        /** TRUE to enable UDP encapsulation for NAT traversal */
+    Bool encap                          = 13;
+        /** Mark the SA should apply to packets after processing */
+    Bool esn                            = 14;
+        /** TRUE to copy the DF bit to the outer IPv4 header in tunnel mode */
+    Bool copy_df                        = 15;
+        /** TRUE to copy the ECN header field to/from the outer header */
+    Bool copy_ecn                       = 16;
+        /** Whether to copy the DSCP header field to/from the outer header */
+    DSCPCopy copy_dscp                  = 17;
+        /** TRUE if initiator of the exchange creating the SA */
+    Bool initiator                      = 18;
+        /** TRUE if this is an inbound SA */
+    Bool inbound                        = 19;
+        /** TRUE if an SPI has already been allocated for this SA */
+    Bool update                         = 20;
+}
+
+message UpdateSAReqData {
+        /** New source address */
+        string new_src                      = 1;
+        /** New destination address */
+        string new_dst                      = 2;
+        /** TRUE if UDP encapsulation is currently enabled */
+        Bool encap                          = 3;
+        /** TRUE to enable UDP encapsulation */
+        Bool new_encap                      = 4;
+}
+
+
+message TrafficSelectors {
+	message TrafficSelector {
+		string cidr  = 1;
+		string proto = 2;
+		string port  = 3;
+	}
+	repeated TrafficSelector ts = 1;
+}
+
+
+enum Status {
+        /* Call succeeded */
+    SUCCESS         = 0;
+        /* Call failed */
+    FAILED          = 1;
+        /* Out of resources */
+    OUT_OF_RES      = 2;
+        /* The suggested operation is already done */
+    ALREADY_DONE    = 3;
+        /* Not supported */
+    NOT_SUPPORTED   = 4;
+        /* One of the arguments is invalid */
+    INVALID_ARG     = 5;
+        /* Something could not be found */
+    NOT_FOUND       = 6;
+        /* Error while parsing */
+    PARSE_ERROR     = 7;
+        /* Error while verifying */
+    VERIFY_ERROR    = 8;
+        /* Object in invalid state */
+    INVALID_STATE   = 9;
+        /* Destroy object which called method belongs to */
+    DESTROY_ME      = 10;
+        /* Another call to the method is required */
+    NEED_MORE       = 11;
+}
+
+enum IPSecProtocol {
+    IPSecProtoRSVD  = 0;
+    IPSecProtoESP   = 50;
+    IPSecProtoAH    = 51;
+};
+
+enum Bool {
+    FALSE       = 0;
+    TRUE        = 1;
+}
+
+/* Cryptographic algorithm for encryption */
+enum CryptoAlgorithm {
+	ENCR_RSVD = 0;
+	ENCR_NULL = 11;
+	ENCR_AES_CBC = 12;
+	ENCR_AES_CTR = 13;
+	ENCR_AES_CCM_8 = 14;
+	ENCR_AES_CCM_12 = 15;
+	ENCR_AES_CCM_16 = 16;
+	ENCR_AES_GCM_8 = 18;
+	ENCR_AES_GCM_12 = 19;
+	ENCR_AES_GCM_16 = 20;
+	ENCR_NULL_AUTH_AES_GMAC = 21;
+	ENCR_CHACHA20_POLY1305 = 28;
+}
+
+/* Cryptographic algorithm for authentication */
+enum IntegAlgorithm {
+	NONE = 0;
+	AUTH_HMAC_SHA1_96 = 2;
+	AUTH_AES_XCBC_96 = 5;
+	AUTH_AES_CMAC_96 = 8;
+	AUTH_AES_128_GMAC = 9;
+	AUTH_AES_192_GMAC = 10;
+	AUTH_AES_256_GMAC = 11;
+	AUTH_HMAC_SHA2_256_128 = 12;
+	AUTH_HMAC_SHA2_384_192 = 13;
+	AUTH_HMAC_SHA2_512_256 = 14;
+	AUTH_UNDEFINED = 1024;
+}
+
+enum DSCPCopy {
+    DSCP_COPY_OUT_ONLY  = 0;
+    DSCP_COPY_IN_ONLY   = 1;
+    DSCP_COPY_YES       = 2;
+    DSCP_COPY_NO        = 3;
+};
+
+message LifeTimeCfg {
+    LifeTime time           = 1;
+    LifeTime bytes          = 2;
+    LifeTime packets        = 3;
+}
+
+message LifeTime {
+        /* Limit before the SA gets invalid. */
+    uint64 life             = 1;
+        /* Limit before the SA gets rekeyed. */
+    uint64 rekey            = 2;
+        /* The range of a random value subtracted from rekey. */
+    uint64 jitter           = 3;
+}
+
+enum IPSecMode {
+        /* not using any encapsulation */
+    MODE_NONE           = 0;
+        /* transport mode, no inner address */
+    MODE_TRANSPORT      = 1;
+        /* tunnel mode, inner and outer addresses */
+    MODE_TUNNEL         = 2;
+        /* BEET mode, tunnel mode but fixed, bound inner addresses */
+    MODE_BEET           = 3;
+        /* passthrough policy for traffic without an IPsec SA */
+    MODE_PASS           = 4;
+        /* drop policy discarding traffic */
+    MODE_DROP           = 5;
+}
+
