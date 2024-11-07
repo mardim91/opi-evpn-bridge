@@ -693,10 +693,23 @@ func setUpSvi(svi *infradb.Svi) bool {
 	return true
 }
 
+func UpdateTunRep(tun *infradb.TunRep) bool {
+	for _, tuns := range tun.OldVersions {
+		tunObj, err := infradb.GetTunRep(tuns)
+		if err == nil {
+			if !tearDownTunRep(tunObj) {
+				log.Printf("LGM: UpdateTunRep failed for object %+v\n", tunObj)
+				return false
+			}
+		}
+	}
+	return setUpTunRep(tun)
+}
+
 func setUpTunRep(tun *infradb.TunRep) bool {
-	if tun.enable_bgp && tun.Spec.RemoteIp != nil {
+	if tun.Spec.EnableBgp && tun.Spec.RemoteIp != nil {
 		bgpVrfName := fmt.Sprintf("router bgp %+v vrf %s\n", localas, path.Base(tun.Spec.Vrf))
-		neighlinkRe := fmt.Sprintf("neighbor %s remote-as %s\n", tun.Spec.IP, tun.Spec.RemoteAs)
+		neighlinkRe := fmt.Sprintf("neighbor %s remote-as %s\n", tun.Spec.IP, tun.Spec.RemoteIp)
 		neighebgpMhop := fmt.Sprintf("neighbor %s ebgp-multihop 2\n", tun.Spec.IP)
 		neighreconfigure := fmt.Sprintf("neighbor %s soft-reconfiguration inbound\n", tun.Spec.IP)
 		neighTimer := fmt.Sprintf("neighbor %s timers 1 3\n", tun.Spec.IP)

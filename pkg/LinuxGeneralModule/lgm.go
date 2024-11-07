@@ -139,12 +139,12 @@ func handleTunRep(objectData *eventbus.ObjectData) {
 	}
 	if tr.Status.TunRepOperStatus != infradb.TunRepOperStatusToBeDeleted {
 		var status bool
+		comp.Name = lgmComp
 		if len(tr.OldVersions) > 0 {
 			status = UpdateTunRep(tr)
 		} else {
 			status = setUpTunRep(tr)
 		}
-		comp.Name = lgmComp
 		if status {
 			comp.Details = ""
 			comp.CompStatus = common.ComponentStatusSuccess
@@ -834,6 +834,19 @@ func setUpSvi(svi *infradb.Svi) bool {
 		log.Printf("LGM Executed :  ip address add %s dev %+v\n", addr, vlanLink)
 	}
 	return true
+}
+
+func UpdateTunRep(tun *infradb.TunRep) bool {
+	for _, tuns := range tun.OldVersions {
+		tunObj, err := infradb.GetTunRep(tuns)
+		if err == nil {
+			if !tearDownTunRep(tunObj) {
+				log.Printf("LGM: UpdateTunRep failed for object %+v\n", tunObj)
+				return false
+			}
+		}
+	}
+	return setUpTunRep(tun)
 }
 
 func setUpTunRep(tun *infradb.TunRep) bool {
