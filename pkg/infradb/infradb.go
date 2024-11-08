@@ -5,9 +5,6 @@
 // Package infradb exposes the interface for the manipulation of the api objects
 package infradb
 
-//TODO
-//Replay db implementatitions
-
 import (
 	"errors"
 	"log"
@@ -1582,13 +1579,13 @@ func CreateSa(sa *Sa) error {
 
 	// Checking if the tunnel representor exists
 	tunRep := &TunRep{}
-	found, err := infradb.client.Get(createTunRepName(sa.Spec.IfId), tunRep)
+	found, err := infradb.client.Get(createTunRepName(sa.Spec.IfID), tunRep)
 	if err != nil {
 		log.Println(err)
 		return err
 	}
 	if !found {
-		log.Printf("CreateSa(): The tunnel representor with id %d has not been found\n", sa.Spec.IfId)
+		log.Printf("CreateSa(): The tunnel representor with id %d has not been found\n", sa.Spec.IfID)
 		return ErrTunRepNotFound
 	}
 
@@ -1597,7 +1594,7 @@ func CreateSa(sa *Sa) error {
 	if !sa.Spec.Inbound {
 		err = bindTunnelRepToSa(tunRep, sa)
 		if err != nil {
-			log.Printf("CreateSa(): Failed to bind SA %s to tunnel representor with id %d\n", sa.Name, sa.Spec.IfId)
+			log.Printf("CreateSa(): Failed to bind SA %s to tunnel representor with id %d\n", sa.Name, sa.Spec.IfID)
 			return err
 		}
 	}
@@ -1679,13 +1676,13 @@ func DeleteSa(name string) error {
 
 	// Checking if the tunnel representor exists
 	tunRep := &TunRep{}
-	found, err = infradb.client.Get(createTunRepName(sa.Spec.IfId), tunRep)
+	found, err = infradb.client.Get(createTunRepName(sa.Spec.IfID), tunRep)
 	if err != nil {
 		log.Println(err)
 		return err
 	}
 	if !found {
-		log.Printf("DeleteSa(): The tunnel representor with id %d has not been found\n", sa.Spec.IfId)
+		log.Printf("DeleteSa(): The tunnel representor with id %d has not been found\n", sa.Spec.IfID)
 		return ErrTunRepNotFound
 	}
 
@@ -1698,7 +1695,7 @@ func DeleteSa(name string) error {
 	if !sa.Spec.Inbound {
 		err = unbindTunnelRepToSa(tunRep, sa)
 		if err != nil {
-			log.Printf("CreateSa(): Failed to bind SA %s to tunnel representor with id %d\n", sa.Name, sa.Spec.IfId)
+			log.Printf("CreateSa(): Failed to bind SA %s to tunnel representor with id %d\n", sa.Name, sa.Spec.IfID)
 			return err
 		}
 	}
@@ -1956,7 +1953,7 @@ func DeleteTunRep(name string) error {
 	}
 
 	if tunRep.Spec.Sa != "" {
-		log.Printf("DeleteTunRep(): Can not delete tunnel representor with id %d. Associated with SA", tunRep.Spec.IfId)
+		log.Printf("DeleteTunRep(): Can not delete tunnel representor with id %d. Associated with SA", tunRep.Spec.IfID)
 		return ErrTunRepNotEmpty
 	}
 
@@ -2042,6 +2039,36 @@ func UpdateTunRep(tunRep *TunRep) error {
 	return nil
 }
 
+// ResolveTunRep updates the TunRep with the resolved neighbor destination MAC
+func ResolveTunRep(name, destMac string) error {
+	globalLock.Lock()
+	defer globalLock.Unlock()
+
+	tunRep := TunRep{}
+	found, err := infradb.client.Get(name, &tunRep)
+
+	if err != nil {
+		return err
+	}
+
+	if !found {
+		return ErrKeyNotFound
+	}
+
+	if tunRep.Spec.DestMac == destMac {
+		return nil
+	}
+
+	tunRep.Spec.DestMac = destMac
+	err = updateTunRep(&tunRep)
+	if err != nil {
+		log.Printf("ResolveTunRep(): Failed to update the tunnel representor %s. Error: %+v", tunRep.Name, err)
+		return err
+	}
+
+	return nil
+}
+
 // updateTunRep is internal re-usable function independent of infradb Lock
 func updateTunRep(tunRep *TunRep) error {
 
@@ -2060,8 +2087,8 @@ func updateTunRep(tunRep *TunRep) error {
 		return ErrKeyNotFound
 	}
 
-	//Copy the existing old versions of objects that might exist allready in the
-	//DB. This can happen when we have multiple update requests that has not been completed.
+	// Copy the existing old versions of objects that might exist already in the
+	// DB. This can happen when we have multiple update requests that has not been completed.
 	copy(tunRep.OldVersions, oldTunRep.OldVersions)
 
 	oldVersionName := utils.ComposeOldVersionName(oldTunRep.Name, oldTunRep.ResourceVersion)
@@ -2070,11 +2097,11 @@ func updateTunRep(tunRep *TunRep) error {
 	// that might exist.
 	tunRep.OldVersions = append(tunRep.OldVersions, oldVersionName)
 
-	//Remove the old SA name from the old tunRep so nobody can use it accidentally
+	// Remove the old SA name from the old tunRep so nobody can use it accidentally
 	oldTunRep.Spec.Sa = ""
-	//Change the name of the old version in order to save it in the DB with a different name.
+	// Change the name of the old version in order to save it in the DB with a different name.
 	oldTunRep.Name = oldVersionName
-	//Save the old version to the DB with the new Name
+	// Save the old version to the DB with the new Name
 	err = infradb.client.Set(oldTunRep.Name, oldTunRep)
 	if err != nil {
 		log.Println(err)
@@ -2088,7 +2115,7 @@ func updateTunRep(tunRep *TunRep) error {
 	tunRep.ResourceVersion = generateVersion()
 	tunRep.Status.TunRepOperStatus = TunRepOperStatusDown
 
-	//Save the latest version to the DB
+	// Save the latest version to the DB
 	err = infradb.client.Set(tunRep.Name, tunRep)
 	if err != nil {
 		return err
@@ -2207,7 +2234,7 @@ func UpdateTunRepStatus(name string, resourceVersion string, notificationID stri
 			// Delete the old versions after the update has finished
 			if len(tunRep.OldVersions) > 0 {
 				if err := deleteOldVersions(tunRep.OldVersions); err != nil {
-					log.Printf("UpdateTunRepStatus(): Error has occured during the deletion of old versions. Error: %+v\n", err)
+					log.Printf("UpdateTunRepStatus(): Error has occurred during the deletion of old versions. Error: %+v\n", err)
 					return err
 				}
 

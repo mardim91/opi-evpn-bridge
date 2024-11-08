@@ -101,7 +101,7 @@ func getObjectTypesToReplay(componentName string) []string {
 	return objectTypesToReplay
 }
 
-// nolint: funlen, gocognit
+// nolint: funlen, gocognit, gocyclo
 func gatherObjectsAndSubsToReplay(componentName string, objectTypesToReplay []string) ([]interface{}, [][]*eventbus.Subscriber, error) {
 	objectsToReplay := []interface{}{}
 	subsForReplay := [][]*eventbus.Subscriber{}

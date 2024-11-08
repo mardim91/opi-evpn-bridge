@@ -19,7 +19,7 @@ import (
 // AddSA executes the addition of the SA to the SAD.
 // This function does install a single SA for a single protocol in one direction.
 func (s *Server) AddSA(_ context.Context, in *pb.AddSAReq) (*pb.AddSAResp, error) {
-	//Generate new SA id
+	// Generate new SA id
 	name, err := s.createSAName(in.SaId)
 	if err != nil {
 		log.Printf("AddSA(): Name creation failure: %v", err)
@@ -33,7 +33,7 @@ func (s *Server) AddSA(_ context.Context, in *pb.AddSAReq) (*pb.AddSAResp, error
 			return &pb.AddSAResp{Stat: pb.Status_FAILED}, err
 		}
 	} else {
-		err := fmt.Errorf("AddSA(): SA with id %v allready exists", in.SaId)
+		err := fmt.Errorf("AddSA(): SA with id %v already exists", in.SaId)
 		return &pb.AddSAResp{Stat: pb.Status_FAILED}, err
 	}
 
@@ -58,7 +58,7 @@ func (s *Server) AddSA(_ context.Context, in *pb.AddSAReq) (*pb.AddSAResp, error
 
 // DeleteSA deletes a previously installed SA from the SAD
 func (s *Server) DeleteSA(_ context.Context, in *pb.DeleteSAReq) (*pb.DeleteSAResp, error) {
-	//Generate the SA id
+	// Generate the SA id
 	name, err := s.createSAName(in.SaId)
 	if err != nil {
 		log.Printf("DeleteSA(): Name creation failure: %v", err)
@@ -85,5 +85,5 @@ func (s *Server) DeleteSA(_ context.Context, in *pb.DeleteSAReq) (*pb.DeleteSARe
 }
 
 // Do we need to implement the below functions ?
-//func GetFeatures
-//func GetSPI
+// func GetFeatures
+// func GetSPI
