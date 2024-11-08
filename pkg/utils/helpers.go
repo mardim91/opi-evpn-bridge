@@ -88,9 +88,10 @@ func ComposeHandlerName(moduleName, kindOfType string) string {
 	return moduleName + "." + kindOfType
 }
 
-func CheckIpAdrress(ip string) error {
+// CheckIPAddress checks if the IP is valid
+func CheckIPAddress(ip string) error {
 	if net.ParseIP(ip) == nil {
-		return fmt.Errorf("CheckIpAdrress(): Invalid ip address %s", ip)
+		return fmt.Errorf("CheckIPAddress(): Invalid ip address %s", ip)
 	}
 
 	return nil

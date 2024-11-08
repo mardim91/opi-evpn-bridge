@@ -17,12 +17,12 @@ import (
 
 func (s *Server) validateAddSaReq(in *pb.AddSAReq) error {
 	// validate ip addresses
-	if err := utils.CheckIpAdrress(in.SaId.Src); err != nil {
+	if err := utils.CheckIPAddress(in.SaId.Src); err != nil {
 		msg := fmt.Sprintf("Invalid format of src IP Address: %v", err)
 		return status.Errorf(codes.InvalidArgument, msg)
 	}
 
-	if err := utils.CheckIpAdrress(in.SaId.Dst); err != nil {
+	if err := utils.CheckIPAddress(in.SaId.Dst); err != nil {
 		msg := fmt.Sprintf("Invalid format of dst IP Address: %v", err)
 		return status.Errorf(codes.InvalidArgument, msg)
 	}

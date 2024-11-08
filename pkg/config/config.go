@@ -70,11 +70,12 @@ type InterfaceConfig struct {
 	PortMux  string                 `yaml:"port-mux"`
 }
 
+// TunnelConfig tunnel config structure
 type TunnelConfig struct {
 	Name     string `yaml:"name"`
-	IfId     uint32 `yaml:"ifid"`
-	Ip       string `yaml:"ip"`
-	RemoteIp string `yaml:"remoteip"`
+	IfID     uint32 `yaml:"ifid"`
+	IP       string `yaml:"ip"`
+	RemoteIP string `yaml:"remoteip"`
 }
 
 // IpsecConfig ipsec config structure

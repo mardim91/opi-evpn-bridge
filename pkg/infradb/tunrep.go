@@ -46,11 +46,11 @@ type TunRepStatus struct {
 // TunRepSpec holds TunRep Spec
 type TunRepSpec struct {
 	CfgName  string
-	IfId     uint32
+	IfID     uint32
 	Vrf      string
 	IP       *net.IP
 	IPNet    *net.IPNet
-	RemoteIp *net.IP
+	RemoteIP *net.IP
 	Sa       string
 	SaIdx    *uint32
 	Spi      *uint32
@@ -73,19 +73,20 @@ type TunRep struct {
 	ResourceVersion string
 }
 
+// NewTunRep creates a new TunRep object
 func NewTunRep(tunCfg config.TunnelConfig) (*TunRep, error) {
 	components := make([]common.Component, 0)
 
-	name := createTunRepName(tunCfg.IfId)
+	name := createTunRepName(tunCfg.IfID)
 
-	ip, ipnet, err := net.ParseCIDR(tunCfg.Ip)
+	ip, ipnet, err := net.ParseCIDR(tunCfg.IP)
 	if err != nil {
 		return nil, err
 	}
 
-	remoteIP := net.ParseIP(tunCfg.RemoteIp)
+	remoteIP := net.ParseIP(tunCfg.RemoteIP)
 	if remoteIP == nil {
-		err = fmt.Errorf("NewTunRep(): Malformed tunnel remote IP: %+v", tunCfg.RemoteIp)
+		err = fmt.Errorf("NewTunRep(): Malformed tunnel remote IP: %+v", tunCfg.RemoteIP)
 		return nil, err
 	}
 
@@ -105,11 +106,11 @@ func NewTunRep(tunCfg config.TunnelConfig) (*TunRep, error) {
 		Spec: &TunRepSpec{
 			// Dimitris: Does this initial name used somewhere or we can drop it ?
 			CfgName:  tunCfg.Name,
-			IfId:     tunCfg.IfId,
+			IfID:     tunCfg.IfID,
 			Vrf:      "//network.opiproject.org/vrfs/GRD",
 			IP:       &ip,
 			IPNet:    ipnet,
-			RemoteIp: &remoteIP,
+			RemoteIP: &remoteIP,
 		},
 		Status: &TunRepStatus{
 			TunRepOperStatus: TunRepOperStatus(TunRepOperStatusDown),
@@ -122,8 +123,8 @@ func NewTunRep(tunCfg config.TunnelConfig) (*TunRep, error) {
 
 }
 
-func createTunRepName(ifId uint32) string {
-	return "tunRep" + "-" + strconv.Itoa(int(ifId))
+func createTunRepName(ifID uint32) string {
+	return "tunRep" + "-" + strconv.Itoa(int(ifID))
 }
 
 // setComponentState set the stat of the component
@@ -160,15 +161,15 @@ func (in *TunRep) bindSa(sa *Sa) error {
 	nlink := utils.NewNetlinkWrapperWithArgs(config.GlobalConfig.Tracer)
 	ctx := context.Background()
 
-	//GRD routing table number
+	// GRD routing table number
 	routingTableNum := 255
 
 	in.Spec.Sa = sa.Name
 	in.Spec.Spi = sa.Spec.Spi
 	in.Spec.SrcIP = sa.Spec.SrcIP
 	in.Spec.DstIP = sa.Spec.DstIP
-	//in.Spec.SaIdx = sa.Index
-	in.Spec.SrcMac, err = nlink.ResolveLocalIp(ctx, in.Spec.SrcIP.String(), routingTableNum)
+	// in.Spec.SaIdx = sa.Index
+	in.Spec.SrcMac, err = nlink.ResolveLocalIP(ctx, in.Spec.SrcIP.String(), routingTableNum)
 	if err != nil {
 		return err
 	}
@@ -186,7 +187,7 @@ func (in *TunRep) unbindSa(sa *Sa) error {
 	in.Spec.Spi = nil
 	in.Spec.SrcIP = nil
 	in.Spec.DstIP = nil
-	//in.Spec.SaIdx = nil
+	// in.Spec.SaIdx = nil
 	in.Spec.SrcMac = ""
 
 	return nil
