@@ -59,7 +59,7 @@ type Netlink interface {
 	ReadFDB(context.Context) (string, error)
 	RouteLookup(context.Context, string, string) (string, error)
 	GetMac(context.Context, string) (string, error)
-	ResolveLocalIp(context.Context, string, int) (string, error)
+	ResolveLocalIP(context.Context, string, int) (string, error)
 }
 
 // NetlinkWrapper wrapper for netlink package
@@ -175,6 +175,7 @@ func (n *NetlinkWrapper) LinkSetMTU(ctx context.Context, link netlink.Link, mtu 
 	return netlink.LinkSetMTU(link, mtu)
 }
 
+// LinkSetArpOff is a wrapper for netlink.LinkSetARPOff
 func (n *NetlinkWrapper) LinkSetArpOff(ctx context.Context, link netlink.Link) error {
 	_, childSpan := n.tracer.Start(ctx, "netlink.LinkSetArpOff")
 	childSpan.SetAttributes(attribute.String("link.name", link.Attrs().Name))
@@ -368,7 +369,7 @@ func (n *NetlinkWrapper) LinkSetBrNeighSuppress(ctx context.Context, link netlin
 	return netlink.LinkSetBrNeighSuppress(link, neighSuppress)
 }
 
-// LinkSetBrNeighSuppress is a wrapper for netlink.GetMac
+// GetMac is a wrapper for netlink.GetMac
 func (n *NetlinkWrapper) GetMac(ctx context.Context, dev string) (string, error) {
 
 	var links []struct {
@@ -398,23 +399,23 @@ func (n *NetlinkWrapper) GetMac(ctx context.Context, dev string) (string, error)
 
 }
 
-// ResolveLocalIp is a wrapper for netlink.ResolveLocalIp
-func (n *NetlinkWrapper) ResolveLocalIp(ctx context.Context, ip string, rtNum int) (string, error) {
+// ResolveLocalIP is a wrapper for netlink.ResolveLocalIp
+func (n *NetlinkWrapper) ResolveLocalIP(ctx context.Context, ip string, rtNum int) (string, error) {
 	var devs = []string{}
 
 	var routes []struct {
-		LocalIp string `json:"dst"`
+		LocalIP string `json:"dst"`
 		Device  string `json:"dev"`
 	}
 
-	_, childSpan := n.tracer.Start(ctx, "netlink.ResolveLocalIp")
+	_, childSpan := n.tracer.Start(ctx, "netlink.ResolveLocalIP")
 	childSpan.SetAttributes(attribute.String("routingTable.Number", strconv.Itoa(rtNum)))
 	childSpan.SetAttributes(attribute.String("localIP", ip))
 	defer childSpan.End()
 
 	out, err := n.ReadRoute(ctx, strconv.Itoa(rtNum))
 	if err != nil || len(out) <= 3 {
-		return "", errors.New("ResolveLocalIp(): Failed to read route from routing table")
+		return "", errors.New("ResolveLocalIP(): Failed to read route from routing table")
 	}
 
 	err = json.Unmarshal([]byte(out), &routes)
@@ -423,13 +424,13 @@ func (n *NetlinkWrapper) ResolveLocalIp(ctx context.Context, ip string, rtNum in
 	}
 
 	for _, route := range routes {
-		if route.LocalIp == ip {
+		if route.LocalIP == ip {
 			devs = append(devs, route.Device)
 		}
 	}
 
 	if len(devs) == 0 {
-		return "", fmt.Errorf("ResolveLocalIp(): No device found for ip %s", ip)
+		return "", fmt.Errorf("ResolveLocalIP(): No device found for ip %s", ip)
 	}
 
 	mac, err := n.GetMac(ctx, devs[0])

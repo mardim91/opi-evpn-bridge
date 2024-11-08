@@ -29,7 +29,7 @@ const (
 	SaOperStatusToBeDeleted = iota
 )
 
-// Define a custom type for protocol
+// Protocol defines a custom type for protocol
 type Protocol int
 
 // Define constants for protocol
@@ -53,7 +53,7 @@ func convertPbToProtocol(p pb.IPSecProtocol) (Protocol, error) {
 	}
 }
 
-// Define a custom type for mode
+// Mode defines a custom type for mode
 type Mode int
 
 // Define constants for mode
@@ -86,7 +86,7 @@ func convertPbToMode(m pb.IPSecMode) (Mode, error) {
 	}
 }
 
-// Define a custom type for crypto algorithm for encryption
+// CryptoAlg defines a custom type for crypto algorithm for encryption
 type CryptoAlg int
 
 // Define constants for crypto algorithm for encryption
@@ -137,7 +137,7 @@ func convertPbToCryptoAlg(c pb.CryptoAlgorithm) (CryptoAlg, error) {
 	}
 }
 
-// Define a custom type for crypto algorithm for authentication
+// IntegAlg defines a custom type for crypto algorithm for authentication
 type IntegAlg int
 
 // Define constants for crypto algorithm for authentication
@@ -185,7 +185,7 @@ func convertPbToIntegAlg(c pb.IntegAlgorithm) (IntegAlg, error) {
 	}
 }
 
-// Define a custom type for DSCP header field
+// DscpCopy defines a custom type for DSCP header field
 type DscpCopy int
 
 // Define constants for DSCP header field
@@ -224,12 +224,14 @@ func convertPbToBoolean(b pb.Bool) (bool, error) {
 	}
 }
 
+// Lifetime holds lifetime fields
 type Lifetime struct {
 	Life   uint64
 	Rekey  uint64
 	Jitter uint64
 }
 
+// NewLifetime creates a Lifetime object
 func NewLifetime(lt *pb.LifeTime) *Lifetime {
 	if lt == nil {
 		return nil
@@ -241,12 +243,14 @@ func NewLifetime(lt *pb.LifeTime) *Lifetime {
 	}
 }
 
+// LifetimeCfg holds lifetime configuration
 type LifetimeCfg struct {
 	Time    *Lifetime
 	Bytes   *Lifetime
 	Packets *Lifetime
 }
 
+// NewLifetimeCfg creates a LifetimeCfg object
 func NewLifetimeCfg(time, bytes, packets *Lifetime) *LifetimeCfg {
 	if time == nil && bytes == nil && packets == nil {
 		return nil
@@ -270,7 +274,7 @@ type SaSpec struct {
 	DstIP        *net.IP
 	Spi          *uint32
 	Protocol     Protocol
-	IfId         uint32
+	IfID         uint32
 	Mode         Mode
 	Interface    string
 	LifetimeCfg  *LifetimeCfg
@@ -279,7 +283,7 @@ type SaSpec struct {
 	IntAlg       IntegAlg
 	IntKey       []byte
 	ReplayWindow uint32
-	UdpEncap     bool
+	UDPEncap     bool
 	Esn          bool
 	CopyDf       bool
 	CopyEcn      bool
@@ -396,7 +400,7 @@ func NewSa(name string, sa *pb.AddSAReq) (*Sa, error) {
 			DstIP:        &dstIP,
 			Spi:          &sa.SaId.Spi,
 			Protocol:     proto,
-			IfId:         sa.SaId.IfId,
+			IfID:         sa.SaId.IfId,
 			Mode:         mode,
 			Interface:    sa.SaData.Interface,
 			LifetimeCfg:  lifetimeCfg,
@@ -405,7 +409,7 @@ func NewSa(name string, sa *pb.AddSAReq) (*Sa, error) {
 			IntAlg:       intAlg,
 			IntKey:       sa.SaData.IntKey,
 			ReplayWindow: sa.SaData.ReplayWindow,
-			UdpEncap:     udpEncap,
+			UDPEncap:     udpEncap,
 			Esn:          esn,
 			CopyDf:       copyDf,
 			CopyEcn:      copyEcn,
