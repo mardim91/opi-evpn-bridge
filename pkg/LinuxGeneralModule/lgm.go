@@ -864,19 +864,6 @@ func setUpTunRep(tun *infradb.TunRep) bool {
 		log.Printf("LGM: Unable to set arp off to link %s \n", link)
 		return false
 	}
-
-	if path.Base(tun.Spec.Vrf) != "GRD" {
-		linkMaster, errMaster := nlink.LinkByName(ctx, path.Base(tun.Spec.Vrf))
-		if errMaster != nil {
-			log.Printf("LGM : Error in getting the %s\n", path.Base(tun.Spec.Vrf))
-			return false
-		}
-		linkSetMaster := nlink.LinkSetMaster(ctx, vlanLink, linkMaster)
-		if linkSetMaster != nil {
-			log.Printf("LGM: Unable to set link master for link %s and master %s \n", link, path.Base(tun.Spec.Vrf))
-			return false
-		}
-	}
 	var address = tun.Spec.IPNet
 	var Addrs = &netlink.Addr{
 		IPNet: address,
@@ -914,7 +901,7 @@ func setUpTunRep(tun *infradb.TunRep) bool {
 		log.Printf("LGM : Unable to set link %s UP \n", link)
 		return false
 	}
-
+	return true
 }
 
 // GenerateMac Generates the random mac
