@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package netlink;
+
+option go_package = "./";
+option java_package = "opi_api.network.evpn_gw.v1alpha1";
+option java_multiple_files = true;
+option java_outer_classname = "MgmtXpuInfraMgrProto";
+
+
+
+service ManagementService {
+    // Control of the IPU Infra Mgr
+    rpc DumpNetlinkDB(DumpNetlinkDbRequest) returns (DumpNetlinkDbResult) {}
+}
+
+message DumpNetlinkDbRequest {
+    bool details = 1;
+}
+
+message DumpNetlinkDbResult {
+    enum ErrorCode {
+        OK = 0;
+        INTERNAL_ERROR = 1;
+    }
+    ErrorCode error_code = 1;
+    string details = 2;
+}

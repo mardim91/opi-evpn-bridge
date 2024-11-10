@@ -629,15 +629,12 @@ func (nexthop *NexthopStruct) GetVrfOperStatus() infradb.VrfOperStatus {
 // dumpNexthDB dump the nexthop entries
 func dumpNexthDB() string {
 	var s string
-	log.Printf("netlink: Dump Nexthop table:\n")
 	s = "Nexthop table:\n"
-	for _, n := range latestNexthop {
+	for _, n := range nexthops {
 		str := fmt.Sprintf("Nexthop(id=%d vrf=%s dst=%s dev=%s Local=%t weight=%d flags=[%s] #routes=%d Resolved=%t neighbor=%s) ", n.ID, n.Vrf.Name, n.nexthop.Gw.String(), nameIndex[n.nexthop.LinkIndex], n.Local, n.Weight, getFlagString(n.nexthop.Flags), len(n.RouteRefs), n.Resolved, n.Neighbor.printNeigh())
-		log.Println(str)
 		s += str
 		s += "\n"
 	}
-	log.Printf("\n\n\n")
 	s += "\n\n"
 	return s
 }
