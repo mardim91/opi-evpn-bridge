@@ -1,13 +1,8 @@
 syntax = "proto3";
 
-package netlink;
+package opi_evpn_bridge.pkg.netlink;
 
-option go_package = "./";
-option java_package = "opi_api.network.evpn_gw.v1alpha1";
-option java_multiple_files = true;
-option java_outer_classname = "MgmtXpuInfraMgrProto";
-
-
+option go_package = "github.com/opiproject/opi-evpn-bridge/pkg/netlink/proto/gen/go";
 
 service ManagementService {
     // Control of the IPU Infra Mgr

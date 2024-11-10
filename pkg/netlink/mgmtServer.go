@@ -13,7 +13,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/opiproject/opi-evpn-bridge/pkg/config"
-	pm "github.com/opiproject/opi-evpn-bridge/pkg/netlink/proto/gen"
+	pm "github.com/opiproject/opi-evpn-bridge/pkg/netlink/proto/gen/go"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel"

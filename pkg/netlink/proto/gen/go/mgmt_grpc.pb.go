@@ -4,7 +4,7 @@
 // - protoc             v3.19.4
 // source: mgmt.proto
 
-package __
+package _go
 
 import (
 	context "context"
@@ -19,7 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	ManagementService_DumpNetlinkDB_FullMethodName = "/netlink.ManagementService/DumpNetlinkDB"
+	ManagementService_DumpNetlinkDB_FullMethodName = "/opi_evpn_bridge.pkg.netlink.ManagementService/DumpNetlinkDB"
 )
 
 // ManagementServiceClient is the client API for ManagementService service.
@@ -98,7 +98,7 @@ func _ManagementService_DumpNetlinkDB_Handler(srv interface{}, ctx context.Conte
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ManagementService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "netlink.ManagementService",
+	ServiceName: "opi_evpn_bridge.pkg.netlink.ManagementService",
 	HandlerType: (*ManagementServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
