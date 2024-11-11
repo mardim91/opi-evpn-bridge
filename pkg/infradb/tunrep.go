@@ -20,7 +20,7 @@ import (
 
 var (
 	// ErrTunRepNotBoundToSa for tunRep not bound to SA
-	ErrTunRepNotBoundToSa = errors.New("Tunnel representor not bound to SA")
+	ErrTunRepNotBoundToSa = errors.New("tunnel representor not bound to sa")
 )
 
 // TunRepOperStatus operational Status for TunReps
@@ -120,7 +120,6 @@ func NewTunRep(tunCfg config.TunnelConfig) (*TunRep, error) {
 		Metadata:        &TunRepMetadata{},
 		ResourceVersion: generateVersion(),
 	}, nil
-
 }
 
 func createTunRepName(ifID uint32) string {
