@@ -42,11 +42,11 @@ const (
 func convertPbToProtocol(p pb.IPSecProtocol) (Protocol, error) {
 	switch p {
 	case pb.IPSecProtocol_IPSecProtoRSVD:
-		return Protocol(IPSecProtoRSVD), nil
+		return IPSecProtoRSVD, nil
 	case pb.IPSecProtocol_IPSecProtoESP:
-		return Protocol(IPSecProtoESP), nil
+		return IPSecProtoESP, nil
 	case pb.IPSecProtocol_IPSecProtoAH:
-		return Protocol(IPSecProtoAH), nil
+		return IPSecProtoAH, nil
 	default:
 		err := fmt.Errorf("convertPbToProtocol(): Unknown protocol %+v", p)
 		return -1, err
@@ -58,28 +58,28 @@ type Mode int
 
 // Define constants for mode
 const (
-	None Mode = iota
-	Transport
-	Tunnel
-	Beet
-	Pass
-	Drop
+	NoneMode Mode = iota
+	TransportMode
+	TunnelMode
+	BeetMode
+	PassMode
+	DropMode
 )
 
 func convertPbToMode(m pb.IPSecMode) (Mode, error) {
 	switch m {
 	case pb.IPSecMode_MODE_NONE:
-		return Mode(None), nil
+		return NoneMode, nil
 	case pb.IPSecMode_MODE_TRANSPORT:
-		return Mode(Transport), nil
+		return TransportMode, nil
 	case pb.IPSecMode_MODE_TUNNEL:
-		return Mode(Tunnel), nil
+		return TunnelMode, nil
 	case pb.IPSecMode_MODE_BEET:
-		return Mode(Beet), nil
+		return BeetMode, nil
 	case pb.IPSecMode_MODE_PASS:
-		return Mode(Pass), nil
+		return PassMode, nil
 	case pb.IPSecMode_MODE_DROP:
-		return Mode(Drop), nil
+		return DropMode, nil
 	default:
 		err := fmt.Errorf("convertPbToMode(): Unknown ipsec mode %+v", m)
 		return -1, err
@@ -90,6 +90,8 @@ func convertPbToMode(m pb.IPSecMode) (Mode, error) {
 type CryptoAlg int
 
 // Define constants for crypto algorithm for encryption
+//
+//nolint:revive,stylecheck
 const (
 	RSVD CryptoAlg = iota
 	NULL
@@ -108,29 +110,29 @@ const (
 func convertPbToCryptoAlg(c pb.CryptoAlgorithm) (CryptoAlg, error) {
 	switch c {
 	case pb.CryptoAlgorithm_ENCR_RSVD:
-		return CryptoAlg(RSVD), nil
+		return RSVD, nil
 	case pb.CryptoAlgorithm_ENCR_NULL:
-		return CryptoAlg(NULL), nil
+		return NULL, nil
 	case pb.CryptoAlgorithm_ENCR_AES_CBC:
-		return CryptoAlg(AES_CBC), nil
+		return AES_CBC, nil
 	case pb.CryptoAlgorithm_ENCR_AES_CTR:
-		return CryptoAlg(AES_CTR), nil
+		return AES_CTR, nil
 	case pb.CryptoAlgorithm_ENCR_AES_CCM_8:
-		return CryptoAlg(AES_CCM_8), nil
+		return AES_CCM_8, nil
 	case pb.CryptoAlgorithm_ENCR_AES_CCM_12:
-		return CryptoAlg(AES_CCM_12), nil
+		return AES_CCM_12, nil
 	case pb.CryptoAlgorithm_ENCR_AES_CCM_16:
-		return CryptoAlg(AES_CCM_16), nil
+		return AES_CCM_16, nil
 	case pb.CryptoAlgorithm_ENCR_AES_GCM_8:
-		return CryptoAlg(AES_GCM_8), nil
+		return AES_GCM_8, nil
 	case pb.CryptoAlgorithm_ENCR_AES_GCM_12:
-		return CryptoAlg(AES_GCM_12), nil
+		return AES_GCM_12, nil
 	case pb.CryptoAlgorithm_ENCR_AES_GCM_16:
-		return CryptoAlg(AES_GCM_16), nil
+		return AES_GCM_16, nil
 	case pb.CryptoAlgorithm_ENCR_NULL_AUTH_AES_GMAC:
-		return CryptoAlg(NULL_AUTH_AES_GMAC), nil
+		return NULL_AUTH_AES_GMAC, nil
 	case pb.CryptoAlgorithm_ENCR_CHACHA20_POLY1305:
-		return CryptoAlg(CHACHA20_POLY1305), nil
+		return CHACHA20_POLY1305, nil
 	default:
 		err := fmt.Errorf("convertPbToCryptoAlg(): Unknown ipsec crypto algorithm %+v", c)
 		return -1, err
@@ -141,6 +143,8 @@ func convertPbToCryptoAlg(c pb.CryptoAlgorithm) (CryptoAlg, error) {
 type IntegAlg int
 
 // Define constants for crypto algorithm for authentication
+//
+//nolint:revive,stylecheck
 const (
 	NONE IntegAlg = iota
 	HMAC_SHA1_96
@@ -158,27 +162,27 @@ const (
 func convertPbToIntegAlg(c pb.IntegAlgorithm) (IntegAlg, error) {
 	switch c {
 	case pb.IntegAlgorithm_NONE:
-		return IntegAlg(None), nil
+		return NONE, nil
 	case pb.IntegAlgorithm_AUTH_HMAC_SHA1_96:
-		return IntegAlg(HMAC_SHA1_96), nil
+		return HMAC_SHA1_96, nil
 	case pb.IntegAlgorithm_AUTH_AES_XCBC_96:
-		return IntegAlg(AES_XCBC_96), nil
+		return AES_XCBC_96, nil
 	case pb.IntegAlgorithm_AUTH_AES_CMAC_96:
-		return IntegAlg(AES_CMAC_96), nil
+		return AES_CMAC_96, nil
 	case pb.IntegAlgorithm_AUTH_AES_128_GMAC:
-		return IntegAlg(AES_128_GMAC), nil
+		return AES_128_GMAC, nil
 	case pb.IntegAlgorithm_AUTH_AES_192_GMAC:
-		return IntegAlg(AES_192_GMAC), nil
+		return AES_192_GMAC, nil
 	case pb.IntegAlgorithm_AUTH_AES_256_GMAC:
-		return IntegAlg(AES_256_GMAC), nil
+		return AES_256_GMAC, nil
 	case pb.IntegAlgorithm_AUTH_HMAC_SHA2_256_128:
-		return IntegAlg(HMAC_SHA2_256_128), nil
+		return HMAC_SHA2_256_128, nil
 	case pb.IntegAlgorithm_AUTH_HMAC_SHA2_384_192:
-		return IntegAlg(HMAC_SHA2_384_192), nil
+		return HMAC_SHA2_384_192, nil
 	case pb.IntegAlgorithm_AUTH_HMAC_SHA2_512_256:
-		return IntegAlg(HMAC_SHA2_512_256), nil
+		return HMAC_SHA2_512_256, nil
 	case pb.IntegAlgorithm_AUTH_UNDEFINED:
-		return IntegAlg(UNDEFINED), nil
+		return UNDEFINED, nil
 	default:
 		err := fmt.Errorf("convertPbToIntegAlg(): Unknown ipsec authentication algorithm %+v", c)
 		return -1, err
@@ -189,6 +193,8 @@ func convertPbToIntegAlg(c pb.IntegAlgorithm) (IntegAlg, error) {
 type DscpCopy int
 
 // Define constants for DSCP header field
+//
+//nolint:revive,stylecheck
 const (
 	OUT_ONLY DscpCopy = iota
 	IN_ONLY
@@ -199,13 +205,13 @@ const (
 func convertPbToDscpCopy(d pb.DSCPCopy) (DscpCopy, error) {
 	switch d {
 	case pb.DSCPCopy_DSCP_COPY_OUT_ONLY:
-		return DscpCopy(OUT_ONLY), nil
+		return OUT_ONLY, nil
 	case pb.DSCPCopy_DSCP_COPY_IN_ONLY:
-		return DscpCopy(IN_ONLY), nil
+		return IN_ONLY, nil
 	case pb.DSCPCopy_DSCP_COPY_YES:
-		return DscpCopy(YES), nil
+		return YES, nil
 	case pb.DSCPCopy_DSCP_COPY_NO:
-		return DscpCopy(NO), nil
+		return NO, nil
 	default:
 		err := fmt.Errorf("convertPbToDscpCopy(): Unknown ipsec DscpCopy %+v", d)
 		return -1, err
@@ -425,7 +431,6 @@ func NewSa(name string, sa *pb.AddSAReq) (*Sa, error) {
 		//Index: poolIndex,
 		ResourceVersion: generateVersion(),
 	}, nil
-
 }
 
 // setComponentState set the stat of the component

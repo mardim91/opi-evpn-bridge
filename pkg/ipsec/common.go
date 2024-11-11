@@ -2,12 +2,10 @@
 // Copyright (c) 2022-2024 Intel Corporation, or its subsidiaries.
 // Copyright (C) 2024 Ericcson AB.
 
-// TODO Maybe I should put these SA related code outside of the ipsec package unde an SA folder as I do with VRFs and LBs which are outside of evpn package.
 // Package ipsec is the main package of the application
 package ipsec
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
@@ -26,7 +24,7 @@ func (s *Server) createSAName(id *pb.SAIdentifier) (string, error) {
 	case pb.IPSecProtocol_IPSecProtoAH:
 		proto = "ah"
 	default:
-		msg := fmt.Sprintf("Unknown SA proto")
+		msg := "Unknown SA proto"
 		return "", status.Errorf(codes.InvalidArgument, msg)
 	}
 
