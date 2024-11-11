@@ -371,7 +371,6 @@ func (n *NetlinkWrapper) LinkSetBrNeighSuppress(ctx context.Context, link netlin
 
 // GetMac is a wrapper for netlink.GetMac
 func (n *NetlinkWrapper) GetMac(ctx context.Context, dev string) (string, error) {
-
 	var links []struct {
 		Address string `json:"address"`
 	}
@@ -396,7 +395,6 @@ func (n *NetlinkWrapper) GetMac(ctx context.Context, dev string) (string, error)
 
 	mac := links[0].Address
 	return mac, nil
-
 }
 
 // ResolveLocalIP is a wrapper for netlink.ResolveLocalIp

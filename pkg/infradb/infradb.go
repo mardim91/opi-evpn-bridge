@@ -2071,7 +2071,6 @@ func ResolveTunRep(name, destMac string) error {
 
 // updateTunRep is internal re-usable function independent of infradb Lock
 func updateTunRep(tunRep *TunRep) error {
-
 	subscribers := eventbus.EBus.GetSubscribers("tun-rep")
 	if len(subscribers) == 0 {
 		return errors.New("no subscribers found for Tun Rep")
