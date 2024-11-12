@@ -63,11 +63,12 @@ type InterfaceConfig struct {
 		Rep string `yaml:"rep"`
 		Vsi int    `yaml:"vsi"`
 	} `yaml:"phyports"`
-	Other    map[string]interface{} `yaml:",inline"`
-	GrpcAcc  string                 `yaml:"grpcacc"`
-	GrpcHost string                 `yaml:"grpchost"`
-	VrfMux   string                 `yaml:"vrfmux"`
-	PortMux  string                 `yaml:"port-mux"`
+	Other     map[string]interface{} `yaml:",inline"`
+	GrpcAcc   string                 `yaml:"grpcacc"`
+	GrpcHost  string                 `yaml:"grpchost"`
+	VrfMux    string                 `yaml:"vrfmux"`
+	PortMux   string                 `yaml:"portmux"`
+	TunnelMux string                 `yaml:"tunnelmux"`
 }
 
 // TunnelConfig tunnel config structure
