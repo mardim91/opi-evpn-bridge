@@ -9,6 +9,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
+	"math/rand"
 
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
 	pb "github.com/opiproject/opi-evpn-bridge/pkg/ipsec/gen/go"
@@ -84,6 +86,18 @@ func (s *Server) DeleteSA(_ context.Context, in *pb.DeleteSAReq) (*pb.DeleteSARe
 	return &pb.DeleteSAResp{Stat: pb.Status_SUCCESS}, nil
 }
 
-// Do we need to implement the below functions ?
-// func GetFeatures
-// func GetSPI
+// GetFeatures returns the supported features
+func GetFeatures(_ context.Context, in *pb.Features) (*pb.Features, error) {
+	log.Printf("GetFeatures(): Received request %+v", in)
+	features := (1 << 0) | (1 << 2)
+	return &pb.Features{Features: uint32(features)}, nil
+}
+
+// GetSpi returns a spi
+func GetSpi(_ context.Context, in *pb.GetSPIReq) (*pb.GetSPIResp, error) {
+	log.Printf("GetSpi(): Received request %+v", in)
+	min := 256
+	max := math.MaxUint32
+	spi := (rand.Intn(max - min)) + min
+	return &pb.GetSPIResp{Stat: 0, Spi: uint32(spi)}, nil
+}
