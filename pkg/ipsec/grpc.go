@@ -89,11 +89,12 @@ func (s *Server) DeleteSA(_ context.Context, in *pb.DeleteSAReq) (*pb.DeleteSARe
 // GetFeatures returns the supported features
 func GetFeatures(_ context.Context, in *pb.Features) (*pb.Features, error) {
 	log.Printf("GetFeatures(): Received request %+v", in)
-	features := (1 << 0) | (1 << 2)
+	features := (1 << 0)
 	return &pb.Features{Features: uint32(features)}, nil
 }
 
 // GetSpi returns a spi
+// TODO: Replace the implementation here with an IDPool
 func GetSpi(_ context.Context, in *pb.GetSPIReq) (*pb.GetSPIResp, error) {
 	log.Printf("GetSpi(): Received request %+v", in)
 	min := 256
