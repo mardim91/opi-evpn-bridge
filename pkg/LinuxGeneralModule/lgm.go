@@ -454,7 +454,7 @@ func Initialize() {
 	}
 	brTenant = "br-tenant"
 	ipMtu = config.GlobalConfig.LinuxFrr.IPMtu
-	tunMux = config.GlobalConfig.Interfaces.TunMux
+	tunMux = config.GlobalConfig.Interfaces.TunnelMux
 	ctx = context.Background()
 	nlink = utils.NewNetlinkWrapperWithArgs(config.GlobalConfig.Tracer)
 	// Set up the static configuration parts
@@ -838,12 +838,12 @@ func setUpTunRep(tun *infradb.TunRep) bool {
 		log.Printf("Failed to get link information for %s, error is %v\n", tunMux, err)
 		return false
 	}
-	vlanLink := &netlink.Vlan{LinkAttrs: netlink.LinkAttrs{Name: link, ParentIndex: muxIntf.Attrs().Index}, VlanId: int(tun.Spec.IfId), VlanProtocol: netlink.VLAN_PROTOCOL_8021AD}
+	vlanLink := &netlink.Vlan{LinkAttrs: netlink.LinkAttrs{Name: link, ParentIndex: muxIntf.Attrs().Index}, VlanId: int(tun.Spec.IfID), VlanProtocol: netlink.VLAN_PROTOCOL_8021AD}
 	if err = nlink.LinkAdd(ctx, vlanLink); err != nil {
 		log.Printf("Failed to add VLAN sub-interface %s: %v\n", link, err)
 		return false
 	}
-	log.Printf("LVM: Executed ip link add link %s name %s type vlan protocol 802.1ad id %s\n", tunMux, link, tun.Spec.IfId)
+	log.Printf("LVM: Executed ip link add link %s name %s type vlan protocol 802.1ad id %d\n", tunMux, link, tun.Spec.IfID)
 
 	linkmtuErr := nlink.LinkSetMTU(ctx, vlanLink, ipMtu+50)
 	if linkmtuErr != nil {
@@ -867,8 +867,8 @@ func setUpTunRep(tun *infradb.TunRep) bool {
 	}
 	log.Printf("LGM: Added Address %s dev %s\n", address, link)
 
-	if tun.Spec.RemoteIp != nil {
-		Src1 := tun.Spec.RemoteIp
+	if tun.Spec.RemoteIP != nil {
+		Src1 := tun.Spec.RemoteIP
 		vrf, err := infradb.GetVrf(tun.Spec.Vrf)
 		if err != nil {
 			return false
