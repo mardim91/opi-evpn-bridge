@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"context"
 
 	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
@@ -22,6 +23,7 @@ import (
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriberframework/eventbus"
 	nm "github.com/opiproject/opi-evpn-bridge/pkg/netlink"
 	eb "github.com/opiproject/opi-evpn-bridge/pkg/netlink/eventbus"
+	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 	p4client "github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/intel-e2000/p4runtime/p4driverapi"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -36,6 +38,15 @@ var Vxlan VxlanDecoder
 // Pod var pod of type pod decoder
 var Pod PodDecoder
 
+// IPSec var
+var IPSec IPSecDecoder
+
+// nlink variable wrapper
+var nlink utils.Netlink
+
+// ctx variable context
+var ctx context.Context
+
 // ModuleipuHandler var empty struct of type module handler
 type ModuleipuHandler struct{}
 
@@ -46,7 +57,7 @@ func isValidMAC(mac string) bool {
 	match, _ := regexp.MatchString(macPattern, mac)
 	return match
 }
-
+/*
 // getMac get the mac from interface
 func getMac(dev string) string {
 	cmd := exec.Command("ip", "-d", "-j", "link", "show", dev)
@@ -71,7 +82,7 @@ func getMac(dev string) string {
 
 	return ""
 }
-
+*/
 // vportFromMac get the vport from the mac
 func vportFromMac(mac string) int {
 	mbyte := strings.Split(mac, ":")
@@ -90,7 +101,8 @@ func idsOf(value string) (string, string, error) {
 		return strconv.Itoa(vportFromMac(value)), value, nil
 	}
 
-	mac := getMac(value)
+	//mac := getMac(value)
+	mac, err := nlink.GetMac(ctx, value) 
 	vsi := vportFromMac(mac)
 	if vsi == -1 {
 		return "", "", fmt.Errorf("failed to get id")
@@ -574,9 +586,198 @@ func (h *ModuleipuHandler) HandleEvent(eventType string, objectData *eventbus.Ob
 	case "svi":
 		log.Printf("intel-e2000: recevied %s %s\n", eventType, objectData.Name)
 		handlesvi(objectData)
+	case "sa":
+		log.Printf("intel-e2000: recevied %s %s\n", eventType, objectData.Name)
+		handlesa(objectData)
+	case "tun":
+		log.Printf("intel-e2000: recevied %s %s\n", eventType, objectData.Name)
+		handletun(objectData)
 	default:
 
 		log.Println("intel-e2000: error: Unknown event type: ", eventType)
+	}
+}
+
+func handlesa(objectData *eventbus.ObjectData) {
+	var comp common.Component
+	sa, err := infradb.GetSA(objectData.Name)
+	if err != nil {
+		log.Printf("intel-e2000: GetSA error: %s %s\n", err, objectData.Name)
+		comp.Name = intele2000Str
+		comp.CompStatus = common.ComponentStatusError
+		if comp.Timer == 0 { // wait timer is 2 powerof natural numbers ex : 1,2,3...
+			comp.Timer = 2 * time.Second
+		} else {
+			comp.Timer *= 2
+		}
+		err = infradb.UpdateSAStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
+		if err != nil {
+			log.Printf("error in updating sa status: %s\n", err)
+		}
+		return
+	}
+
+	if objectData.ResourceVersion != sa.ResourceVersion {
+		log.Printf("intel-e2000: Mismatch in resoruce version %+v\n and sa resource version %+v\n", objectData.ResourceVersion, sa.ResourceVersion)
+		comp.Name = intele2000Str
+		comp.CompStatus = common.ComponentStatusError
+		if comp.Timer == 0 { // wait timer is 2 powerof natural numbers ex : 1,2,3...
+			comp.Timer = 2 * time.Second
+		} else {
+			comp.Timer *= 2
+		}
+		err = infradb.UpdateSAStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
+		if err != nil {
+			log.Printf("error in updating sa status: %s\n", err)
+		}
+		return
+	}
+
+	if len(sa.Status.Components) != 0 {
+		for i := 0; i < len(sa.Status.Components); i++ {
+			if sa.Status.Components[i].Name == intele2000Str {
+				comp = sa.Status.Components[i]
+			}
+		}
+	}
+	if sa.Status.SAOperStatus != infradb.SAOperStatusToBeDeleted {
+		status := offloadSA(sa)
+		if status {
+			comp.CompStatus = common.ComponentStatusSuccess
+
+			comp.Name = intele2000Str
+			comp.Timer = 0
+		} else {
+			if comp.Timer == 0 { // wait timer is 2 powerof natural numbers ex : 1,2,3...
+				comp.Timer = 2 * time.Second
+			} else {
+				comp.Timer *= 2 * time.Second
+			}
+
+			comp.Name = intele2000Str
+			comp.CompStatus = common.ComponentStatusError
+		}
+		log.Printf("intel-e2000: %+v\n", comp)
+		err = infradb.UpdateSAStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, sa.Metadata, comp)
+		if err != nil {
+			log.Printf("error in updating sa status: %s\n", err)
+		}
+	} else {
+		status := tearDownSA(sa)
+		if status {
+			comp.CompStatus = common.ComponentStatusSuccess
+
+			comp.Name = intele2000Str
+			comp.Timer = 0
+		} else {
+			comp.CompStatus = common.ComponentStatusError
+			comp.Name = intele2000Str
+			if comp.Timer == 0 { // wait timer is 2 powerof natural numbers ex : 1,2,3...
+				comp.Timer = 2
+			} else {
+				comp.Timer *= 2
+			}
+		}
+
+		log.Printf("intel-e2000: %+v\n", comp)
+		err = infradb.UpdateSAStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
+		if err != nil {
+			log.Printf("error in updating sa status: %s\n", err)
+		}
+	}
+}
+
+func handletun(objectData *eventbus.ObjectData) {
+	var comp common.Component
+	tun, err := infradb.GetTunRep(objectData.Name)
+	if err != nil {
+		log.Printf("intel-e2000: GetTun error: %s %s\n", err, objectData.Name)
+		comp.Name = intele2000Str
+		comp.CompStatus = common.ComponentStatusError
+		if comp.Timer == 0 { // wait timer is 2 powerof natural numbers ex : 1,2,3...
+			comp.Timer = 2 * time.Second
+		} else {
+			comp.Timer *= 2
+		}
+		err = infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
+		if err != nil {
+			log.Printf("error in updating tun status: %s\n", err)
+		}
+		return
+	}
+
+	if objectData.ResourceVersion != tun.ResourceVersion {
+		log.Printf("intel-e2000: Mismatch in resoruce version %+v\n and sa resource version %+v\n", objectData.ResourceVersion, tun.ResourceVersion)
+		comp.Name = intele2000Str
+		comp.CompStatus = common.ComponentStatusError
+		if comp.Timer == 0 { // wait timer is 2 powerof natural numbers ex : 1,2,3...
+			comp.Timer = 2 * time.Second
+		} else {
+			comp.Timer *= 2
+		}
+		err = infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
+		if err != nil {
+			log.Printf("error in updating tun status: %s\n", err)
+		}
+		return
+	}
+
+	if len(tun.Status.Components) != 0 {
+		for i := 0; i < len(tun.Status.Components); i++ {
+			if tun.Status.Components[i].Name == intele2000Str {
+				comp = tun.Status.Components[i]
+			}
+		}
+	}
+	if tun.Status.TunRepOperStatus != infradb.TunOperStatusToBeDeleted {
+		var status bool
+		if len(tun.OldVersions) > 0 {
+			status = UpdateTunRep(tun)
+		} else {
+			status = offloadTun(tun)
+		}
+		if status {
+			comp.CompStatus = common.ComponentStatusSuccess
+
+			comp.Name = intele2000Str
+			comp.Timer = 0
+		} else {
+			if comp.Timer == 0 { // wait timer is 2 powerof natural numbers ex : 1,2,3...
+				comp.Timer = 2 * time.Second
+			} else {
+				comp.Timer *= 2 * time.Second
+			}
+
+			comp.Name = intele2000Str
+			comp.CompStatus = common.ComponentStatusError
+		}
+		log.Printf("intel-e2000: %+v\n", comp)
+		err = infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, sa.Metadata, comp)
+		if err != nil {
+			log.Printf("error in updating tun status: %s\n", err)
+		}
+	} else {
+		status := tearDownTun(tun)
+		if status {
+			comp.CompStatus = common.ComponentStatusSuccess
+
+			comp.Name = intele2000Str
+			comp.Timer = 0
+		} else {
+			comp.CompStatus = common.ComponentStatusError
+			comp.Name = intele2000Str
+			if comp.Timer == 0 { // wait timer is 2 powerof natural numbers ex : 1,2,3...
+				comp.Timer = 2
+			} else {
+				comp.Timer *= 2
+			}
+		}
+
+		log.Printf("intel-e2000: %+v\n", comp)
+		err = infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
+		if err != nil {
+			log.Printf("error in updating tun status: %s\n", err)
+		}
 	}
 }
 
@@ -900,6 +1101,51 @@ func handlesvi(objectData *eventbus.ObjectData) {
 	}
 }
 
+func offloadSA(sa *infradb.Sa) bool {
+	entries := IPSec.translateAddedSA(sa)
+	for _, entry := range entries {
+		if e, ok := entry.(p4client.TableEntry); ok {
+			er := p4client.AddEntry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+			}
+		} else {
+			log.Println("ntel-e2000: Entry is not of type p4client.TableEntry:-", e)
+			return false
+		}
+	}
+	return true
+}
+
+func UpdateTunRep(tun *infradb.TunRep) bool {
+	for _, tuns := range tun.OldVersions {
+		tunObj, err := infradb.GetTunRep(tuns)
+		if err == nil {
+			if !tearDownTun(tunObj) {
+				log.Printf("intel-e2000: UpdateTunRep failed for object %+v\n", tunObj)
+				return false
+			}
+		}
+	}
+	return offloadTun(tun)
+}
+
+func offloadTun(tun *infradb.TunRep) bool {
+	entries := IPSec.translateAddedTun(tun)
+	for _, entry := range entries {
+		if e, ok := entry.(p4client.TableEntry); ok {
+			er := p4client.AddEntry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+			}
+		} else {
+			log.Println("ntel-e2000: Entry is not of type p4client.TableEntry:-", e)
+			return false
+		}
+	}
+	return true
+}
+
 // offloadVrf  offload the vrf events
 func offloadVrf(vrf *infradb.Vrf) bool {
 	if path.Base(vrf.Name) == grdStr {
@@ -974,6 +1220,38 @@ func setUpSvi(svi *infradb.Svi) bool {
 			}
 		} else {
 			log.Println("intel-e2000: Entry is not of type p4client.TableEntry:-", e)
+			return false
+		}
+	}
+	return true
+}
+
+func tearDownSA(sa *infradb.Sa) bool {
+	entries := IPSec.translateDeletedSA(sa)
+	for _, entry := range entries {
+		if e, ok := entry.(p4client.TableEntry); ok {
+			er := p4client.DelEntry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+			}
+		} else {
+			log.Println("ntel-e2000: Entry is not of type p4client.TableEntry:-", e)
+			return false
+		}
+	}
+	return true
+}
+
+func tearDownTun(tun *infradb.TunRep) bool {
+	entries := IPSec.translateDeletedTun(tun)
+	for _, entry := range entries {
+		if e, ok := entry.(p4client.TableEntry); ok {
+			er := p4client.DelEntry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+			}
+		} else {
+			log.Println("ntel-e2000: Entry is not of type p4client.TableEntry:-", e)
 			return false
 		}
 	}
@@ -1065,6 +1343,7 @@ func tearDownSvi(svi *infradb.Svi) bool {
 //
 //gocognit:ignore
 func Initialize() {
+	ctx = context.Background()
 	// Netlink Listener
 	startSubscriber(nm.EventBus, nm.RouteAdded)
 	startSubscriber(nm.EventBus, nm.RouteUpdated)
@@ -1156,6 +1435,7 @@ func Initialize() {
 	Pod = Pod.PodDecoderInit(representors)
 	// decoders = []interface{}{L3, Vxlan, Pod}
 	Vxlan = Vxlan.VxlanDecoderInit(representors)
+	IPSec = IPSec.IPSecDecoderInit(representors)
 	L3entries := L3.StaticAdditions()
 	for _, entry := range L3entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
