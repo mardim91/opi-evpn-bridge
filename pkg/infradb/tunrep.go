@@ -167,7 +167,7 @@ func (in *TunRep) bindSa(sa *Sa) error {
 	in.Spec.Spi = sa.Spec.Spi
 	in.Spec.SrcIP = sa.Spec.SrcIP
 	in.Spec.DstIP = sa.Spec.DstIP
-	// in.Spec.SaIdx = sa.Index
+	in.Spec.SaIdx = sa.Index
 	in.Spec.SrcMac, err = nlink.ResolveLocalIP(ctx, in.Spec.SrcIP.String(), routingTableNum)
 	if err != nil {
 		return err
@@ -186,7 +186,7 @@ func (in *TunRep) unbindSa(sa *Sa) error {
 	in.Spec.Spi = nil
 	in.Spec.SrcIP = nil
 	in.Spec.DstIP = nil
-	// in.Spec.SaIdx = nil
+	in.Spec.SaIdx = nil
 	in.Spec.SrcMac = ""
 
 	return nil

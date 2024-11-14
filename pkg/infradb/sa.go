@@ -13,7 +13,17 @@ import (
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/common"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriberframework/eventbus"
 	pb "github.com/opiproject/opi-evpn-bridge/pkg/ipsec/gen/go"
+	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 )
+
+var saIdxPoolRange = struct {
+	SaIdxPoolMin, SaIdxPoolMax uint32
+}{
+	SaIdxPoolMin: 1000,
+	SaIdxPoolMax: 4000,
+}
+
+var saIdxPool utils.IdPool = utils.IDPoolInit("SaIdxPool", saIdxPoolRange.SaIdxPoolMin, saIdxPoolRange.SaIdxPoolMax)
 
 // SaOperStatus operational Status for Sas
 type SaOperStatus int32
@@ -308,7 +318,7 @@ type Sa struct {
 	Status          *SaStatus
 	Metadata        *SaMetadata
 	Vrf             string
-	Index           uint32
+	Index           *uint32
 	OldVersions     []string
 	ResourceVersion string
 }
@@ -317,10 +327,10 @@ type Sa struct {
 func NewSa(name string, sa *pb.AddSAReq) (*Sa, error) {
 	components := make([]common.Component, 0)
 
-	/*poolIndex := saIdxPool.getId(name)
-	if poolIndex == nil {
-		return nil, error
-	}*/
+	saIndex, _ := saIdxPool.GetID(name, 0)
+	if saIndex == 0 {
+		return nil, errors.New("NewSa(): Failed to get id from the pool for SA")
+	}
 
 	srcIP := net.ParseIP(sa.SaId.Src)
 	if srcIP == nil {
@@ -427,8 +437,8 @@ func NewSa(name string, sa *pb.AddSAReq) (*Sa, error) {
 
 			Components: components,
 		},
-		Metadata: &SaMetadata{},
-		//Index: poolIndex,
+		Metadata:        &SaMetadata{},
+		Index:           &saIndex,
 		ResourceVersion: generateVersion(),
 	}, nil
 }
@@ -482,4 +492,8 @@ func (in *Sa) prepareObjectsForReplay(componentName string, saSubs []*eventbus.S
 
 	in.ResourceVersion = generateVersion()
 	return tempSubs
+}
+
+func (in *Sa) releaseSaPoolIndex() {
+	saIdxPool.Release_id(in.Name, 0)
 }
