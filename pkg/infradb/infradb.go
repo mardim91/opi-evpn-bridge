@@ -1823,6 +1823,9 @@ func UpdateSaStatus(name string, resourceVersion string, notificationID string, 
 				return err
 			}
 
+			// Release sa pool index
+			sa.releaseSaPoolIndex()
+
 			// Delete SA from SAs Map
 			sas := make(map[string]bool)
 			found, err = infradb.client.Get("sas", &sas)
