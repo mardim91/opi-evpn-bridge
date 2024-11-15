@@ -21,7 +21,7 @@ import (
 // AddSA executes the addition of the SA to the SAD.
 // This function does install a single SA for a single protocol in one direction.
 func (s *Server) AddSA(_ context.Context, in *pb.AddSAReq) (*pb.AddSAResp, error) {
-	// Generate new SA id
+	// Generate new SA name
 	name, err := s.createSAName(in.SaId)
 	if err != nil {
 		log.Printf("AddSA(): Name creation failure: %v", err)
@@ -60,7 +60,7 @@ func (s *Server) AddSA(_ context.Context, in *pb.AddSAReq) (*pb.AddSAResp, error
 
 // DeleteSA deletes a previously installed SA from the SAD
 func (s *Server) DeleteSA(_ context.Context, in *pb.DeleteSAReq) (*pb.DeleteSAResp, error) {
-	// Generate the SA id
+	// Generate the SA name
 	name, err := s.createSAName(in.SaId)
 	if err != nil {
 		log.Printf("DeleteSA(): Name creation failure: %v", err)
@@ -87,15 +87,22 @@ func (s *Server) DeleteSA(_ context.Context, in *pb.DeleteSAReq) (*pb.DeleteSARe
 }
 
 // GetFeatures returns the supported features
-func GetFeatures(_ context.Context, in *pb.Features) (*pb.Features, error) {
+func (s *Server) GetFeatures(_ context.Context, in *pb.Features) (*pb.Features, error) {
 	log.Printf("GetFeatures(): Received request %+v", in)
 	features := (1 << 0)
 	return &pb.Features{Features: uint32(features)}, nil
 }
 
 // GetSpi returns a spi
-// TODO: Replace the implementation here with an IDPool
-func GetSpi(_ context.Context, in *pb.GetSPIReq) (*pb.GetSPIResp, error) {
+func (s *Server) GetSpi(_ context.Context, in *pb.GetSPIReq) (*pb.GetSPIResp, error) {
+	// Dimitris:  Replace the implementation here with an IDPool ?
+	//			  Are we able to do so? The idpool.GetId(key) needs
+	//	          a "key" to associate with the "id" that will be returned.
+	//	          What will be the "key" that will be used in the Spi case?
+	//            Are the "src" and "dst" of GetSPIReq params different every time
+	//            so we can use them in order to generate a unique "key" out of those
+	//            and use that "key" for the idPool ?
+	//            Is it ok to generate an arbitrary "key" (e.g. UUID) ?
 	log.Printf("GetSpi(): Received request %+v", in)
 	min := 256
 	max := math.MaxUint32
