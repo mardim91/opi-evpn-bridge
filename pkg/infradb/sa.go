@@ -17,13 +17,13 @@ import (
 )
 
 var saIdxPoolRange = struct {
-	SaIdxPoolMin, SaIdxPoolMax uint32
+	saIdxPoolMin, saIdxPoolMax uint32
 }{
-	SaIdxPoolMin: 1000,
-	SaIdxPoolMax: 4000,
+	saIdxPoolMin: 1,
+	saIdxPoolMax: 4000,
 }
 
-var saIdxPool utils.IdPool = utils.IDPoolInit("SaIdxPool", saIdxPoolRange.SaIdxPoolMin, saIdxPoolRange.SaIdxPoolMax)
+var saIdxPool utils.IdPool = utils.IDPoolInit("SaIdxPool", saIdxPoolRange.saIdxPoolMin, saIdxPoolRange.saIdxPoolMax)
 
 // SaOperStatus operational Status for Sas
 type SaOperStatus int32
