@@ -1882,7 +1882,7 @@ func (IPSec IPSecDecoder) IPSecDecoderInit(representors map[string][2]string) IP
 func (IPSec IPSecDecoder) translateAddedTun(tun *infradb.TunRep) []interface{} {
 	var entries = make([]interface{}, 0)
 
-	var mod_ptr = ptrPool.GetID(EntryType.TUN, tun.key)
+	var mod_ptr, _ = ptrPool.GetID(EntryType.TUN, 0) //TODO tun.ke
 	var smac, _ = net.ParseMAC(tun.Spec.SrcMac)
 	var dmac, _ = net.ParseMAC(tun.Spec.DestMac)
 	entries = append(entries, p4client.TableEntry{
@@ -1895,7 +1895,7 @@ func (IPSec IPSecDecoder) translateAddedTun(tun *infradb.TunRep) []interface{} {
 		},
 		Action: p4client.Action{
 			ActionName: "evpn_gw_control.pop_vlan_push_outer_mac_ip_mod",
-			Params:     []interface{}{net.ParseIP(tun.Spec.SrcIP), net.ParseIP(tun.Spec.DstIP), smac, dmac}, //TODO
+			Params:     []interface{}{tun.Spec.SrcIP, tun.Spec.DstIP, smac, dmac}, //TODO
 		},
 	},
 		p4client.TableEntry{
@@ -1903,7 +1903,7 @@ func (IPSec IPSecDecoder) translateAddedTun(tun *infradb.TunRep) []interface{} {
 			TableField: p4client.TableField{
 				FieldValue: map[string][2]interface{}{
 					"vsi": {uint32(IPSec._tun_mux_vsi), "exact"},
-					"vid": {uint32(tun.Spec.IfId), "exact"},
+					"vid": {uint32(tun.Spec.IfID), "exact"},
 				},
 				Priority: int32(0),
 			},
@@ -1917,7 +1917,7 @@ func (IPSec IPSecDecoder) translateAddedTun(tun *infradb.TunRep) []interface{} {
 
 func (IPSec IPSecDecoder) translateDeletedTun(tun *infradb.TunRep) []interface{} {
 	var entries = make([]interface{}, 0)
-	var mod_ptr = ptrPool.GetID(EntryType.TUN, tun.key)
+	var mod_ptr, _ = ptrPool.GetID(EntryType.TUN, 0) //TODO tun.key
 	entries = append(entries, p4client.TableEntry{
 		Tablename: popVlanPushIPSec,
 		TableField: p4client.TableField{
@@ -1932,7 +1932,7 @@ func (IPSec IPSecDecoder) translateDeletedTun(tun *infradb.TunRep) []interface{}
 			TableField: p4client.TableField{
 				FieldValue: map[string][2]interface{}{
 					"vsi": {uint32(IPSec._tun_mux_vsi), "exact"},
-					"vid": {uint32(tun.Spec.IfId), "exact"},
+					"vid": {uint32(tun.Spec.IfID), "exact"},
 				},
 				Priority: int32(0),
 			},
@@ -1943,25 +1943,26 @@ func (IPSec IPSecDecoder) translateDeletedTun(tun *infradb.TunRep) []interface{}
 func (IPSec IPSecDecoder) translateAddedSA(sa *infradb.Sa) []interface{} {
 	var entries = make([]interface{}, 0)
 	var mod_ptr = int(ModPointer.ignorePtr)
-	var tcam_prefix = _getTcamPrefix(sa.vrf_id, Direction.Rx)
+	vrf, _ := infradb.GetVrf(sa.Vrf)
+	var tcam_prefix, _ = _getTcamPrefix(*vrf.Spec.Vni, Direction.Rx)
 	var enc_alg int
-	if sa.Spec.EncAlg == IPSecSA.CryptoAlg.NAES_GCM_16 {
+	if sa.Spec.EncAlg == infradb.AES_CCM_16 {
 		enc_alg = 0
-	} else if sa.EncAlg == IPSecSA.CryptoAlg.NULL_AUTH_AES_GMAC {
+	} else if sa.Spec.EncAlg == infradb.NULL_AUTH_AES_GMAC {
 		enc_alg = 1
 	} else {
 		return entries
 	}
 
-	var key_len = len(sa.EncKey)
-	var enc_key = hex(sa.EncKey) // TODO f"0x{sa.enc_key.hex()}"
+	var key_len = len(sa.Spec.EncKey)
+	var enc_key = sa.Spec.EncKey // TODO f"0x{sa.enc_key.hex()}"
 
 	if sa.Spec.Inbound {
 		entries = append(entries, p4client.TableEntry{
 			Tablename: ipsecSA,
 			TableField: p4client.TableField{
 				FieldValue: map[string][2]interface{}{
-					"offload_id": {sa.Spec.SaIdx, "exact"},
+					"offload_id": {sa.Index, "exact"},
 					"direction":  {uint32(1), "exact"},
 				},
 				Priority: int32(0),
@@ -1975,15 +1976,15 @@ func (IPSec IPSecDecoder) translateAddedSA(sa *infradb.Sa) []interface{} {
 				Tablename: ipsecRxSA,
 				TableField: p4client.TableField{
 					FieldValue: map[string][2]interface{}{
-						"src_ip": {net.ParseIP(sa.Spec.SrcIP), "exact"},
-						"dst_ip": {net.ParseIP(sa.Spec.DstIP), "exact"},
+						"src_ip": {sa.Spec.SrcIP, "exact"},
+						"dst_ip": {sa.Spec.DstIP, "exact"},
 						"spi":    {sa.Spec.Spi, "exact"},
 					},
 					Priority: int32(0),
 				},
 				Action: p4client.Action{
 					ActionName: "CXPControl.ipsec_decrypt",
-					Params:     []interface{}{sa.Spec.SaIdx}, //TODO
+					Params:     []interface{}{sa.Index}, //TODO
 				},
 			},
 			p4client.TableEntry{
@@ -1991,13 +1992,13 @@ func (IPSec IPSecDecoder) translateAddedSA(sa *infradb.Sa) []interface{} {
 				TableField: p4client.TableField{
 					FieldValue: map[string][2]interface{}{
 						"crypto_status": {uint32(0), "exact"},
-						"saidx":         {sa.Spec.SaIdx, "exact"},
+						"saidx":         {sa.Index, "exact"},
 					},
 					Priority: int32(0),
 				},
 				Action: p4client.Action{
 					ActionName: "evpn_gw_control.pop_outer_ip_set_vrf_id",
-					Params:     []interface{}{mod_ptr, tcam_prefix, sa.Spec.vrf_id}, //TODO
+					Params:     []interface{}{mod_ptr, tcam_prefix, vrf.Spec.Vni}, //TODO
 				},
 			})
 	} else {
@@ -2005,7 +2006,7 @@ func (IPSec IPSecDecoder) translateAddedSA(sa *infradb.Sa) []interface{} {
 			Tablename: ipsecSA,
 			TableField: p4client.TableField{
 				FieldValue: map[string][2]interface{}{
-					"offload_id": {sa.Spec.SaIdx, "exact"},
+					"offload_id": {sa.Index, "exact"},
 					"direction":  {uint32(0), "exact"},
 				},
 				Priority: int32(0),
@@ -2027,7 +2028,7 @@ func (IPSec IPSecDecoder) translateDeletedSA(sa *infradb.Sa) []interface{} {
 			Tablename: ipsecSA,
 			TableField: p4client.TableField{
 				FieldValue: map[string][2]interface{}{
-					"offload_id": {sa.SaIdx, "exact"},
+					"offload_id": {sa.Index, "exact"},
 					"direction":  {uint32(1), "exact"},
 				},
 				Priority: int32(0),
@@ -2037,8 +2038,8 @@ func (IPSec IPSecDecoder) translateDeletedSA(sa *infradb.Sa) []interface{} {
 				Tablename: ipsecRxSA,
 				TableField: p4client.TableField{
 					FieldValue: map[string][2]interface{}{
-						"src_ip": {net.ParseIP(sa.Spec.SrcIP), "exact"},
-						"dst_ip": {net.ParseIP(sa.Spec.DstIP), "exact"},
+						"src_ip": {sa.Spec.SrcIP, "exact"},
+						"dst_ip": {sa.Spec.DstIP, "exact"},
 						"spi":    {sa.Spec.Spi, "exact"},
 					},
 					Priority: int32(0),
@@ -2049,7 +2050,7 @@ func (IPSec IPSecDecoder) translateDeletedSA(sa *infradb.Sa) []interface{} {
 				TableField: p4client.TableField{
 					FieldValue: map[string][2]interface{}{
 						"crypto_status": {uint32(0), "exact"},
-						"saidx":         {sa.SaIdx, "exact"},
+						"saidx":         {sa.Index, "exact"},
 					},
 					Priority: int32(0),
 				},
@@ -2059,7 +2060,7 @@ func (IPSec IPSecDecoder) translateDeletedSA(sa *infradb.Sa) []interface{} {
 			Tablename: ipsecSA,
 			TableField: p4client.TableField{
 				FieldValue: map[string][2]interface{}{
-					"offload_id": {sa.SaIdx, "exact"},
+					"offload_id": {sa.Index, "exact"},
 					"direction":  {uint32(0), "exact"},
 				},
 				Priority: int32(0),
@@ -2123,7 +2124,7 @@ func (IPSec IPSecDecoder) translateAddedNexthop(nexthop netlink_polling.NexthopS
 		return entries
 	}
 
-	var mod_ptr = ptrPool.GetID(EntryType.l3NH, nexthop.Key)
+	var mod_ptr, _ = ptrPool.GetID(EntryType.l3NH, nexthop.Key)
 	var vport = nexthop.Metadata["egress_port"]
 	var phySmac, _ = net.ParseMAC(nexthop.Metadata["phy_smac"].(string))
 	var phyDmac, _ = net.ParseMAC(nexthop.Metadata["phy_dmac"].(string))
@@ -2265,7 +2266,7 @@ func (IPSec IPSecDecoder) translateDeletedNexthop(nexthop netlink_polling.Nextho
 		return entries
 	}
 
-	var mod_ptr = ptrPool.Release_id(EntryType.l3NH, nexthop.Key)
+	var mod_ptr, _ = ptrPool.Release_id(EntryType.l3NH, nexthop.Key)
 
 	if nexthop.NhType == netlink_polling.TUN {
 		//
@@ -2355,13 +2356,13 @@ func (IPSec IPSecDecoder) translateDeletedNexthop(nexthop netlink_polling.Nextho
 	return entries
 }
 
-func (IPSec IPSecDecoder) SataticAdditions() []interface{} {
+/*func (IPSec IPSecDecoder) SataticAdditions() []interface{} {
 	var entries = make([]interface{}, 0)
 }
 
 func (IPSec IPSecDecoder) SataticDeletions() []interface{} {
 	var entries = make([]interface{}, 0)
-}
+}*/
 
 // VxlanDecoder structure
 type VxlanDecoder struct {

@@ -6,16 +6,17 @@
 package p4translation
 
 import (
-	"encoding/json"
+	//"encoding/json"
 	"fmt"
 	"log"
-	"os/exec"
+
+	//"os/exec"
+	"context"
 	"path"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
-	"context"
 
 	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
@@ -57,6 +58,7 @@ func isValidMAC(mac string) bool {
 	match, _ := regexp.MatchString(macPattern, mac)
 	return match
 }
+
 /*
 // getMac get the mac from interface
 func getMac(dev string) string {
@@ -102,7 +104,7 @@ func idsOf(value string) (string, string, error) {
 	}
 
 	//mac := getMac(value)
-	mac, err := nlink.GetMac(ctx, value) 
+	mac, _ := nlink.GetMac(ctx, value)
 	vsi := vportFromMac(mac)
 	if vsi == -1 {
 		return "", "", fmt.Errorf("failed to get id")
@@ -600,7 +602,7 @@ func (h *ModuleipuHandler) HandleEvent(eventType string, objectData *eventbus.Ob
 
 func handlesa(objectData *eventbus.ObjectData) {
 	var comp common.Component
-	sa, err := infradb.GetSA(objectData.Name)
+	sa, err := infradb.GetSa(objectData.Name)
 	if err != nil {
 		log.Printf("intel-e2000: GetSA error: %s %s\n", err, objectData.Name)
 		comp.Name = intele2000Str
@@ -610,7 +612,7 @@ func handlesa(objectData *eventbus.ObjectData) {
 		} else {
 			comp.Timer *= 2
 		}
-		err = infradb.UpdateSAStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
+		err = infradb.UpdateSaStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
 		if err != nil {
 			log.Printf("error in updating sa status: %s\n", err)
 		}
@@ -626,7 +628,7 @@ func handlesa(objectData *eventbus.ObjectData) {
 		} else {
 			comp.Timer *= 2
 		}
-		err = infradb.UpdateSAStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
+		err = infradb.UpdateSaStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
 		if err != nil {
 			log.Printf("error in updating sa status: %s\n", err)
 		}
@@ -640,7 +642,7 @@ func handlesa(objectData *eventbus.ObjectData) {
 			}
 		}
 	}
-	if sa.Status.SAOperStatus != infradb.SAOperStatusToBeDeleted {
+	if sa.Status.SaOperStatus != infradb.SaOperStatusToBeDeleted {
 		status := offloadSA(sa)
 		if status {
 			comp.CompStatus = common.ComponentStatusSuccess
@@ -658,7 +660,7 @@ func handlesa(objectData *eventbus.ObjectData) {
 			comp.CompStatus = common.ComponentStatusError
 		}
 		log.Printf("intel-e2000: %+v\n", comp)
-		err = infradb.UpdateSAStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, sa.Metadata, comp)
+		err = infradb.UpdateSaStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, sa.Metadata, comp)
 		if err != nil {
 			log.Printf("error in updating sa status: %s\n", err)
 		}
@@ -680,7 +682,7 @@ func handlesa(objectData *eventbus.ObjectData) {
 		}
 
 		log.Printf("intel-e2000: %+v\n", comp)
-		err = infradb.UpdateSAStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
+		err = infradb.UpdateSaStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
 		if err != nil {
 			log.Printf("error in updating sa status: %s\n", err)
 		}
@@ -729,7 +731,7 @@ func handletun(objectData *eventbus.ObjectData) {
 			}
 		}
 	}
-	if tun.Status.TunRepOperStatus != infradb.TunOperStatusToBeDeleted {
+	if tun.Status.TunRepOperStatus != infradb.TunRepOperStatusToBeDeleted {
 		var status bool
 		if len(tun.OldVersions) > 0 {
 			status = UpdateTunRep(tun)
@@ -752,7 +754,7 @@ func handletun(objectData *eventbus.ObjectData) {
 			comp.CompStatus = common.ComponentStatusError
 		}
 		log.Printf("intel-e2000: %+v\n", comp)
-		err = infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, sa.Metadata, comp)
+		err = infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, tun.Metadata, comp)
 		if err != nil {
 			log.Printf("error in updating tun status: %s\n", err)
 		}
