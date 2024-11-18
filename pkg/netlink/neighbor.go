@@ -213,6 +213,7 @@ func (neigh NeighStruct) neighborAnnotate() NeighStruct {
 			phyFlag = true
 		}
 	}
+
 	if strings.HasPrefix(nameIndex[neigh.Neigh0.LinkIndex], path.Base(neigh.VrfName)) && neigh.Protocol != zebraStr {
 		pattern := fmt.Sprintf(`%s-\d+$`, path.Base(neigh.VrfName))
 		mustcompile := regexp.MustCompile(pattern)
@@ -245,6 +246,8 @@ func (neigh NeighStruct) neighborAnnotate() NeighStruct {
 		} else {
 			neigh.Type = IGNORE
 		}
+	} else if strings.HasPrefix(nameIndex[neigh.Neigh0.LinkIndex], fmt.Sprintf("br-%s", path.Base(neigh.VrfName))) && neigh.Protocol == zebraStr {
+		neigh.Type = VXLAN_VTEP
 	} else if strings.HasPrefix(nameIndex[neigh.Neigh0.LinkIndex], path.Base(neigh.VrfName)) && neigh.Protocol == zebraStr {
 		pattern := fmt.Sprintf(`%s-\d+$`, path.Base(neigh.VrfName))
 		mustcompile := regexp.MustCompile(pattern)
@@ -278,11 +281,28 @@ func (neigh NeighStruct) neighborAnnotate() NeighStruct {
 			if r.Nexthops[0].nexthop.LinkIndex == neigh.Neigh0.LinkIndex {
 				neigh.Type = PHY
 				neigh.Metadata["vport_id"] = phyPorts[nameIndex[neigh.Neigh0.LinkIndex]]
+				neigh.Neigh0.IP = r.Nexthops[0].Prefsrc // verify once left val
 			} else {
 				neigh.Type = IGNORE
 			}
 		} else {
 			neigh.Type = OTHER
+		}
+	} else if path.Base(neigh.VrfName) == "GRD" {
+		if tunRep, found := tun_reps[nameIndex[neigh.Neigh0.LinkIndex]]; found {
+			vrf, _ := infradb.GetVrf("//network.opiproject.org/vrfs/GRD")
+			r, ok := lookupRoute(neigh.Neigh0.IP, vrf)
+			if ok {
+				if r.Nexthops[0].nexthop.LinkIndex == neigh.Neigh0.LinkIndex {
+					neigh.Type = TUN
+					neigh.Metadata["if_id"] = tunRep.Spec.IfID
+					neigh.Neigh0.IP = r.Nexthops[0].Prefsrc // verify once left val
+				} else {
+					neigh.Type = IGNORE
+				}
+			} else {
+				neigh.Type = OTHER
+			}
 		}
 	}
 	return neigh

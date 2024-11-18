@@ -68,6 +68,12 @@ var oldgenmap = make(map[interface{}]interface{})
 // latestgenmap latest map
 var latestgenmap = make(map[interface{}]interface{})
 
+// netlinkComp string constant
+const netlinkComp string = "netlink"
+
+// ModuleNetlinkHandler empty structure
+type ModuleNetlinkHandler struct{}
+
 const (
 	strNone  = "NONE"
 	zebraStr = "zebra"
@@ -283,3 +289,84 @@ func notifyAddDel(r interface{}, event string) {
 	log.Printf("netlink: Notify event: %s\n", event)
 	EventBus.Publish(event, r)
 }
+
+type IPSecSA struct {
+	// Placeholder for the IPSecSA struct
+}
+
+/*type TunnelRep struct {
+	Name     string
+	IfID     int
+	Key      int
+	IP       *net.IPNet
+	RemoteIP net.IP
+	SA       *IPSecSA
+	SPI      interface{}
+	Dst      interface{}
+	Src      interface{}
+	SMAC     interface{}
+	DMAC     interface{}
+	SAIdx    interface{}
+}
+type TunnelRepKey struct {
+	Name string
+}
+
+func NewTunnelRep(tunCfg map[string]interface{}) (*TunnelRep, error) {
+	tunnel := &TunnelRep{}
+
+	// Name
+	if name, ok := tunCfg["name"].(string); ok {
+		tunnel.Name = name
+	} else {
+		return nil, fmt.Errorf("missing or invalid 'name' in configuration")
+	}
+
+	// IfID
+	if ifID, ok := tunCfg["if_id"].(int); ok {
+		tunnel.IfID = ifID
+		tunnel.Key = ifID
+	} else if ifIDStr, ok := tunCfg["if_id"].(string); ok {
+		ifID, err := strconv.Atoi(ifIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid 'if_id' in configuration: %v", err)
+		}
+		tunnel.IfID = ifID
+		tunnel.Key = ifID
+	} else {
+		return nil, fmt.Errorf("missing or invalid 'if_id' in configuration")
+	}
+
+	// IP
+	if ipStr, ok := tunCfg["ip"].(string); ok {
+		_, ipNet, err := net.ParseCIDR(ipStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid IP address: %v", err)
+		}
+		tunnel.IP = ipNet
+	} else {
+		return nil, fmt.Errorf("missing or invalid 'ip' in configuration")
+	}
+
+	// RemoteIP
+	if remoteIPStr, ok := tunCfg["remote_ip"].(string); ok {
+		remoteIP := net.ParseIP(remoteIPStr)
+		if remoteIP == nil {
+			return nil, fmt.Errorf("invalid remote IP address: %v", remoteIPStr)
+		}
+		tunnel.RemoteIP = remoteIP
+	}
+
+	// Initialize other fields
+	tunnel.SA = nil
+	tunnel.SPI = nil
+	tunnel.Dst = nil
+	tunnel.Src = nil
+	tunnel.SMAC = nil
+	tunnel.DMAC = nil
+	tunnel.SAIdx = nil
+
+	return tunnel, nil
+}*/
+
+var tun_reps = make(map[string]infradb.TunRep)
