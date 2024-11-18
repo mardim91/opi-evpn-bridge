@@ -15,6 +15,7 @@ import (
 
 	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriberframework/eventbus"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 )
 
@@ -96,6 +97,19 @@ func annotateDBEntries() {
 	annotateMap(latestRoutes)
 	annotateMap(latestFDB)
 	annotateMap(latestL2Nexthop)
+}
+
+// subscribeInfradb function handles the infradb subscriptions
+func subscribeInfradb(config *config.Config) {
+	eb := eventbus.EBus
+	for _, subscriberConfig := range config.Subscribers {
+		if subscriberConfig.Name == netlinkComp {
+			for _, eventType := range subscriberConfig.Events {
+				eb.StartSubscriber(subscriberConfig.Name, eventType, subscriberConfig.Priority, &ModuleNetlinkHandler{})
+			}
+		}
+	}
+
 }
 
 // readLatestNetlinkState reads the latest netlink state
