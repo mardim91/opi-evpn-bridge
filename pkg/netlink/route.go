@@ -199,7 +199,7 @@ func (route *RouteStruct) setRouteType(v *infradb.Vrf) string {
 			}
 			return routeTypeBgp
 		}
-	} else if route.Route0.Type == unix.RTN_UNICAST && checkProto(int(route.Route0.Protocol)) && route.Route0.Scope == unix.RT_SCOPE_UNIVERSE {
+	} else if route.Route0.Type == unix.RTN_UNICAST && checkProto(int(route.Route0.Protocol)) { // drop1.2 && route.Route0.Scope == unix.RT_SCOPE_UNIVERSE {
 		return routeTypeStatic
 	} else if route.Route0.Type == unix.RTN_LOCAL {
 		return routeTypeLocal
@@ -454,6 +454,7 @@ func (route *RouteStruct) annotate() {
 		if route.Vrf.Spec.Vni == nil { // GRD
 			switch nexthop.NhType {
 			case PHY:
+			case TUN:
 				route.Metadata["direction"] = RXTX
 			case ACC:
 				route.Metadata["direction"] = RX
@@ -463,6 +464,8 @@ func (route *RouteStruct) annotate() {
 		} else {
 			switch nexthop.NhType {
 			case VXLAN:
+			case TUN:
+			case VXLAN_TUN:
 				route.Metadata["direction"] = RXTX
 			case SVI, ACC:
 				route.Metadata["direction"] = RXTX
@@ -476,13 +479,19 @@ func (route *RouteStruct) annotate() {
 }
 
 // lookupRoute check the routes
-func lookupRoute(dst net.IP, v *infradb.Vrf) (*RouteStruct, bool) {
+func lookupRoute(dst net.IP, v *infradb.Vrf, nighbors bool) (*RouteStruct, bool) {
 	// FIXME: If the semantic is to return the current entry of the NetlinkDB
 	//  routing table, a direct lookup in Linux should only be done as fallback
 	//  if there is no match in the DB.
 	var cp string
 	var err error
 	var routeData []RouteCmdInfo
+	var rs RouteStruct
+	rs.Key = RouteKey{Table: int(*v.Metadata.RoutingTable[0]), Dst: dst.String()}
+	if rs.checkRoute() {
+		route := latestRoutes[rs.Key]
+		return route, true
+	}
 	if v.Spec.Vni != nil {
 		cp, err = nlink.RouteLookup(ctx, dst.String(), path.Base(v.Name))
 	} else {

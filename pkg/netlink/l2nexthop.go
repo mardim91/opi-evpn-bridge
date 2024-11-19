@@ -123,7 +123,7 @@ func (l2n *L2NexthopStruct) annotate() {
 			//# directly from the nexthop table to a physical port (and avoid another recirculation
 			//# for route lookup in the GRD table.)
 			vrf, _ := infradb.GetVrf("//network.opiproject.org/vrfs/GRD")
-			r, ok := lookupRoute(l2n.Dst, vrf)
+			r, ok := lookupRoute(l2n.Dst, vrf, false)
 			if ok {
 				//  # For now pick the first physical nexthop (no ECMP yet)
 				phyNh := r.Nexthops[0]
