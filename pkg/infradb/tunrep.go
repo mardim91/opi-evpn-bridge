@@ -45,7 +45,7 @@ type TunRepStatus struct {
 
 // TunRepSpec holds TunRep Spec
 type TunRepSpec struct {
-	CfgName  string
+	IfName   string
 	IfID     uint32
 	Vrf      string
 	IP       *net.IP
@@ -104,8 +104,7 @@ func NewTunRep(tunCfg config.TunnelConfig) (*TunRep, error) {
 	return &TunRep{
 		Name: name,
 		Spec: &TunRepSpec{
-			// Dimitris: Does this initial name used somewhere or we can drop it ?
-			CfgName:  tunCfg.Name,
+			IfName:   tunCfg.Name,
 			IfID:     tunCfg.IfID,
 			Vrf:      "//network.opiproject.org/vrfs/GRD",
 			IP:       &ip,
