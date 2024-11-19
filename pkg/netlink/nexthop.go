@@ -106,7 +106,7 @@ func deepCopyMetadata(originalMap map[interface{}]interface{}) map[interface{}]i
 }
 
 // tryResolve resolves the neighbor
-func (nexthop *NexthopStruct) tryResolve() []*NexthopStruct {
+/*func (nexthop *NexthopStruct) tryResolve() []*NexthopStruct {
 	var retNexthopSt []*NexthopStruct
 	if nexthop.Metadata == nil {
 		nexthop.Metadata = make(map[interface{}]interface{})
@@ -158,9 +158,9 @@ func (nexthop *NexthopStruct) tryResolve() []*NexthopStruct {
 	nexthop.Resolved = true
 	return []*NexthopStruct{nexthop}
 }
-
+*/
 // tryResolve resolves the neighbor
-func (nexthop *NexthopStruct) tryResolveNew() []*NexthopStruct {
+func (nexthop *NexthopStruct) tryResolve() []*NexthopStruct {
 	if nexthop.Metadata == nil {
 		nexthop.Metadata = make(map[interface{}]interface{})
 	}
@@ -219,7 +219,7 @@ func (nexthop *NexthopStruct) tryResolveNew() []*NexthopStruct {
 		}
 		var retNexthopSt []*NexthopStruct
 		VRF, _ := infradb.GetVrf("//network.opiproject.org/vrfs/GRD")
-		r, ok := lookupRoute(dst, VRF)
+		r, ok := lookupRoute(dst, VRF, true)
 		if ok {
 			for _, grdNexthop := range r.Nexthops {
 				arrayOfNexthops := grdNexthop.tryResolve()
@@ -466,7 +466,7 @@ func (nexthop *NexthopStruct) annotate() {
 		nexthop.Metadata["local_vtep_ip"] = vtepip.String()
 		nexthop.Metadata["vni"] = *nexthop.Vrf.Spec.Vni
 		if nexthop.Neighbor.Type == PHY {
-			r, ok := lookupRoute(nexthop.nexthop.Gw, v)
+			r, ok := lookupRoute(nexthop.nexthop.Gw, v, false)
 			if ok {
 				phyNh := r.Nexthops[0]
 				link, _ := vn.LinkByName(nameIndex[phyNh.nexthop.LinkIndex])
@@ -519,7 +519,7 @@ func (nexthop *NexthopStruct) annotate() {
 			log.Printf("IPSec tunnel src  %+v doesn't match prefsrc %+v ", nexthop.Metadata["local_tep_ip"], nexthop.Prefsrc.String())
 		}
 		if nexthop.Neighbor.Type == PHY {
-			r, ok := lookupRoute(nexthop.nexthop.Gw, v)
+			r, ok := lookupRoute(nexthop.nexthop.Gw, v, false)
 			if ok {
 				phyNh := r.Nexthops[0]
 				link, _ := vn.LinkByName(nameIndex[phyNh.nexthop.LinkIndex])
@@ -535,7 +535,7 @@ func (nexthop *NexthopStruct) annotate() {
 			log.Printf("IPSec tunnel src  %+v doesn't match prefsrc %+v ", nexthop.Metadata["local_tep_ip"], nexthop.Prefsrc.String())
 		}
 		if nexthop.Neighbor.Type == PHY {
-			r, ok := lookupRoute(nexthop.nexthop.Gw, v)
+			r, ok := lookupRoute(nexthop.nexthop.Gw, v, false)
 			if ok {
 				phyNh := r.Nexthops[0]
 				link, _ := vn.LinkByName(nameIndex[phyNh.nexthop.LinkIndex])
@@ -554,7 +554,7 @@ func (nexthop *NexthopStruct) annotate() {
 					log.Fatalf("Error: TunnelRep not found for 'tun_dev': %s, %+v", tunDev, T)
 				}
 				//drop1.2 TODO fix this once infra db changes are inplace
-				//InfraDB.resolve_TunnelRep(T.Name, nexthop.Neighbor.Neigh0.HardwareAddr.String())
+				infradb.ResolveTunRep(T.Name, nexthop.Neighbor.Neigh0.HardwareAddr.String())
 			}
 		}
 		//drop1.2 end

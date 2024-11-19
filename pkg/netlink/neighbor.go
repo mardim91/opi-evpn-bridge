@@ -276,7 +276,7 @@ func (neigh NeighStruct) neighborAnnotate() NeighStruct {
 		}
 	} else if path.Base(neigh.VrfName) == "GRD" && phyFlag && neigh.Protocol != zebraStr {
 		vrf, _ := infradb.GetVrf("//network.opiproject.org/vrfs/GRD")
-		r, ok := lookupRoute(neigh.Neigh0.IP, vrf)
+		r, ok := lookupRoute(neigh.Neigh0.IP, vrf, false)
 		if ok {
 			if r.Nexthops[0].nexthop.LinkIndex == neigh.Neigh0.LinkIndex {
 				neigh.Type = PHY
@@ -291,7 +291,7 @@ func (neigh NeighStruct) neighborAnnotate() NeighStruct {
 	} else if path.Base(neigh.VrfName) == "GRD" {
 		if tunRep, found := tun_reps[nameIndex[neigh.Neigh0.LinkIndex]]; found {
 			vrf, _ := infradb.GetVrf("//network.opiproject.org/vrfs/GRD")
-			r, ok := lookupRoute(neigh.Neigh0.IP, vrf)
+			r, ok := lookupRoute(neigh.Neigh0.IP, vrf, false)
 			if ok {
 				if r.Nexthops[0].nexthop.LinkIndex == neigh.Neigh0.LinkIndex {
 					neigh.Type = TUN

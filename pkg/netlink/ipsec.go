@@ -67,7 +67,7 @@ func handleTunRep(objectData *eventbus.ObjectData) {
 	if tr.Status.TunRepOperStatus != infradb.TunRepOperStatusToBeDeleted {
 		var status bool
 		if len(tr.OldVersions) > 0 {
-			status = UpdateTunRep(tr, tr)
+			status = UpdateTunRep(tr)
 			// AP: if there are multiple versions then ?????
 		} else {
 			status = addTunRep(tr)
@@ -118,9 +118,9 @@ func DeleteTunRep(tr *infradb.TunRep) bool {
 
 }
 
-func UpdateTunRep(newRep, oldRep *infradb.TunRep) bool {
+func UpdateTunRep(newRep *infradb.TunRep) bool {
 	tun_reps[newRep.Name] = *newRep
-	if oldRep.Spec.Sa != "" && newRep.Spec.Sa != "" && newRep.Spec.Sa != oldRep.Spec.Sa {
+	/*if oldRep.Spec.Sa != "" && newRep.Spec.Sa != "" && newRep.Spec.Sa != oldRep.Spec.Sa {
 		if newRep.Spec.DstIP == oldRep.Spec.DstIP {
 
 			log.Printf("Updating IPSec nexthops with metadata from updated %v", newRep)
@@ -137,7 +137,7 @@ func UpdateTunRep(newRep, oldRep *infradb.TunRep) bool {
 				}
 			}
 		}
-	}
+	}*/
 	return true
 }
 
