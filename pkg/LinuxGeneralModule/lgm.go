@@ -89,98 +89,8 @@ func (h *ModulelgmHandler) HandleEvent(eventType string, objectData *eventbus.Ob
 	case "logical-bridge":
 		log.Printf("LGM recevied %s %s\n", eventType, objectData.Name)
 		handleLB(objectData)
-	case "tun-rep":
-		log.Printf("LGM recevied %s %s\n", eventType, objectData.Name)
-		handleTunRep(objectData)
 	default:
 		log.Printf("LGM: error: Unknown event type %s", eventType)
-	}
-}
-
-func handleTunRep(objectData *eventbus.ObjectData) {
-	var comp common.Component
-	tr, err := infradb.GetTunRep(objectData.Name)
-	if err != nil {
-		log.Printf("LGM: GetTunRep error: %s %s\n", err, objectData.Name)
-		comp.Name = lgmComp
-		comp.CompStatus = common.ComponentStatusError
-		if comp.Timer == 0 {
-			comp.Timer = 2 * time.Second
-		} else {
-			comp.Timer *= 2
-		}
-		err := infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
-		if err != nil {
-			log.Printf("error in updating tr status: %s\n", err)
-		}
-		return
-	}
-	if objectData.ResourceVersion != tr.ResourceVersion {
-		log.Printf("LGM: Mismatch in resoruce version %+v\n and tr resource version %+v\n", objectData.ResourceVersion, tr.ResourceVersion)
-		comp.Name = lgmComp
-		comp.CompStatus = common.ComponentStatusError
-		if comp.Timer == 0 {
-			comp.Timer = 2 * time.Second
-		} else {
-			comp.Timer *= 2
-		}
-		err := infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
-		if err != nil {
-			log.Printf("error in updating tr status: %s\n", err)
-		}
-		return
-	}
-	if len(tr.Status.Components) != 0 {
-		for i := 0; i < len(tr.Status.Components); i++ {
-			if tr.Status.Components[i].Name == lgmComp {
-				comp = tr.Status.Components[i]
-			}
-		}
-	}
-	if tr.Status.TunRepOperStatus != infradb.TunRepOperStatusToBeDeleted {
-		var status bool
-		comp.Name = lgmComp
-		if len(tr.OldVersions) > 0 {
-			status = UpdateTunRep(tr)
-		} else {
-			status = setUpTunRep(tr)
-		}
-		if status {
-			comp.Details = ""
-			comp.CompStatus = common.ComponentStatusSuccess
-			comp.Timer = 0
-		} else {
-			if comp.Timer == 0 {
-				comp.Timer = 2 * time.Second
-			} else {
-				comp.Timer *= 2
-			}
-			comp.CompStatus = common.ComponentStatusError
-		}
-		log.Printf("LGM: %+v \n", comp)
-		err := infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
-		if err != nil {
-			log.Printf("error in updating tr status: %s\n", err)
-		}
-	} else {
-		status := tearDownTunRep(tr)
-		comp.Name = lgmComp
-		if status {
-			comp.CompStatus = common.ComponentStatusSuccess
-			comp.Timer = 0
-		} else {
-			comp.CompStatus = common.ComponentStatusError
-			if comp.Timer == 0 {
-				comp.Timer = 2 * time.Second
-			} else {
-				comp.Timer *= 2
-			}
-		}
-		log.Printf("LGM: %+v\n", comp)
-		err := infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
-		if err != nil {
-			log.Printf("error in updating tr status: %s\n", err)
-		}
 	}
 }
 
@@ -451,7 +361,6 @@ var ctx context.Context
 var nlink utils.Netlink
 
 var Route_table_Gen utils.IdPool
-var tunMux string
 
 // Initialize initializes the config, logger and subscribers
 func Initialize() {
@@ -465,7 +374,6 @@ func Initialize() {
 	}
 	brTenant = "br-tenant"
 	ipMtu = config.GlobalConfig.LinuxFrr.IPMtu
-	tunMux = config.GlobalConfig.Interfaces.TunnelMux
 	ctx = context.Background()
 	Route_table_Gen = utils.IDPoolInit("RTtable", RoutengTable_range.RoutingTableMin, RoutengTable_range.RoutingTableMax)
 	nlink = utils.NewNetlinkWrapperWithArgs(false)
@@ -836,85 +744,6 @@ func setUpSvi(svi *infradb.Svi) bool {
 	return true
 }
 
-func UpdateTunRep(tun *infradb.TunRep) bool {
-	for _, tuns := range tun.OldVersions {
-		tunObj, err := infradb.GetTunRep(tuns)
-		if err == nil {
-			if !tearDownTunRep(tunObj) {
-				log.Printf("LGM: UpdateTunRep failed for object %+v\n", tunObj)
-				return false
-			}
-		}
-	}
-	return setUpTunRep(tun)
-}
-
-func setUpTunRep(tun *infradb.TunRep) bool {
-	link := path.Base(tun.Name)
-
-	muxIntf, err := nlink.LinkByName(ctx, tunMux)
-	if err != nil {
-		log.Printf("Failed to get link information for %s, error is %v\n", tunMux, err)
-		return false
-	}
-	vlanLink := &netlink.Vlan{LinkAttrs: netlink.LinkAttrs{Name: link, ParentIndex: muxIntf.Attrs().Index}, VlanId: int(tun.Spec.IfID), VlanProtocol: netlink.VLAN_PROTOCOL_8021AD}
-	if err = nlink.LinkAdd(ctx, vlanLink); err != nil {
-		log.Printf("Failed to add VLAN sub-interface %s: %v\n", link, err)
-		return false
-	}
-	log.Printf("LVM: Executed ip link add link %s name %s type vlan protocol 802.1ad id %d\n", tunMux, link, tun.Spec.IfID)
-
-	linkmtuErr := nlink.LinkSetMTU(ctx, vlanLink, ipMtu+50)
-	if linkmtuErr != nil {
-		log.Printf("LGM : Unable to set MTU to link %s \n", link)
-		return false
-	}
-
-	linkArpOff := nlink.LinkSetArpOff(ctx, vlanLink)
-	if linkArpOff != nil {
-		log.Printf("LGM: Unable to set arp off to link %s \n", link)
-		return false
-	}
-	var address = tun.Spec.IPNet
-	var Addrs = &netlink.Addr{
-		IPNet: address,
-	}
-	addrErr := nlink.AddrAdd(ctx, vlanLink, Addrs)
-	if addrErr != nil {
-		log.Printf("LGM: Unable to set the ip to tun link %s \n", link)
-		return false
-	}
-	log.Printf("LGM: Added Address %s dev %s\n", address, link)
-
-	if tun.Spec.RemoteIP != nil {
-		Src1 := tun.Spec.RemoteIP
-		vrf, err := infradb.GetVrf(tun.Spec.Vrf)
-		if err != nil {
-			return false
-		}
-		dev, _ := nlink.LinkByName(ctx, link)
-		LinkIndex := dev.Attrs().Index
-		route := netlink.Route{
-			Table:     int(*vrf.Metadata.RoutingTable[0]),
-			Protocol:  255,
-			Src:       *Src1,
-			LinkIndex: LinkIndex,
-		}
-		//netlink.Route.LinkIndex
-		routeaddErr := nlink.RouteAdd(ctx, &route)
-		if routeaddErr != nil {
-			log.Printf("LGM : Failed in adding Route %+v\n", routeaddErr)
-			return false
-		}
-	}
-	linksetupErr := nlink.LinkSetUp(ctx, vlanLink)
-	if linksetupErr != nil {
-		log.Printf("LGM : Unable to set link %s UP \n", link)
-		return false
-	}
-	return true
-}
-
 // GenerateMac Generates the random mac
 func GenerateMac() net.HardwareAddr {
 	buf := make([]byte, 5)
@@ -1081,19 +910,4 @@ func TearDownTenantBridge() error {
 	log.Printf("LGM: Executed ip link delete %s", brTenant)
 
 	return nil
-}
-
-func tearDownTunRep(tun *infradb.TunRep) bool {
-	link, err1 := nlink.LinkByName(ctx, path.Base(tun.Name))
-	if err1 != nil {
-		log.Printf("LGM : Link %s not found %+v\n", tun.Name, err1)
-		return true
-	}
-	delerr := nlink.LinkDel(ctx, link)
-	if delerr != nil {
-		log.Printf("LGM: Error in delete br %+v\n", delerr)
-		return false
-	}
-	log.Printf("LGM :link delete  %s\n", tun.Name)
-	return true
 }
