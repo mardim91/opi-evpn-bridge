@@ -7,7 +7,6 @@ package infradb
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"net"
 	"strconv"
@@ -45,19 +44,20 @@ type TunRepStatus struct {
 
 // TunRepSpec holds TunRep Spec
 type TunRepSpec struct {
-	IfName   string
-	IfID     uint32
-	Vrf      string
-	IP       *net.IP
-	IPNet    *net.IPNet
-	RemoteIP *net.IP
-	Sa       string
-	SaIdx    *uint32
-	Spi      *uint32
-	SrcIP    *net.IP
-	DstIP    *net.IP
-	SrcMac   string
-	DestMac  string
+	IfName      string
+	IfID        uint32
+	Vrf         string
+	IP          *net.IP
+	IPNet       *net.IPNet
+	RemoteIP    *net.IP
+	RemoteIPNet *net.IPNet
+	Sa          string
+	SaIdx       *uint32
+	Spi         *uint32
+	SrcIP       *net.IP
+	DstIP       *net.IP
+	SrcMac      string
+	DestMac     string
 }
 
 // TunRepMetadata holds TunRep Metadata
@@ -84,9 +84,8 @@ func NewTunRep(tunCfg config.TunnelConfig) (*TunRep, error) {
 		return nil, err
 	}
 
-	remoteIP := net.ParseIP(tunCfg.RemoteIP)
-	if remoteIP == nil {
-		err = fmt.Errorf("NewTunRep(): Malformed tunnel remote IP: %+v", tunCfg.RemoteIP)
+	remoteIP, remoteIPNet, err := net.ParseCIDR(tunCfg.RemoteIP)
+	if err != nil {
 		return nil, err
 	}
 
@@ -104,12 +103,13 @@ func NewTunRep(tunCfg config.TunnelConfig) (*TunRep, error) {
 	return &TunRep{
 		Name: name,
 		Spec: &TunRepSpec{
-			IfName:   tunCfg.Name,
-			IfID:     tunCfg.IfID,
-			Vrf:      "//network.opiproject.org/vrfs/GRD",
-			IP:       &ip,
-			IPNet:    ipnet,
-			RemoteIP: &remoteIP,
+			IfName:      tunCfg.Name,
+			IfID:        tunCfg.IfID,
+			Vrf:         "//network.opiproject.org/vrfs/GRD",
+			IP:          &ip,
+			IPNet:       ipnet,
+			RemoteIP:    &remoteIP,
+			RemoteIPNet: remoteIPNet,
 		},
 		Status: &TunRepStatus{
 			TunRepOperStatus: TunRepOperStatus(TunRepOperStatusDown),
