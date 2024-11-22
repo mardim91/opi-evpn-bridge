@@ -64,98 +64,98 @@ func (h *ModulelvmHandler) HandleEvent(eventType string, objectData *eventbus.Ob
 		log.Printf("LVM recevied %s %s\n", eventType, objectData.Name)
 		handlebp(objectData)
 	case "tun-rep":
-                log.Printf("LVM recevied %s %s\n", eventType, objectData.Name)
-                handleTunRep(objectData)
+		log.Printf("LVM recevied %s %s\n", eventType, objectData.Name)
+		handleTunRep(objectData)
 	default:
 		log.Printf("error: Unknown event type %s\n", eventType)
 	}
 }
 
 func handleTunRep(objectData *eventbus.ObjectData) {
-        var comp common.Component
-        tr, err := infradb.GetTunRep(objectData.Name)
-        if err != nil {
-                log.Printf("LVM: GetTunRep error: %s %s\n", err, objectData.Name)
-                comp.Name = lgmComp
-                comp.CompStatus = common.ComponentStatusError
-                if comp.Timer == 0 {
-                        comp.Timer = 2 * time.Second
-                } else {
-                        comp.Timer *= 2
-                }
-                err := infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
-                if err != nil {
-                        log.Printf("error in updating tr status: %s\n", err)
-                }
-                return
-        }
-        if objectData.ResourceVersion != tr.ResourceVersion {
-                log.Printf("LVM: Mismatch in resoruce version %+v\n and tr resource version %+v\n", objectData.ResourceVersion, tr.ResourceVersion)
-                comp.Name = lgmComp
-                comp.CompStatus = common.ComponentStatusError
-                if comp.Timer == 0 {
-                        comp.Timer = 2 * time.Second
-                } else {
-                        comp.Timer *= 2
-                }
-                err := infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
-                if err != nil {
-                        log.Printf("error in updating tr status: %s\n", err)
-                }
-                return
-        }
-        if len(tr.Status.Components) != 0 {
-                for i := 0; i < len(tr.Status.Components); i++ {
-                        if tr.Status.Components[i].Name == lgmComp {
-                                comp = tr.Status.Components[i]
-                        }
-                }
-        }
-        if tr.Status.TunRepOperStatus != infradb.TunRepOperStatusToBeDeleted {
-                var status bool
-                comp.Name = lgmComp
-                if len(tr.OldVersions) > 0 {
-                        status = UpdateTunRep(tr)
-                } else {
-                        status = setUpTunRep(tr)
-                }
-                if status {
-                        comp.Details = ""
-                        comp.CompStatus = common.ComponentStatusSuccess
-                        comp.Timer = 0
-                } else {
-                        if comp.Timer == 0 {
-                                comp.Timer = 2 * time.Second
-                        } else {
-                                comp.Timer *= 2
-                        }
-                        comp.CompStatus = common.ComponentStatusError
-                }
-                log.Printf("LVM: %+v \n", comp)
-                err := infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
-                if err != nil {
-                        log.Printf("error in updating tr status: %s\n", err)
-                }
-        } else {
-                status := tearDownTunRep(tr)
-                comp.Name = lgmComp
-                if status {
-                        comp.CompStatus = common.ComponentStatusSuccess
-                        comp.Timer = 0
-                } else {
-                        comp.CompStatus = common.ComponentStatusError
-                        if comp.Timer == 0 {
-                                comp.Timer = 2 * time.Second
-                        } else {
-                                comp.Timer *= 2
-                        }
-                }
-                log.Printf("LVM: %+v\n", comp)
-                err := infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
-                if err != nil {
-                        log.Printf("error in updating tr status: %s\n", err)
-                }
-        }
+	var comp common.Component
+	tr, err := infradb.GetTunRep(objectData.Name)
+	if err != nil {
+		log.Printf("LVM: GetTunRep error: %s %s\n", err, objectData.Name)
+		comp.Name = lvmComp
+		comp.CompStatus = common.ComponentStatusError
+		if comp.Timer == 0 {
+			comp.Timer = 2 * time.Second
+		} else {
+			comp.Timer *= 2
+		}
+		err := infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
+		if err != nil {
+			log.Printf("error in updating tr status: %s\n", err)
+		}
+		return
+	}
+	if objectData.ResourceVersion != tr.ResourceVersion {
+		log.Printf("LVM: Mismatch in resoruce version %+v\n and tr resource version %+v\n", objectData.ResourceVersion, tr.ResourceVersion)
+		comp.Name = lvmComp
+		comp.CompStatus = common.ComponentStatusError
+		if comp.Timer == 0 {
+			comp.Timer = 2 * time.Second
+		} else {
+			comp.Timer *= 2
+		}
+		err := infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
+		if err != nil {
+			log.Printf("error in updating tr status: %s\n", err)
+		}
+		return
+	}
+	if len(tr.Status.Components) != 0 {
+		for i := 0; i < len(tr.Status.Components); i++ {
+			if tr.Status.Components[i].Name == lvmComp {
+				comp = tr.Status.Components[i]
+			}
+		}
+	}
+	if tr.Status.TunRepOperStatus != infradb.TunRepOperStatusToBeDeleted {
+		var status bool
+		comp.Name = lvmComp
+		if len(tr.OldVersions) > 0 {
+			status = UpdateTunRep(tr)
+		} else {
+			status = setUpTunRep(tr)
+		}
+		if status {
+			comp.Details = ""
+			comp.CompStatus = common.ComponentStatusSuccess
+			comp.Timer = 0
+		} else {
+			if comp.Timer == 0 {
+				comp.Timer = 2 * time.Second
+			} else {
+				comp.Timer *= 2
+			}
+			comp.CompStatus = common.ComponentStatusError
+		}
+		log.Printf("LVM: %+v \n", comp)
+		err := infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
+		if err != nil {
+			log.Printf("error in updating tr status: %s\n", err)
+		}
+	} else {
+		status := tearDownTunRep(tr)
+		comp.Name = lvmComp
+		if status {
+			comp.CompStatus = common.ComponentStatusSuccess
+			comp.Timer = 0
+		} else {
+			comp.CompStatus = common.ComponentStatusError
+			if comp.Timer == 0 {
+				comp.Timer = 2 * time.Second
+			} else {
+				comp.Timer *= 2
+			}
+		}
+		log.Printf("LVM: %+v\n", comp)
+		err := infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
+		if err != nil {
+			log.Printf("error in updating tr status: %s\n", err)
+		}
+	}
 }
 
 // handlebp  handles the bridge port functionality
@@ -477,82 +477,88 @@ func setUpVrf(vrf *infradb.Vrf) bool {
 }
 
 func UpdateTunRep(tun *infradb.TunRep) bool {
-        for _, tuns := range tun.OldVersions {
-                tunObj, err := infradb.GetTunRep(tuns)
-                if err == nil {
-                        if !tearDownTunRep(tunObj) {
-                                log.Printf("LVM: UpdateTunRep failed for object %+v\n", tunObj)
-                                return false
-                        }
-                }
-        }
-        return setUpTunRep(tun)
+	for _, tuns := range tun.OldVersions {
+		tunObj, err := infradb.GetTunRep(tuns)
+		if err == nil {
+			if !tearDownTunRep(tunObj) {
+				log.Printf("LVM: UpdateTunRep failed for object %+v\n", tunObj)
+				return false
+			}
+		}
+	}
+	return setUpTunRep(tun)
 }
 
 func setUpTunRep(tun *infradb.TunRep) bool {
-        link := path.Base(tun.Name)
+	link := path.Base(tun.Spec.IfName)
 
-        muxIntf, err := nlink.LinkByName(ctx, tunMux)
-        if err != nil {
-                log.Printf("Failed to get link information for %s, error is %v\n", tunMux, err)
-                return false
-        }
-        vlanLink := &netlink.Vlan{LinkAttrs: netlink.LinkAttrs{Name: link, ParentIndex: muxIntf.Attrs().Index}, VlanId: int(tun.Spec.IfID), VlanProtocol: netlink.VLAN_PROTOCOL_8021AD}
-        if err = nlink.LinkAdd(ctx, vlanLink); err != nil {
-                log.Printf("Failed to add VLAN sub-interface %s: %v\n", link, err)
-                return false
-        }
-        log.Printf("LVM: Executed ip link add link %s name %s type vlan protocol 802.1ad id %d\n", tunMux, link, tun.Spec.IfID)
+	muxIntf, err := nlink.LinkByName(ctx, tunMux)
+	if err != nil {
+		log.Printf("Failed to get link information for %s, error is %v\n", tunMux, err)
+		return false
+	}
+	vlanLink := &netlink.Vlan{LinkAttrs: netlink.LinkAttrs{Name: link, ParentIndex: muxIntf.Attrs().Index}, VlanId: int(tun.Spec.IfID), VlanProtocol: netlink.VLAN_PROTOCOL_8021AD}
+	if err = nlink.LinkAdd(ctx, vlanLink); err != nil {
+		log.Printf("Failed to add VLAN sub-interface %s: %v\n", link, err)
+		return false
+	}
+	log.Printf("LVM: Executed ip link add link %s name %s type vlan protocol 802.1ad id %d\n", tunMux, link, tun.Spec.IfID)
 
-        linkmtuErr := nlink.LinkSetMTU(ctx, vlanLink, ipMtu+50)
-        if linkmtuErr != nil {
-                log.Printf("LVM : Unable to set MTU to link %s \n", link)
-                return false
-        }
+	linkmtuErr := nlink.LinkSetMTU(ctx, vlanLink, ipMtu+50)
+	if linkmtuErr != nil {
+		log.Printf("LVM : Unable to set MTU to link %s \n", link)
+		return false
+	}
 
-        linkArpOff := nlink.LinkSetArpOff(ctx, vlanLink)
-        if linkArpOff != nil {
-                log.Printf("LVM: Unable to set arp off to link %s \n", link)
-                return false
-        }
-        var address = tun.Spec.IPNet
-        var Addrs = &netlink.Addr{
-                IPNet: address,
-        }
-        addrErr := nlink.AddrAdd(ctx, vlanLink, Addrs)
-        if addrErr != nil {
-                log.Printf("LVM: Unable to set the ip to tun link %s \n", link)
-                return false
-        }
-        log.Printf("LVM: Added Address %s dev %s\n", address, link)
+	linkArpOff := nlink.LinkSetArpOff(ctx, vlanLink)
+	if linkArpOff != nil {
+		log.Printf("LVM: Unable to set arp off to link %s \n", link)
+		return false
+	}
+	var address = tun.Spec.IPNet
+	var Addrs = &netlink.Addr{
+		IPNet: address,
+	}
+	addrErr := nlink.AddrAdd(ctx, vlanLink, Addrs)
+	if addrErr != nil {
+		log.Printf("LVM: Unable to set the ip to tun link %s \n", link)
+		return false
+	}
+	log.Printf("LVM: Added Address %s dev %s\n", address, link)
 
-        if tun.Spec.RemoteIP != nil {
-                Src1 := tun.Spec.RemoteIP
-                vrf, err := infradb.GetVrf(tun.Spec.Vrf)
-                if err != nil {
-                        return false
-                }
-                dev, _ := nlink.LinkByName(ctx, link)
-                LinkIndex := dev.Attrs().Index
-                route := netlink.Route{
-                        Table:     int(*vrf.Metadata.RoutingTable[0]),
-                        Protocol:  255,
-                        Src:       *Src1,
-                        LinkIndex: LinkIndex,
-                }
-                //netlink.Route.LinkIndex
-                routeaddErr := nlink.RouteAdd(ctx, &route)
-                if routeaddErr != nil {
-                        log.Printf("LVM : Failed in adding Route %+v\n", routeaddErr)
-                        return false
-                }
-        }
-        linksetupErr := nlink.LinkSetUp(ctx, vlanLink)
-        if linksetupErr != nil {
-                log.Printf("LVM : Unable to set link %s UP \n", link)
-                return false
-        }
-        return true
+	if err = nlink.LinkSetUp(ctx, vlanLink); err != nil {
+		log.Printf("LVM: Failed to set link in up state. Details: %+v: Error: %+v\n", vlanLink, err)
+		return false
+	}
+
+	if tun.Spec.RemoteIP != nil {
+		dst := tun.Spec.RemoteIPNet
+		vrf, err := infradb.GetVrf(tun.Spec.Vrf)
+		if err != nil {
+			return false
+		}
+		dev, _ := nlink.LinkByName(ctx, link)
+		LinkIndex := dev.Attrs().Index
+		route := netlink.Route{
+			Table:     int(*vrf.Metadata.RoutingTable[0]),
+			Protocol:  255,
+			Dst:       dst,
+			LinkIndex: LinkIndex,
+			Scope:     netlink.SCOPE_LINK,
+		}
+		//netlink.Route.LinkIndex
+		routeaddErr := nlink.RouteAdd(ctx, &route)
+		if routeaddErr != nil {
+			log.Printf("LVM : Failed in adding Route %+v\n", routeaddErr)
+			return false
+		}
+	}
+	linksetupErr := nlink.LinkSetUp(ctx, vlanLink)
+	if linksetupErr != nil {
+		log.Printf("LVM : Unable to set link %s UP \n", link)
+		return false
+	}
+	return true
 }
 
 // tearDownVrf tears down a vrf
@@ -575,26 +581,26 @@ func tearDownVrf(vrf *infradb.Vrf) bool {
 }
 
 func tearDownTunRep(tun *infradb.TunRep) bool {
-        link, err1 := nlink.LinkByName(ctx, path.Base(tun.Name))
-        if err1 != nil {
-                log.Printf("LVM : Link %s not found %+v\n", tun.Name, err1)
-                return true
-        }
-        delerr := nlink.LinkDel(ctx, link)
-        if delerr != nil {
-                log.Printf("LVM: Error in delete br %+v\n", delerr)
-                return false
-        }
-        log.Printf("LVM :link delete  %s\n", tun.Name)
-        return true
+	link, err1 := nlink.LinkByName(ctx, path.Base(tun.Spec.IfName))
+	if err1 != nil {
+		log.Printf("LVM : Link %s not found %+v\n", tun.Spec.IfName, err1)
+		return true
+	}
+	delerr := nlink.LinkDel(ctx, link)
+	if delerr != nil {
+		log.Printf("LVM: Error in delete br %+v\n", delerr)
+		return false
+	}
+	log.Printf("LVM :link delete  %s\n", tun.Spec.IfName)
+	return true
 }
-
 
 var ipMtu int
 var brTenant string
 var ctx context.Context
 var nlink utils.Netlink
 var tunMux string
+
 // Initialize function initialize config
 func Initialize() {
 	eb := eventbus.EBus
