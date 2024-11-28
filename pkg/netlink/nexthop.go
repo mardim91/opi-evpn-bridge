@@ -201,14 +201,18 @@ func (nexthop *NexthopStruct) tryResolve() []*NexthopStruct {
 				}
 			}
 		} else if nexthop.NhType == TUN {
-			T := tun_reps[nameIndex[nexthop.nexthop.LinkIndex]]
-			if T.Spec.Sa != "" {
+			name := tun_reps[nameIndex[nexthop.nexthop.LinkIndex]]
+			tunRep, err := infradb.GetTunRep(name)
+			if err != nil {
+				log.Println("tryResolve: error-", err)
+			}
+			if tunRep.Spec.Sa != "" {
 				nexthop.Metadata["tun_dev"] = nexthop.nexthop.LinkIndex
-				nexthop.Metadata["spi"] = T.Spec.Spi
-				nexthop.Metadata["sa_idx"] = T.Spec.SaIdx
-				nexthop.Metadata["local_tep_ip"] = T.Spec.SrcIP
-				if T.Spec.DstIP != nil && !T.Spec.DstIP.IsUnspecified() {
-					nexthop.Metadata["remote_tep_ip"] = T.Spec.DstIP
+				nexthop.Metadata["spi"] = tunRep.Spec.Spi
+				nexthop.Metadata["sa_idx"] = tunRep.Spec.SaIdx
+				nexthop.Metadata["local_tep_ip"] = tunRep.Spec.SrcIP
+				if tunRep.Spec.DstIP != nil && !tunRep.Spec.DstIP.IsUnspecified() {
+					nexthop.Metadata["remote_tep_ip"] = tunRep.Spec.DstIP
 				} else {
 					return nil
 				}
@@ -549,12 +553,12 @@ func (nexthop *NexthopStruct) annotate() {
 					log.Fatalf("Error: 'tun_dev' is not a string")
 				}
 
-				T, ok := tun_reps[tunDev]
+				tunRepName, ok := tun_reps[tunDev]
 				if !ok {
-					log.Fatalf("Error: TunnelRep not found for 'tun_dev': %s, %+v", tunDev, T)
+					log.Fatalf("Error: TunnelRep not found for 'tun_dev': %s, %+v", tunDev, tunRepName)
 				}
 				//drop1.2 TODO fix this once infra db changes are inplace
-				infradb.ResolveTunRep(T.Name, nexthop.Neighbor.Neigh0.HardwareAddr.String())
+				infradb.ResolveTunRep(tunRepName, nexthop.Neighbor.Neigh0.HardwareAddr.String())
 			}
 		}
 		//drop1.2 end
