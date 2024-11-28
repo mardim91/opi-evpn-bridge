@@ -411,15 +411,16 @@ func handlevrf(objectData *eventbus.ObjectData) {
 }
 
 // disableRpFilter disables the RP filter
-func disableRpFilter(iface string) {
+func disableRpFilter(iface string) error {
 	// Work-around for the observation that sometimes the sysctl -w command did not take effect.
 	rpFilterDisabled := false
-	for i := 0; i < 5; i++ {
+	var maxTry = 5
+	for i := 0; i < maxTry; i++ {
 		rpDisable := fmt.Sprintf("net.ipv4.conf.%s.rp_filter=0", iface)
 		output, errCode := run([]string{"sysctl", "-w", rpDisable}, false)
-		if errCode != 0 {
+		if errCode != 0 && i == maxTry-1 {
 			log.Printf("Error setting rp_filter: %s\n", output)
-			continue
+			return fmt.Errorf("%s", output)
 		}
 		time.Sleep(200 * time.Millisecond)
 		rpDisable = fmt.Sprintf("net.ipv4.conf.%s.rp_filter", iface)
@@ -433,6 +434,7 @@ func disableRpFilter(iface string) {
 	if !rpFilterDisabled {
 		log.Printf("Failed to disable rp_filter on interface %s\n", iface)
 	}
+	return nil
 }
 
 // setUpVrf sets up a vrf
@@ -440,7 +442,11 @@ func setUpVrf(vrf *infradb.Vrf) bool {
 	log.Printf("LVM configure linux function \n")
 	vlanIntf := fmt.Sprintf("rep-%+v", path.Base(vrf.Name))
 	if path.Base(vrf.Name) == "GRD" {
-		disableRpFilter("rep-" + path.Base(vrf.Name))
+		err := disableRpFilter("rep-" + path.Base(vrf.Name))
+		if err != nil {
+			log.Printf("Failed to disable RP filter %v", err)
+			return false
+		}
 		return true
 	}
 	muxIntf, err := nlink.LinkByName(ctx, vrfMux)
@@ -472,7 +478,11 @@ func setUpVrf(vrf *infradb.Vrf) bool {
 		return false
 	}
 	log.Printf(" LVM: Executed ip link set rep-%s master %s up mtu %d\n", path.Base(vrf.Name), path.Base(vrf.Name), ipMtu)
-	disableRpFilter("rep-" + path.Base(vrf.Name))
+	err = disableRpFilter("rep-" + path.Base(vrf.Name))
+	if err != nil {
+		log.Printf("Failed to disable RP filter %v", err)
+		return false
+	}
 	return true
 }
 
