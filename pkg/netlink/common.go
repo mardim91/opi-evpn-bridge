@@ -369,4 +369,4 @@ func NewTunnelRep(tunCfg map[string]interface{}) (*TunnelRep, error) {
 	return tunnel, nil
 }*/
 
-var tun_reps = make(map[string]infradb.TunRep)
+var tun_reps = make(map[string]string)

@@ -291,11 +291,15 @@ func (neigh NeighStruct) neighborAnnotate() NeighStruct {
 	} else if path.Base(neigh.VrfName) == "GRD" {
 		if tunRep, found := tun_reps[nameIndex[neigh.Neigh0.LinkIndex]]; found {
 			vrf, _ := infradb.GetVrf("//network.opiproject.org/vrfs/GRD")
+			tr, err := infradb.GetTunRep(tunRep)
+			if err != nil {
+				log.Println("neighborAnnotate: error-", err)
+			}
 			r, ok := lookupRoute(neigh.Neigh0.IP, vrf, false)
 			if ok {
 				if r.Nexthops[0].nexthop.LinkIndex == neigh.Neigh0.LinkIndex {
 					neigh.Type = TUN
-					neigh.Metadata["if_id"] = tunRep.Spec.IfID
+					neigh.Metadata["if_id"] = tr.Spec.IfID
 					neigh.Neigh0.IP = r.Nexthops[0].Prefsrc // verify once left val
 				} else {
 					neigh.Type = IGNORE

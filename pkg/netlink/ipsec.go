@@ -66,9 +66,11 @@ func handleTunRep(objectData *eventbus.ObjectData) {
 	}
 	if tr.Status.TunRepOperStatus != infradb.TunRepOperStatusToBeDeleted {
 		var status bool
+		// The reason for having two functions instead of one is beacuase in future maybe we want to differentiate between
+		// an update event of Tunnel rep object and an addition event of tunnel rep object. But right now addition
+		// and update events of Tunnel rep object do not differ from functionality netlink watcher perspective.
 		if len(tr.OldVersions) > 0 {
-			status = UpdateTunRep(tr)
-			// AP: if there are multiple versions then ?????
+			status = updateTunRep(tr)
 		} else {
 			status = addTunRep(tr)
 		}
@@ -91,7 +93,7 @@ func handleTunRep(objectData *eventbus.ObjectData) {
 			log.Printf("error in updating tr status: %s\n", err)
 		}
 	} else {
-		status := DeleteTunRep(tr)
+		status := deleteTunRep(tr)
 		comp.Name = netlinkComp
 		if status {
 			comp.CompStatus = common.ComponentStatusSuccess
@@ -112,14 +114,14 @@ func handleTunRep(objectData *eventbus.ObjectData) {
 	}
 }
 
-func DeleteTunRep(tr *infradb.TunRep) bool {
+func deleteTunRep(tr *infradb.TunRep) bool {
 	delete(tun_reps, tr.Name)
 	return true
 
 }
 
-func UpdateTunRep(newRep *infradb.TunRep) bool {
-	tun_reps[newRep.Name] = *newRep
+func updateTunRep(newRep *infradb.TunRep) bool {
+	tun_reps[newRep.Spec.IfName] = newRep.Name
 	/*if oldRep.Spec.Sa != "" && newRep.Spec.Sa != "" && newRep.Spec.Sa != oldRep.Spec.Sa {
 		if newRep.Spec.DstIP == oldRep.Spec.DstIP {
 
@@ -142,6 +144,6 @@ func UpdateTunRep(newRep *infradb.TunRep) bool {
 }
 
 func addTunRep(tr *infradb.TunRep) bool {
-	tun_reps[tr.Name] = *tr
+	tun_reps[tr.Spec.IfName] = tr.Name
 	return true
 }
