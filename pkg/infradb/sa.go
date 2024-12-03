@@ -267,14 +267,22 @@ type LifetimeCfg struct {
 }
 
 // NewLifetimeCfg creates a LifetimeCfg object
-func NewLifetimeCfg(time, bytes, packets *Lifetime) *LifetimeCfg {
-	if time == nil && bytes == nil && packets == nil {
+func NewLifetimeCfg(ltCfg *pb.LifeTimeCfg) *LifetimeCfg {
+	if ltCfg == nil {
+		return nil
+	}
+
+	lTtime := NewLifetime(ltCfg.Time)
+	lTbytes := NewLifetime(ltCfg.Bytes)
+	lTpackets := NewLifetime(ltCfg.Packets)
+
+	if lTtime == nil && lTbytes == nil && lTpackets == nil {
 		return nil
 	}
 	return &LifetimeCfg{
-		Time:    time,
-		Bytes:   bytes,
-		Packets: packets,
+		Time:    lTtime,
+		Bytes:   lTbytes,
+		Packets: lTpackets,
 	}
 }
 
@@ -353,10 +361,7 @@ func NewSa(name string, sa *pb.AddSAReq) (*Sa, error) {
 		return nil, err
 	}
 
-	LTtime := NewLifetime(sa.SaData.Lifetime.Time)
-	LTbytes := NewLifetime(sa.SaData.Lifetime.Bytes)
-	LTpackets := NewLifetime(sa.SaData.Lifetime.Packets)
-	lifetimeCfg := NewLifetimeCfg(LTtime, LTbytes, LTpackets)
+	lifetimeCfg := NewLifetimeCfg(sa.SaData.Lifetime)
 
 	encAlg, err := convertPbToCryptoAlg(sa.SaData.EncAlg)
 	if err != nil {
