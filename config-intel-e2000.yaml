@@ -15,9 +15,12 @@ subscribers:
  - name: "frr"
    priority: 3
    events: ["vrf", "svi"]
- - name: "intel_e2000"
+ - name: "netlink"
    priority: 4
-   events: ["vrf", "logical-bridge", "bridge-port", "svi"]
+   events: ["tun-rep"]
+ - name: "intel_e2000"
+   priority: 5
+   events: ["vrf", "logical-bridge", "bridge-port", "svi", "sa", "tun-rep"]
 grpc:
     server_addresses:
       - 0.0.0.0
