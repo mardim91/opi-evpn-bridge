@@ -2110,6 +2110,8 @@ func updateTunRep(tunRep *TunRep) error {
 		return err
 	}
 
+	log.Printf("updateTunRep(): Old version in the db: %+v", oldTunRep)
+
 	// Prepare the object for the update procedure
 	for i := range subscribers {
 		tunRep.Status.Components[i].CompStatus = common.ComponentStatusPending
@@ -2122,6 +2124,8 @@ func updateTunRep(tunRep *TunRep) error {
 	if err != nil {
 		return err
 	}
+
+	log.Printf("updateTunRep(): New version in the db: %+v", tunRep)
 
 	taskmanager.TaskMan.CreateTask(tunRep.Name, "tun-rep", tunRep.ResourceVersion, subscribers)
 
