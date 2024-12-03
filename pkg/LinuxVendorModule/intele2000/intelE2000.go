@@ -487,16 +487,28 @@ func setUpVrf(vrf *infradb.Vrf) bool {
 }
 
 func UpdateTunRep(tun *infradb.TunRep) bool {
-	for _, tuns := range tun.OldVersions {
-		tunObj, err := infradb.GetTunRep(tuns)
-		if err == nil {
-			if !tearDownTunRep(tunObj) {
-				log.Printf("LVM: UpdateTunRep failed for object %+v\n", tunObj)
-				return false
+	// We need to handle the update events as no-op
+	// because we do not want to fully delete and create
+	// the linux configuration for tunnel representor
+	// every time we have a bind/unbind of an SA.
+	// In the future were we will support proper updates for
+	// all the objects (VRFs, LBs, TunReps etc...) we will
+	// revisit the subject.
+
+	/*
+		for _, tuns := range tun.OldVersions {
+			tunObj, err := infradb.GetTunRep(tuns)
+			if err == nil {
+				if !tearDownTunRep(tunObj) {
+					log.Printf("LVM: UpdateTunRep failed for object %+v\n", tunObj)
+					return false
+				}
 			}
 		}
-	}
-	return setUpTunRep(tun)
+		return setUpTunRep(tun)
+	*/
+	log.Println("LVM: Inside the UpdateTunRep() function")
+	return true
 }
 
 func setUpTunRep(tun *infradb.TunRep) bool {
