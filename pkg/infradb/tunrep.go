@@ -177,7 +177,7 @@ func (in *TunRep) bindSa(sa *Sa) error {
 
 func (in *TunRep) unbindSa(sa *Sa) error {
 	if in.Spec.Sa != sa.Name {
-		log.Printf("unbindSa() : Failed to unbind SA %s from tunnel representor %+v. SA %s bound to Tunnel representor.\n", sa.Name, in, in.Spec.Sa)
+		log.Printf("unbindSa() :SA %s not bound to tunnel representor %+v.\n", sa.Name, in)
 		return ErrTunRepNotBoundToSa
 	}
 
