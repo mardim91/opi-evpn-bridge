@@ -3,7 +3,7 @@
 
 syntax = "proto3";
 
-package opi_evpn_bridge.pkg.ipsec;
+package IPSecIPUInfraManager;
 
 option go_package = "github.com/opiproject/opi-evpn-bridge/pkg/ipsec/gen/go";
 
@@ -19,7 +19,7 @@ option go_package = "github.com/opiproject/opi-evpn-bridge/pkg/ipsec/gen/go";
  *
  */
 
-service IPSec {
+service IPUIPSec {
     /*
      * Get the feature set supported by this kernel backend.
      *
@@ -351,4 +351,3 @@ enum IPSecMode {
         /* drop policy discarding traffic */
     MODE_DROP           = 5;
 }
-

@@ -5,7 +5,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - protoc             v3.19.4
-// source: opi_evpn_bridge_ipsec.proto
+// source: ipsec_ipu.proto
 
 package _go
 
@@ -22,19 +22,19 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	IPSec_GetFeatures_FullMethodName = "/opi_evpn_bridge.pkg.ipsec.IPSec/GetFeatures"
-	IPSec_GetSPI_FullMethodName      = "/opi_evpn_bridge.pkg.ipsec.IPSec/GetSPI"
-	IPSec_AddSA_FullMethodName       = "/opi_evpn_bridge.pkg.ipsec.IPSec/AddSA"
-	IPSec_UpdateSA_FullMethodName    = "/opi_evpn_bridge.pkg.ipsec.IPSec/UpdateSA"
-	IPSec_QuerySA_FullMethodName     = "/opi_evpn_bridge.pkg.ipsec.IPSec/QuerySA"
-	IPSec_DeleteSA_FullMethodName    = "/opi_evpn_bridge.pkg.ipsec.IPSec/DeleteSA"
-	IPSec_FlushSAs_FullMethodName    = "/opi_evpn_bridge.pkg.ipsec.IPSec/FlushSAs"
+	IPUIPSec_GetFeatures_FullMethodName = "/IPSecIPUInfraManager.IPUIPSec/GetFeatures"
+	IPUIPSec_GetSPI_FullMethodName      = "/IPSecIPUInfraManager.IPUIPSec/GetSPI"
+	IPUIPSec_AddSA_FullMethodName       = "/IPSecIPUInfraManager.IPUIPSec/AddSA"
+	IPUIPSec_UpdateSA_FullMethodName    = "/IPSecIPUInfraManager.IPUIPSec/UpdateSA"
+	IPUIPSec_QuerySA_FullMethodName     = "/IPSecIPUInfraManager.IPUIPSec/QuerySA"
+	IPUIPSec_DeleteSA_FullMethodName    = "/IPSecIPUInfraManager.IPUIPSec/DeleteSA"
+	IPUIPSec_FlushSAs_FullMethodName    = "/IPSecIPUInfraManager.IPUIPSec/FlushSAs"
 )
 
-// IPSecClient is the client API for IPSec service.
+// IPUIPSecClient is the client API for IPUIPSec service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type IPSecClient interface {
+type IPUIPSecClient interface {
 	// Get the feature set supported by this kernel backend.
 	//
 	// @return                              ORed feature-set of backend
@@ -110,81 +110,81 @@ type IPSecClient interface {
 	FlushSAs(ctx context.Context, in *FlushSAsReq, opts ...grpc.CallOption) (*FlushSAsResp, error)
 }
 
-type iPSecClient struct {
+type iPUIPSecClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewIPSecClient(cc grpc.ClientConnInterface) IPSecClient {
-	return &iPSecClient{cc}
+func NewIPUIPSecClient(cc grpc.ClientConnInterface) IPUIPSecClient {
+	return &iPUIPSecClient{cc}
 }
 
-func (c *iPSecClient) GetFeatures(ctx context.Context, in *Features, opts ...grpc.CallOption) (*Features, error) {
+func (c *iPUIPSecClient) GetFeatures(ctx context.Context, in *Features, opts ...grpc.CallOption) (*Features, error) {
 	out := new(Features)
-	err := c.cc.Invoke(ctx, IPSec_GetFeatures_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, IPUIPSec_GetFeatures_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *iPSecClient) GetSPI(ctx context.Context, in *GetSPIReq, opts ...grpc.CallOption) (*GetSPIResp, error) {
+func (c *iPUIPSecClient) GetSPI(ctx context.Context, in *GetSPIReq, opts ...grpc.CallOption) (*GetSPIResp, error) {
 	out := new(GetSPIResp)
-	err := c.cc.Invoke(ctx, IPSec_GetSPI_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, IPUIPSec_GetSPI_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *iPSecClient) AddSA(ctx context.Context, in *AddSAReq, opts ...grpc.CallOption) (*AddSAResp, error) {
+func (c *iPUIPSecClient) AddSA(ctx context.Context, in *AddSAReq, opts ...grpc.CallOption) (*AddSAResp, error) {
 	out := new(AddSAResp)
-	err := c.cc.Invoke(ctx, IPSec_AddSA_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, IPUIPSec_AddSA_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *iPSecClient) UpdateSA(ctx context.Context, in *UpdateSAReq, opts ...grpc.CallOption) (*UpdateSAResp, error) {
+func (c *iPUIPSecClient) UpdateSA(ctx context.Context, in *UpdateSAReq, opts ...grpc.CallOption) (*UpdateSAResp, error) {
 	out := new(UpdateSAResp)
-	err := c.cc.Invoke(ctx, IPSec_UpdateSA_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, IPUIPSec_UpdateSA_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *iPSecClient) QuerySA(ctx context.Context, in *QuerySAReq, opts ...grpc.CallOption) (*QuerySAResp, error) {
+func (c *iPUIPSecClient) QuerySA(ctx context.Context, in *QuerySAReq, opts ...grpc.CallOption) (*QuerySAResp, error) {
 	out := new(QuerySAResp)
-	err := c.cc.Invoke(ctx, IPSec_QuerySA_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, IPUIPSec_QuerySA_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *iPSecClient) DeleteSA(ctx context.Context, in *DeleteSAReq, opts ...grpc.CallOption) (*DeleteSAResp, error) {
+func (c *iPUIPSecClient) DeleteSA(ctx context.Context, in *DeleteSAReq, opts ...grpc.CallOption) (*DeleteSAResp, error) {
 	out := new(DeleteSAResp)
-	err := c.cc.Invoke(ctx, IPSec_DeleteSA_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, IPUIPSec_DeleteSA_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *iPSecClient) FlushSAs(ctx context.Context, in *FlushSAsReq, opts ...grpc.CallOption) (*FlushSAsResp, error) {
+func (c *iPUIPSecClient) FlushSAs(ctx context.Context, in *FlushSAsReq, opts ...grpc.CallOption) (*FlushSAsResp, error) {
 	out := new(FlushSAsResp)
-	err := c.cc.Invoke(ctx, IPSec_FlushSAs_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, IPUIPSec_FlushSAs_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// IPSecServer is the server API for IPSec service.
-// All implementations must embed UnimplementedIPSecServer
+// IPUIPSecServer is the server API for IPUIPSec service.
+// All implementations must embed UnimplementedIPUIPSecServer
 // for forward compatibility
-type IPSecServer interface {
+type IPUIPSecServer interface {
 	// Get the feature set supported by this kernel backend.
 	//
 	// @return                              ORed feature-set of backend
@@ -258,209 +258,209 @@ type IPSecServer interface {
 	//
 	//	status_t (*flush_sas)(kernel_ipsec_t *this);
 	FlushSAs(context.Context, *FlushSAsReq) (*FlushSAsResp, error)
-	mustEmbedUnimplementedIPSecServer()
+	mustEmbedUnimplementedIPUIPSecServer()
 }
 
-// UnimplementedIPSecServer must be embedded to have forward compatible implementations.
-type UnimplementedIPSecServer struct {
+// UnimplementedIPUIPSecServer must be embedded to have forward compatible implementations.
+type UnimplementedIPUIPSecServer struct {
 }
 
-func (UnimplementedIPSecServer) GetFeatures(context.Context, *Features) (*Features, error) {
+func (UnimplementedIPUIPSecServer) GetFeatures(context.Context, *Features) (*Features, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetFeatures not implemented")
 }
-func (UnimplementedIPSecServer) GetSPI(context.Context, *GetSPIReq) (*GetSPIResp, error) {
+func (UnimplementedIPUIPSecServer) GetSPI(context.Context, *GetSPIReq) (*GetSPIResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSPI not implemented")
 }
-func (UnimplementedIPSecServer) AddSA(context.Context, *AddSAReq) (*AddSAResp, error) {
+func (UnimplementedIPUIPSecServer) AddSA(context.Context, *AddSAReq) (*AddSAResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddSA not implemented")
 }
-func (UnimplementedIPSecServer) UpdateSA(context.Context, *UpdateSAReq) (*UpdateSAResp, error) {
+func (UnimplementedIPUIPSecServer) UpdateSA(context.Context, *UpdateSAReq) (*UpdateSAResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateSA not implemented")
 }
-func (UnimplementedIPSecServer) QuerySA(context.Context, *QuerySAReq) (*QuerySAResp, error) {
+func (UnimplementedIPUIPSecServer) QuerySA(context.Context, *QuerySAReq) (*QuerySAResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method QuerySA not implemented")
 }
-func (UnimplementedIPSecServer) DeleteSA(context.Context, *DeleteSAReq) (*DeleteSAResp, error) {
+func (UnimplementedIPUIPSecServer) DeleteSA(context.Context, *DeleteSAReq) (*DeleteSAResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteSA not implemented")
 }
-func (UnimplementedIPSecServer) FlushSAs(context.Context, *FlushSAsReq) (*FlushSAsResp, error) {
+func (UnimplementedIPUIPSecServer) FlushSAs(context.Context, *FlushSAsReq) (*FlushSAsResp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FlushSAs not implemented")
 }
-func (UnimplementedIPSecServer) mustEmbedUnimplementedIPSecServer() {}
+func (UnimplementedIPUIPSecServer) mustEmbedUnimplementedIPUIPSecServer() {}
 
-// UnsafeIPSecServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to IPSecServer will
+// UnsafeIPUIPSecServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to IPUIPSecServer will
 // result in compilation errors.
-type UnsafeIPSecServer interface {
-	mustEmbedUnimplementedIPSecServer()
+type UnsafeIPUIPSecServer interface {
+	mustEmbedUnimplementedIPUIPSecServer()
 }
 
-func RegisterIPSecServer(s grpc.ServiceRegistrar, srv IPSecServer) {
-	s.RegisterService(&IPSec_ServiceDesc, srv)
+func RegisterIPUIPSecServer(s grpc.ServiceRegistrar, srv IPUIPSecServer) {
+	s.RegisterService(&IPUIPSec_ServiceDesc, srv)
 }
 
-func _IPSec_GetFeatures_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _IPUIPSec_GetFeatures_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Features)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(IPSecServer).GetFeatures(ctx, in)
+		return srv.(IPUIPSecServer).GetFeatures(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: IPSec_GetFeatures_FullMethodName,
+		FullMethod: IPUIPSec_GetFeatures_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(IPSecServer).GetFeatures(ctx, req.(*Features))
+		return srv.(IPUIPSecServer).GetFeatures(ctx, req.(*Features))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _IPSec_GetSPI_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _IPUIPSec_GetSPI_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetSPIReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(IPSecServer).GetSPI(ctx, in)
+		return srv.(IPUIPSecServer).GetSPI(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: IPSec_GetSPI_FullMethodName,
+		FullMethod: IPUIPSec_GetSPI_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(IPSecServer).GetSPI(ctx, req.(*GetSPIReq))
+		return srv.(IPUIPSecServer).GetSPI(ctx, req.(*GetSPIReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _IPSec_AddSA_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _IPUIPSec_AddSA_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(AddSAReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(IPSecServer).AddSA(ctx, in)
+		return srv.(IPUIPSecServer).AddSA(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: IPSec_AddSA_FullMethodName,
+		FullMethod: IPUIPSec_AddSA_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(IPSecServer).AddSA(ctx, req.(*AddSAReq))
+		return srv.(IPUIPSecServer).AddSA(ctx, req.(*AddSAReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _IPSec_UpdateSA_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _IPUIPSec_UpdateSA_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UpdateSAReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(IPSecServer).UpdateSA(ctx, in)
+		return srv.(IPUIPSecServer).UpdateSA(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: IPSec_UpdateSA_FullMethodName,
+		FullMethod: IPUIPSec_UpdateSA_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(IPSecServer).UpdateSA(ctx, req.(*UpdateSAReq))
+		return srv.(IPUIPSecServer).UpdateSA(ctx, req.(*UpdateSAReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _IPSec_QuerySA_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _IPUIPSec_QuerySA_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QuerySAReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(IPSecServer).QuerySA(ctx, in)
+		return srv.(IPUIPSecServer).QuerySA(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: IPSec_QuerySA_FullMethodName,
+		FullMethod: IPUIPSec_QuerySA_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(IPSecServer).QuerySA(ctx, req.(*QuerySAReq))
+		return srv.(IPUIPSecServer).QuerySA(ctx, req.(*QuerySAReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _IPSec_DeleteSA_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _IPUIPSec_DeleteSA_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteSAReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(IPSecServer).DeleteSA(ctx, in)
+		return srv.(IPUIPSecServer).DeleteSA(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: IPSec_DeleteSA_FullMethodName,
+		FullMethod: IPUIPSec_DeleteSA_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(IPSecServer).DeleteSA(ctx, req.(*DeleteSAReq))
+		return srv.(IPUIPSecServer).DeleteSA(ctx, req.(*DeleteSAReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _IPSec_FlushSAs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _IPUIPSec_FlushSAs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(FlushSAsReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(IPSecServer).FlushSAs(ctx, in)
+		return srv.(IPUIPSecServer).FlushSAs(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: IPSec_FlushSAs_FullMethodName,
+		FullMethod: IPUIPSec_FlushSAs_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(IPSecServer).FlushSAs(ctx, req.(*FlushSAsReq))
+		return srv.(IPUIPSecServer).FlushSAs(ctx, req.(*FlushSAsReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// IPSec_ServiceDesc is the grpc.ServiceDesc for IPSec service.
+// IPUIPSec_ServiceDesc is the grpc.ServiceDesc for IPUIPSec service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var IPSec_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "opi_evpn_bridge.pkg.ipsec.IPSec",
-	HandlerType: (*IPSecServer)(nil),
+var IPUIPSec_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "IPSecIPUInfraManager.IPUIPSec",
+	HandlerType: (*IPUIPSecServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "GetFeatures",
-			Handler:    _IPSec_GetFeatures_Handler,
+			Handler:    _IPUIPSec_GetFeatures_Handler,
 		},
 		{
 			MethodName: "GetSPI",
-			Handler:    _IPSec_GetSPI_Handler,
+			Handler:    _IPUIPSec_GetSPI_Handler,
 		},
 		{
 			MethodName: "AddSA",
-			Handler:    _IPSec_AddSA_Handler,
+			Handler:    _IPUIPSec_AddSA_Handler,
 		},
 		{
 			MethodName: "UpdateSA",
-			Handler:    _IPSec_UpdateSA_Handler,
+			Handler:    _IPUIPSec_UpdateSA_Handler,
 		},
 		{
 			MethodName: "QuerySA",
-			Handler:    _IPSec_QuerySA_Handler,
+			Handler:    _IPUIPSec_QuerySA_Handler,
 		},
 		{
 			MethodName: "DeleteSA",
-			Handler:    _IPSec_DeleteSA_Handler,
+			Handler:    _IPUIPSec_DeleteSA_Handler,
 		},
 		{
 			MethodName: "FlushSAs",
-			Handler:    _IPSec_FlushSAs_Handler,
+			Handler:    _IPUIPSec_FlushSAs_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "opi_evpn_bridge_ipsec.proto",
+	Metadata: "ipsec_ipu.proto",
 }
