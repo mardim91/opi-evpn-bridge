@@ -94,7 +94,7 @@ func (s *Server) GetFeatures(_ context.Context, in *pb.Features) (*pb.Features, 
 }
 
 // GetSpi returns a spi
-func (s *Server) GetSpi(_ context.Context, in *pb.GetSPIReq) (*pb.GetSPIResp, error) {
+func (s *Server) GetSPI(_ context.Context, in *pb.GetSPIReq) (*pb.GetSPIResp, error) {
 	// Dimitris:  Replace the implementation here with an IDPool ?
 	//			  Are we able to do so? The idpool.GetId(key) needs
 	//	          a "key" to associate with the "id" that will be returned.

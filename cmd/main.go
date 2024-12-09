@@ -231,6 +231,7 @@ func runGrpcServer(grpcPort uint16, tlsFiles string) {
 	pe.RegisterBridgePortServiceServer(s, portServer)
 	pe.RegisterVrfServiceServer(s, vrfServer)
 	pe.RegisterSviServiceServer(s, sviServer)
+	psec.RegisterIPUIPSecServer(s, ipsecServer)
 	pc.RegisterInventoryServiceServer(s, &inventory.Server{})
 
 	reflection.Register(s)
