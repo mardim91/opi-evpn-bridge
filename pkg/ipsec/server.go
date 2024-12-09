@@ -14,7 +14,7 @@ import (
 
 // Server represents the Server object
 type Server struct {
-	pb.UnimplementedIPSecServer
+	pb.UnimplementedIPUIPSecServer
 	tracer trace.Tracer
 }
 
