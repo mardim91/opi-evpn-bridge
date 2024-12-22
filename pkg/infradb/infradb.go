@@ -2100,7 +2100,7 @@ func updateTunRep(tunRep *TunRep) error {
 	tunRep.OldVersions = append(tunRep.OldVersions, oldVersionName)
 
 	// Remove the old SA name from the old tunRep so nobody can use it accidentally
-	oldTunRep.Spec.Sa = ""
+	//oldTunRep.Spec.Sa = ""
 	// Change the name of the old version in order to save it in the DB with a different name.
 	oldTunRep.Name = oldVersionName
 	// Save the old version to the DB with the new Name

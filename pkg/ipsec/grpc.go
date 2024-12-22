@@ -89,7 +89,7 @@ func (s *Server) DeleteSA(_ context.Context, in *pb.DeleteSAReq) (*pb.DeleteSARe
 // GetFeatures returns the supported features
 func (s *Server) GetFeatures(_ context.Context, in *pb.Features) (*pb.Features, error) {
 	log.Printf("GetFeatures(): Received request %+v", in)
-	features := (1 << 0)
+	features := (1 << 0) | (1 << 2)
 	return &pb.Features{Features: uint32(features)}, nil
 }
 
