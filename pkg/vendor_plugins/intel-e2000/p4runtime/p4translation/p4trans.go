@@ -6,16 +6,17 @@
 package p4translation
 
 import (
-	"encoding/json"
+	//"encoding/json"
 	"fmt"
 	"log"
-	"os/exec"
+
+	//"os/exec"
+	"context"
 	"path"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
-	"context"
 
 	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
@@ -24,6 +25,7 @@ import (
 	nm "github.com/opiproject/opi-evpn-bridge/pkg/netlink"
 	eb "github.com/opiproject/opi-evpn-bridge/pkg/netlink/eventbus"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
+	"github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/intel-e2000/p4runtime/gnmidriver"
 	p4client "github.com/opiproject/opi-evpn-bridge/pkg/vendor_plugins/intel-e2000/p4runtime/p4driverapi"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -57,6 +59,7 @@ func isValidMAC(mac string) bool {
 	match, _ := regexp.MatchString(macPattern, mac)
 	return match
 }
+
 /*
 // getMac get the mac from interface
 func getMac(dev string) string {
@@ -102,7 +105,7 @@ func idsOf(value string) (string, string, error) {
 	}
 
 	//mac := getMac(value)
-	mac, err := nlink.GetMac(ctx, value) 
+	mac, _ := nlink.GetMac(ctx, value)
 	vsi := vportFromMac(mac)
 	if vsi == -1 {
 		return "", "", fmt.Errorf("failed to get id")
@@ -255,6 +258,17 @@ func handleNexthopAdded(nexthop interface{}) {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 			}
 		}
+		entries = IPSec.translateAddedNexthop(*nexthopData)
+		for _, entry := range entries {
+			if e, ok := entry.(p4client.TableEntry); ok {
+				er := p4client.AddEntry(e)
+				if er != nil {
+					log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+				}
+			} else {
+				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
+			}
+		}
 	}
 }
 
@@ -287,6 +301,17 @@ func handleNexthopUpdated(nexthop interface{}) {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 			}
 		}
+		entries = IPSec.translateDeletedNexthop(*nexthopData)
+		for _, entry := range entries {
+			if e, ok := entry.(p4client.TableEntry); ok {
+				er := p4client.DelEntry(e)
+				if er != nil {
+					log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+				}
+			} else {
+				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
+			}
+		}
 		entries = L3.translateAddedNexthop(*nexthopData)
 		for _, entry := range entries {
 			if e, ok := entry.(p4client.TableEntry); ok {
@@ -299,6 +324,17 @@ func handleNexthopUpdated(nexthop interface{}) {
 			}
 		}
 		entries = Vxlan.translateAddedNexthop(*nexthopData)
+		for _, entry := range entries {
+			if e, ok := entry.(p4client.TableEntry); ok {
+				er := p4client.AddEntry(e)
+				if er != nil {
+					log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+				}
+			} else {
+				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
+			}
+		}
+		entries = IPSec.translateAddedNexthop(*nexthopData)
 		for _, entry := range entries {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.AddEntry(e)
@@ -329,6 +365,17 @@ func handleNexthopDeleted(nexthop interface{}) {
 			}
 		}
 		entries = Vxlan.translateDeletedNexthop(*nexthopData)
+		for _, entry := range entries {
+			if e, ok := entry.(p4client.TableEntry); ok {
+				er := p4client.DelEntry(e)
+				if er != nil {
+					log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+				}
+			} else {
+				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
+			}
+		}
+		entries = IPSec.translateDeletedNexthop(*nexthopData)
 		for _, entry := range entries {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.DelEntry(e)
@@ -589,7 +636,7 @@ func (h *ModuleipuHandler) HandleEvent(eventType string, objectData *eventbus.Ob
 	case "sa":
 		log.Printf("intel-e2000: recevied %s %s\n", eventType, objectData.Name)
 		handlesa(objectData)
-	case "tun":
+	case "tun-rep":
 		log.Printf("intel-e2000: recevied %s %s\n", eventType, objectData.Name)
 		handletun(objectData)
 	default:
@@ -600,7 +647,7 @@ func (h *ModuleipuHandler) HandleEvent(eventType string, objectData *eventbus.Ob
 
 func handlesa(objectData *eventbus.ObjectData) {
 	var comp common.Component
-	sa, err := infradb.GetSA(objectData.Name)
+	sa, err := infradb.GetSa(objectData.Name)
 	if err != nil {
 		log.Printf("intel-e2000: GetSA error: %s %s\n", err, objectData.Name)
 		comp.Name = intele2000Str
@@ -610,7 +657,7 @@ func handlesa(objectData *eventbus.ObjectData) {
 		} else {
 			comp.Timer *= 2
 		}
-		err = infradb.UpdateSAStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
+		err = infradb.UpdateSaStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
 		if err != nil {
 			log.Printf("error in updating sa status: %s\n", err)
 		}
@@ -626,7 +673,7 @@ func handlesa(objectData *eventbus.ObjectData) {
 		} else {
 			comp.Timer *= 2
 		}
-		err = infradb.UpdateSAStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
+		err = infradb.UpdateSaStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
 		if err != nil {
 			log.Printf("error in updating sa status: %s\n", err)
 		}
@@ -640,7 +687,7 @@ func handlesa(objectData *eventbus.ObjectData) {
 			}
 		}
 	}
-	if sa.Status.SAOperStatus != infradb.SAOperStatusToBeDeleted {
+	if sa.Status.SaOperStatus != infradb.SaOperStatusToBeDeleted {
 		status := offloadSA(sa)
 		if status {
 			comp.CompStatus = common.ComponentStatusSuccess
@@ -658,7 +705,7 @@ func handlesa(objectData *eventbus.ObjectData) {
 			comp.CompStatus = common.ComponentStatusError
 		}
 		log.Printf("intel-e2000: %+v\n", comp)
-		err = infradb.UpdateSAStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, sa.Metadata, comp)
+		err = infradb.UpdateSaStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, sa.Metadata, comp)
 		if err != nil {
 			log.Printf("error in updating sa status: %s\n", err)
 		}
@@ -680,7 +727,7 @@ func handlesa(objectData *eventbus.ObjectData) {
 		}
 
 		log.Printf("intel-e2000: %+v\n", comp)
-		err = infradb.UpdateSAStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
+		err = infradb.UpdateSaStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, nil, comp)
 		if err != nil {
 			log.Printf("error in updating sa status: %s\n", err)
 		}
@@ -729,7 +776,7 @@ func handletun(objectData *eventbus.ObjectData) {
 			}
 		}
 	}
-	if tun.Status.TunRepOperStatus != infradb.TunOperStatusToBeDeleted {
+	if tun.Status.TunRepOperStatus != infradb.TunRepOperStatusToBeDeleted {
 		var status bool
 		if len(tun.OldVersions) > 0 {
 			status = UpdateTunRep(tun)
@@ -752,7 +799,7 @@ func handletun(objectData *eventbus.ObjectData) {
 			comp.CompStatus = common.ComponentStatusError
 		}
 		log.Printf("intel-e2000: %+v\n", comp)
-		err = infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, sa.Metadata, comp)
+		err = infradb.UpdateTunRepStatus(objectData.Name, objectData.ResourceVersion, objectData.NotificationID, tun.Metadata, comp)
 		if err != nil {
 			log.Printf("error in updating tun status: %s\n", err)
 		}
@@ -1102,7 +1149,12 @@ func handlesvi(objectData *eventbus.ObjectData) {
 }
 
 func offloadSA(sa *infradb.Sa) bool {
-	entries := IPSec.translateAddedSA(sa)
+	entries, fixedentries := IPSec.translateAddedSA(sa)
+	res, er := gnmidriver.Set(context.Background(), "/ipsec-offload/sad/sad-entry[name=1]/config", fixedentries)
+	if er != nil {
+		log.Printf("intel-e2000: error adding entry for /ipsec-offload/sad/sad-entry[name=1]/config error %v\n", er)
+	}
+	log.Printf("gnmi rule response \n: %v\n", res)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.AddEntry(e)
@@ -1160,7 +1212,20 @@ func offloadVrf(vrf *infradb.Vrf) bool {
 				log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
 			}
 		} else {
-			log.Println("ntel-e2000: Entry is not of type p4client.TableEntry:-", e)
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry:-", e)
+			return false
+		}
+	}
+
+	entries = IPSec.translateAddedVrf(vrf)
+	for _, entry := range entries {
+		if e, ok := entry.(p4client.TableEntry); ok {
+			er := p4client.AddEntry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+			}
+		} else {
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry:-", e)
 			return false
 		}
 	}
@@ -1276,6 +1341,20 @@ func tearDownVrf(vrf *infradb.Vrf) bool {
 			return false
 		}
 	}
+
+	entries = IPSec.translateDeletedVrf(vrf)
+	for _, entry := range entries {
+		if e, ok := entry.(p4client.TableEntry); ok {
+			er := p4client.DelEntry(e)
+			if er != nil {
+				log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+			}
+		} else {
+			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
+			return false
+		}
+	}
+
 	return true
 }
 
@@ -1367,6 +1446,8 @@ func Initialize() {
 			}
 		}
 	}
+
+	nlink = utils.NewNetlinkWrapperWithArgs(false)
 	// Setup p4runtime connection
 	Conn, err := grpc.Dial(defaultAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -1378,6 +1459,11 @@ func Initialize() {
 		log.Printf("intel-e2000: Failed to create P4Runtime client: %v\n", err1)
 	}
 	time.Sleep(time.Second * 60)
+
+	err2 := gnmidriver.NewgNMIClient(ctx)
+	if err2 != nil {
+		log.Printf("intel-e2000: Failed to create gNMI client: %v\n", err2)
+	}
 	// add static rules into the pipeline of representators read from config
 	representors := make(map[string][2]string)
 	/*for k, v := range config.GlobalConfig.P4.Representors {
@@ -1429,6 +1515,12 @@ func Initialize() {
 		log.Printf("Error getting ids for port_mux: %v", err)
 	} else {
 		representors["port_mux"] = [2]string{portMuxVsi, portMuxMac}
+	}
+	tunMuxVsi, tunMuxMac, err := idsOf(config.GlobalConfig.Interfaces.TunnelMux)
+	if err != nil {
+		log.Printf("Error getting ids for port_mux: %v", err)
+	} else {
+		representors["tunnel_mux"] = [2]string{tunMuxVsi, tunMuxMac}
 	}
 	log.Printf("intel-e2000: REPRESENTORS %+v\n", representors)
 	L3 = L3.L3DecoderInit(representors)
