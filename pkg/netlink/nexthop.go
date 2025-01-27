@@ -174,8 +174,10 @@ func (nexthop *NexthopStruct) tryResolve() []*NexthopStruct {
 		nh := latestNeighbors[neighborKey]
 		nexthop.Neighbor = &nh
 		if ch {
-			if nexthop.Prefsrc == nil && nh.Neigh0.IP != nil {
-				nexthop.Prefsrc = nh.Neigh0.IP // veritfy once
+			//if nexthop.Prefsrc == nil && nh.Neigh0.IP != nil {
+			//	nexthop.Prefsrc = nh.Neigh0.IP // veritfy once
+			if nexthop.Prefsrc == nil && nh.Src != nil {
+				nexthop.Prefsrc = nh.Src // veritfy once
 			} else if getFlagString(nexthop.nexthop.Flags) == "onlink" {
 				return nil
 			}
@@ -201,21 +203,24 @@ func (nexthop *NexthopStruct) tryResolve() []*NexthopStruct {
 				}
 			}
 		} else if nexthop.NhType == TUN {
+			//log.Printf("In tryResolve:")
 			name := tun_reps[nameIndex[nexthop.nexthop.LinkIndex]]
 			tunRep, err := infradb.GetTunRep(name)
+			log.Printf("In tryResolve: tunRep Obj: %v and spec.sa: %v, nexthop is %v, nexthop.nexthop.Gw: %v nexthop.Neighbor: %v\n", tunRep, tunRep.Spec.Sa, nexthop, nexthop.nexthop.Gw, nexthop.Neighbor)
 			if err != nil {
 				log.Println("tryResolve: error-", err)
 			}
 			if tunRep.Spec.Sa != "" {
-				nexthop.Metadata["tun_dev"] = nexthop.nexthop.LinkIndex
+				nexthop.Metadata["tun_dev"] = nameIndex[nexthop.nexthop.LinkIndex]
 				nexthop.Metadata["spi"] = tunRep.Spec.Spi
 				nexthop.Metadata["sa_idx"] = tunRep.Spec.SaIdx
 				nexthop.Metadata["local_tep_ip"] = tunRep.Spec.SrcIP
 				if tunRep.Spec.DstIP != nil && !tunRep.Spec.DstIP.IsUnspecified() {
-					nexthop.Metadata["remote_tep_ip"] = tunRep.Spec.DstIP
-				} else {
+					nexthop.Metadata["remote_tep_ip"] = *tunRep.Spec.DstIP
+					dst = *tunRep.Spec.DstIP
+				} /*else {
 					return nil
-				}
+				}*/
 
 			} else {
 				return nil
@@ -226,26 +231,34 @@ func (nexthop *NexthopStruct) tryResolve() []*NexthopStruct {
 		r, ok := lookupRoute(dst, VRF, true)
 		if ok {
 			for _, grdNexthop := range r.Nexthops {
-				arrayOfNexthops := grdNexthop.tryResolve()
-				for _, nh := range arrayOfNexthops {
-					nexthopSt := *nh
-					nexthopSt.Resolved = true
-					nexthopSt.Vrf = nexthop.Vrf
-					nexthopSt.RouteRefs = nexthop.RouteRefs
-					nexthopSt.nexthop.Flags = nexthop.nexthop.Flags
-					nexthopSt.Metadata = deepCopyMetadata(nexthop.Metadata)
-					if nexthop.NhType == VXLAN && nh.NhType == TUN {
-						nexthopSt.NhType = VXLAN_TUN
-						nexthopSt.Metadata = deepCopyMetadata(nh.Metadata)
-					} else {
-						nexthopSt.NhType = nexthop.NhType
-					}
-					nexthopSt.Key = NexthopKey{nexthopSt.Vrf.Name, nexthopSt.nexthop.Gw.String(), nexthopSt.nexthop.LinkIndex, nexthopSt.Prefsrc.String(), nexthopSt.Local, nexthopSt.Weight, nexthopSt.NhType}
-					nexthopSt.nexthop.Gw = grdNexthop.nexthop.Gw
-					nexthopSt.nexthop.LinkIndex = grdNexthop.nexthop.LinkIndex
-					nexthopSt.Weight = grdNexthop.Weight
+				log.Printf("In tryresolve route r is %v and grdNexthop is %v \n", r, grdNexthop)
+				if grdNexthop.NhType == PHY || grdNexthop.NhType == TUN {
+					arrayOfNexthops := grdNexthop.tryResolve()
+					for _, nh := range arrayOfNexthops {
+						log.Printf("Resolving Nexthop: %v via nh %v\n", nexthop, nh)
+						nexthopSt := *nh
+						nexthopSt.Resolved = true
+						nexthopSt.Vrf = nexthop.Vrf
+						nexthopSt.RouteRefs = nexthop.RouteRefs
+						nexthopSt.nexthop.Flags = nexthop.nexthop.Flags
+						nexthopSt.Metadata = deepCopyMetadata(nexthop.Metadata)
+						if nexthop.NhType == VXLAN && nh.NhType == TUN {
+							nexthopSt.NhType = VXLAN_TUN
+							nexthopSt.Metadata = deepCopyMetadata(nh.Metadata)
+						} else {
+							nexthopSt.NhType = nexthop.NhType
+						}
+						nexthopSt.Key = NexthopKey{nexthopSt.Vrf.Name, nexthopSt.nexthop.Gw.String(), nexthopSt.nexthop.LinkIndex, nexthopSt.Prefsrc.String(), nexthopSt.Local, nexthopSt.Weight, nexthopSt.NhType}
+						nexthopSt.nexthop.Gw = grdNexthop.nexthop.Gw
+						//AP:IPSEC
+						//nexthopSt.nexthop.Gw = nexthop.nexthop.Gw
+						//nexthopSt.ID = 0
+						//end AP:IPSEC
+						nexthopSt.nexthop.LinkIndex = grdNexthop.nexthop.LinkIndex
+						nexthopSt.Weight = grdNexthop.Weight
 
-					retNexthopSt = append(retNexthopSt, &nexthopSt)
+						retNexthopSt = append(retNexthopSt, &nexthopSt)
+					}
 				}
 			}
 		}
@@ -297,10 +310,15 @@ func (nexthop *NexthopStruct) addNexthop(r *RouteStruct) *RouteStruct {
 		nexthop.ID = NHAssignID(nexthop.Key)
 		latestNexthop[nexthop.Key] = nexthop
 		r.Nexthops = append(r.Nexthops, nexthop)
+		log.Printf("Adding Nexthop %v\n", nexthop)
 	} else {
 		nexthops := nexthop.tryResolve()
-		for _, nexthop := range nexthops {
-			r = nexthop.addNexthop(r)
+		if len(nexthops) > 0 {
+			for _, nexthop := range nexthops {
+				r = nexthop.addNexthop(r)
+			}
+		} else {
+			log.Printf("Ignoring Unresolved Nexthop is %v\n", nexthop)
 		}
 	}
 	return r
@@ -360,11 +378,16 @@ func (nexthop *NexthopStruct) ParseNexthop(v *infradb.Vrf, rc RouteCmdInfo) {
 			phyFlag = true
 		}
 	}
-
+	/*if _, exists := tun_reps[nameIndex[nexthop.nexthop.LinkIndex]]; exists {
+		log.Printf("In ParseNexthop: Nexthop is : %v, nameIndex[nexthop.nexthop.LinkIndex : %v, nexthop.Local: %v, tun_reps[nameIndex[nexthop.nexthop.LinkIndex]] : %v, rc.Type: %v\n",nexthop, nameIndex[nexthop.nexthop.LinkIndex], nexthop.Local, tun_reps[nameIndex[nexthop.nexthop.LinkIndex]], rc.Type)
+	} else {
+		log.Printf("In ParseNexthop else: Nexthop is : %v, nameIndex[nexthop.nexthop.LinkIndex : %v, nexthop.Local: %v, rc.Type: %v\n",nexthop, nameIndex[nexthop.nexthop.LinkIndex], nexthop.Local, rc.Type)
+	}*/
 	if (nexthop.nexthop.Gw != nil && !nexthop.nexthop.Gw.IsUnspecified()) && phyFlag && !nexthop.Local {
 		nexthop.NhType = PHY
 	} else if _, exists := tun_reps[nameIndex[nexthop.nexthop.LinkIndex]]; exists && !nexthop.Local { // drop1.2
 		//TODO add the tun_rep dev
+		//log.Printf("In ParseNexthop: Nexthop is : %v, nameIndex[nexthop.nexthop.LinkIndex : %v, nexthop.Local: %v, tun_reps[nameIndex[nexthop.nexthop.LinkIndex]] : %v, rc.Type: %v\n", nexthop, nameIndex[nexthop.nexthop.LinkIndex], nexthop.Local, tun_reps[nameIndex[nexthop.nexthop.LinkIndex]], rc.Type)
 		nexthop.NhType = TUN // drop1.2 end
 	} else if (nexthop.nexthop.Gw != nil && !nexthop.nexthop.Gw.IsUnspecified()) && nexthop.nexthop.LinkIndex != 0 && strings.HasPrefix(nameIndex[nexthop.nexthop.LinkIndex], path.Base(nexthop.Vrf.Name)+"-") && !nexthop.Local {
 		nexthop.NhType = VRFNEIGHBOR
@@ -629,15 +652,12 @@ func (nexthop *NexthopStruct) GetVrfOperStatus() infradb.VrfOperStatus {
 // dumpNexthDB dump the nexthop entries
 func dumpNexthDB() string {
 	var s string
-	log.Printf("netlink: Dump Nexthop table:\n")
 	s = "Nexthop table:\n"
-	for _, n := range latestNexthop {
+	for _, n := range nexthops {
 		str := fmt.Sprintf("Nexthop(id=%d vrf=%s dst=%s dev=%s Local=%t weight=%d flags=[%s] #routes=%d Resolved=%t neighbor=%s) ", n.ID, n.Vrf.Name, n.nexthop.Gw.String(), nameIndex[n.nexthop.LinkIndex], n.Local, n.Weight, getFlagString(n.nexthop.Flags), len(n.RouteRefs), n.Resolved, n.Neighbor.printNeigh())
-		log.Println(str)
 		s += str
 		s += "\n"
 	}
-	log.Printf("\n\n\n")
 	s += "\n\n"
 	return s
 }

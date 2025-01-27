@@ -181,6 +181,17 @@ func (route *RouteStruct) checkRoute() bool {
 	return false
 }
 
+// checkRoute checks the route
+func (route *RouteStruct) checkExistingRoute() bool {
+	rk := route.Key
+	for k := range routes {
+		if k == rk {
+			return true
+		}
+	}
+	return false
+}
+
 // nolint
 func (route *RouteStruct) setRouteType(v *infradb.Vrf) string {
 	if route.Route0.Type == unix.RTN_UNICAST && route.Route0.Protocol == unix.RTPROT_KERNEL && route.Route0.Scope == unix.RT_SCOPE_LINK && len(route.Nexthops) == 1 {
@@ -214,6 +225,11 @@ func (route *RouteStruct) setRouteType(v *infradb.Vrf) string {
 func (route *RouteStruct) addRoute() {
 	ch := route.checkRoute()
 	if ch {
+		for _, nexthop := range route.Nexthops {
+			if nexthop.NhType == TUN {
+				log.Printf("In addRoute: nexthop res : %v\n", nexthop.Resolved)
+			}
+		}
 		r0 := latestRoutes[route.Key]
 		if route.Route0.Priority >= r0.Route0.Priority {
 			// Route with lower metric exists and takes precedence
@@ -228,7 +244,12 @@ func (route *RouteStruct) addRoute() {
 			nexthop.Metadata = make(map[interface{}]interface{})
 			route = nexthop.addNexthop(route)
 		}
-		latestRoutes[route.Key] = route
+		if len(route.Nexthops) > 0 {
+			log.Printf("Adding Route %v\n", route)
+			latestRoutes[route.Key] = route
+		} else {
+			log.Printf("Ignorning Route %v without unresolved nexthops\n", route)
+		}
 	}
 }
 
@@ -239,6 +260,9 @@ func getNeighborRoutes() []RouteCmdInfo {
 	// on physical and SVI interfaces.
 	var neighborRoutes []RouteCmdInfo
 	for _, n := range latestNeighbors {
+		if n.Neigh0.IP.String() == "172.16.0.7" {
+			log.Printf("In getNeigh neigh is %v\n", n)
+		}
 		if n.Type == PHY || n.Type == SVI || n.Type == VXLAN {
 			vrf, _ := infradb.GetVrf(n.VrfName)
 			table := int(*vrf.Metadata.RoutingTable[0])
@@ -251,12 +275,21 @@ func getNeighborRoutes() []RouteCmdInfo {
 	}
 	return neighborRoutes
 }
+func ipv4MaskToInt(mask net.IPMask) uint32 {
+	if len(mask) != 4 {
+		return 0 // Invalid mask length for IPv4
+	}
+	return uint32(mask[0])<<24 | uint32(mask[1])<<16 | uint32(mask[2])<<8 | uint32(mask[3])
+}
 
 // ParseRoute parse the routes
 // nolint
 func ParseRoute(v *infradb.Vrf, rc []RouteCmdInfo, t int) RouteList {
 	var route RouteList
 	for _, r0 := range rc {
+		if r0.Dst == "172.16.0.7" {
+			log.Printf("In ParseR route is %v\n", r0)
+		}
 		if r0.Type == "" && (r0.Dev != "" || r0.Gateway != "") {
 			r0.Type = routeTypeLocal
 		}
@@ -354,7 +387,17 @@ func ParseRoute(v *infradb.Vrf, rc []RouteCmdInfo, t int) RouteList {
 			rs.Route0.Table = r0.Table
 		}
 		rs.NlType = rs.setRouteType(v)
-		rs.Key = RouteKey{Table: rs.Route0.Table, Dst: rs.Route0.Dst.String()}
+		//if ipv4MaskToInt(rs.Route0.Dst.Mask) != uint32(32) {
+		one, _ := rs.Route0.Dst.Mask.Size()
+		if one != int(32) {
+			rs.Key = RouteKey{Table: rs.Route0.Table, Dst: rs.Route0.Dst.String()}
+		} else {
+			rs.Key = RouteKey{Table: rs.Route0.Table, Dst: rs.Route0.Dst.IP.String()}
+		}
+		if r0.Dst == "172.16.0.7" {
+			log.Printf("In ParseR1 route is %v and rskey is %v and rs.preFilterRoute() is %v and rs.checkRoute() %v\n one %v:\n", rs, rs.Key, rs.preFilterRoute(), rs.checkRoute(), one)
+			log.Printf(" In ParseR1 rs.Route0.Dst.String():%v \t rs.Route0.Dst.IP.String() :%v \n ", rs.Route0.Dst.String(), rs.Route0.Dst.IP.String())
+		}
 		if rs.preFilterRoute() {
 			route.RS = append(route.RS, &rs)
 		} else if rs.checkRoute() {
@@ -487,10 +530,15 @@ func lookupRoute(dst net.IP, v *infradb.Vrf, nighbors bool) (*RouteStruct, bool)
 	var err error
 	var routeData []RouteCmdInfo
 	var rs RouteStruct
-	rs.Key = RouteKey{Table: int(*v.Metadata.RoutingTable[0]), Dst: dst.String()}
-	if rs.checkRoute() {
-		route := latestRoutes[rs.Key]
-		return route, true
+	if nighbors {
+		rs.Key = RouteKey{Table: int(*v.Metadata.RoutingTable[0]), Dst: dst.String()}
+		log.Printf("dst is %v and rskey is %+v and rs.checkRoute() is %v and Routes is %+v\n", dst, rs.Key, rs.checkExistingRoute(), routes)
+		if rs.checkExistingRoute() {
+			route, ok := routes[rs.Key]
+			if ok {
+				return route, true
+			}
+		}
 	}
 	if v.Spec.Vni != nil {
 		cp, err = nlink.RouteLookup(ctx, dst.String(), path.Base(v.Name))
@@ -498,7 +546,7 @@ func lookupRoute(dst net.IP, v *infradb.Vrf, nighbors bool) (*RouteStruct, bool)
 		cp, err = nlink.RouteLookup(ctx, dst.String(), "")
 	}
 	if err != nil || len(cp) <= 3 {
-		log.Printf("netlink : Command error %v\n", err)
+		log.Printf("netlink : Command error %v for dstIP: %v\n", err, dst.String())
 		return &RouteStruct{}, false
 	}
 	var rawMessages []json.RawMessage
@@ -597,7 +645,7 @@ func (route *RouteStruct) GetVrfOperStatus() infradb.VrfOperStatus {
 // dumpRouteDB dump the route database
 func dumpRouteDB() string {
 	var s string
-	log.Printf("netlink: Dump Route table:\n")
+
 	s = "Route table:\n"
 	for _, n := range latestRoutes {
 		var via string
@@ -607,11 +655,9 @@ func dumpRouteDB() string {
 			via = n.Route0.Gw.String()
 		}
 		str := fmt.Sprintf("Route(vrf=%s dst=%s type=%s proto=%s metric=%d  via=%s dev=%s nhid= %+v Table= %d)", n.Vrf.Name, n.Route0.Dst.String(), n.NlType, n.getProto(), n.Route0.Priority, via, nameIndex[n.Route0.LinkIndex], n.Nexthops, n.Route0.Table)
-		log.Println(str)
 		s += str
 		s += "\n"
 	}
-	log.Printf("\n\n\n")
 	s += "\n\n"
 	return s
 }
