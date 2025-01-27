@@ -185,7 +185,7 @@ func dumpDBs() (string, error) {
 
 // checkProto checks the proto type
 func checkProto(proto int) bool {
-	var protos = map[int]struct{}{unix.RTPROT_BOOT: {}, unix.RTPROT_STATIC: {}, 196: {}}
+	var protos = map[int]struct{}{unix.RTPROT_BOOT: {}, unix.RTPROT_STATIC: {}, 196: {}, int('I'): {}}
 	if _, ok := protos[proto]; ok {
 		return true
 	}

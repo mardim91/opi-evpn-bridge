@@ -112,6 +112,11 @@ func (l2n *L2NexthopStruct) annotate() {
 	if lb != nil {
 		if l2n.Type == SVI {
 			l2n.Metadata["vrf_id"] = *lb.Spec.Vni
+
+			svi, _ := infradb.GetSvi(lb.Svi)
+			vrf, _ := infradb.GetVrf(svi.Spec.Vrf)
+			//l2n.Metadata["vrf_id"] = *lb.Spec.Vni
+			l2n.Metadata["vrf_id"] = vrf.Spec.Vni
 		} else if l2n.Type == VXLAN {
 			//# Remote EVPN MAC address learned on the VXLAN interface
 			//# The L2 nexthop must have a destination IP address in dst
