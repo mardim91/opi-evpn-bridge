@@ -360,7 +360,7 @@ var ctx context.Context
 // nlink variable wrapper
 var nlink utils.Netlink
 
-var Route_table_Gen utils.IdPool
+var Route_table_Gen utils.IDPool
 
 // Initialize initializes the config, logger and subscribers
 func Initialize() {

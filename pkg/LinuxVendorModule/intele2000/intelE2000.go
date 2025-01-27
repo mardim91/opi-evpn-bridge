@@ -519,7 +519,7 @@ func setUpTunRep(tun *infradb.TunRep) bool {
 		log.Printf("Failed to get link information for %s, error is %v\n", tunMux, err)
 		return false
 	}
-	vlanLink := &netlink.Vlan{LinkAttrs: netlink.LinkAttrs{Name: link, ParentIndex: muxIntf.Attrs().Index}, VlanId: int(tun.Spec.IfID), VlanProtocol: netlink.VLAN_PROTOCOL_8021AD}
+	vlanLink := &netlink.Vlan{LinkAttrs: netlink.LinkAttrs{Name: link, ParentIndex: muxIntf.Attrs().Index}, VlanId: int(tun.Spec.IfID)}
 	if err = nlink.LinkAdd(ctx, vlanLink); err != nil {
 		log.Printf("Failed to add VLAN sub-interface %s: %v\n", link, err)
 		return false

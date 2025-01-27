@@ -23,7 +23,7 @@ var saIdxPoolRange = struct {
 	saIdxPoolMax: 4000,
 }
 
-var saIdxPool utils.IdPool = utils.IDPoolInit("SaIdxPool", saIdxPoolRange.saIdxPoolMin, saIdxPoolRange.saIdxPoolMax)
+var saIdxPool utils.IDPool = utils.IDPoolInit("SaIdxPool", saIdxPoolRange.saIdxPoolMin, saIdxPoolRange.saIdxPoolMax)
 
 // SaOperStatus operational Status for Sas
 type SaOperStatus int32
@@ -500,5 +500,5 @@ func (in *Sa) prepareObjectsForReplay(componentName string, saSubs []*eventbus.S
 }
 
 func (in *Sa) releaseSaPoolIndex() {
-	saIdxPool.Release_id(in.Name, 0)
+	saIdxPool.ReleaseID(in.Name, 0)
 }
