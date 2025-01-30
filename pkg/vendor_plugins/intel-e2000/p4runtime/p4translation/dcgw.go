@@ -2254,10 +2254,10 @@ func (IPSec IPSecDecoder) translateDeletedVrf(vrf *infradb.Vrf) []interface{} {
 		Tablename: phyInIPSecVxlan,
 		TableField: p4client.TableField{
 			FieldValue: map[string][2]interface{}{
-				"crypto_status": {uint32(0), "exact"},
-				"dst_ip":        {vrf.Spec.VtepIP.IP, "exact"},
-				"vni":           {*vrf.Spec.Vni, "exact"},
-				"da":            {Rmac, "exact"},
+				"meta.common.crypto_status": {uint32(0), "exact"},
+				"dst_ip":                    {vrf.Spec.VtepIP.IP, "exact"},
+				"vni":                       {*vrf.Spec.Vni, "exact"},
+				"da":                        {Rmac, "exact"},
 			},
 			Priority: int32(0),
 		},
