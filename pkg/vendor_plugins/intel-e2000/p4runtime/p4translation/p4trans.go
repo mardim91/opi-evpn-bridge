@@ -1458,7 +1458,7 @@ func Initialize() {
 	if err1 != nil {
 		log.Printf("intel-e2000: Failed to create P4Runtime client: %v\n", err1)
 	}
-	time.Sleep(time.Second * 60)
+	time.Sleep(time.Second * 15)
 
 	err2 := gnmidriver.NewgNMIClient(ctx)
 	if err2 != nil {

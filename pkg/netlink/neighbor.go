@@ -214,7 +214,6 @@ func (neigh NeighStruct) neighborAnnotate() NeighStruct {
 			phyFlag = true
 		}
 	}
-
 	if strings.HasPrefix(nameIndex[neigh.Neigh0.LinkIndex], path.Base(neigh.VrfName)) && neigh.Protocol != zebraStr {
 		pattern := fmt.Sprintf(`%s-\d+$`, path.Base(neigh.VrfName))
 		mustcompile := regexp.MustCompile(pattern)
@@ -278,9 +277,6 @@ func (neigh NeighStruct) neighborAnnotate() NeighStruct {
 	} else if path.Base(neigh.VrfName) == "GRD" && phyFlag && neigh.Protocol != zebraStr {
 		vrf, _ := infradb.GetVrf("//network.opiproject.org/vrfs/GRD")
 		r, ok := lookupRoute(neigh.Neigh0.IP, vrf, false)
-		if neigh.Neigh0.IP.String() == "172.16.0.7" {
-			log.Printf("In neighAnno neigh is %v and route r is %v and ok is %v and len of nexthop is %v and r.Nexthops[0].nexthop.LinkIndex is %v and neigh.Neigh0.LinkIndex is %v\n", neigh, r, ok, len(r.Nexthops), r.Nexthops[0].nexthop.LinkIndex, neigh.Neigh0.LinkIndex)
-		}
 		if ok {
 			if r.Nexthops[0].nexthop.LinkIndex == neigh.Neigh0.LinkIndex {
 				neigh.Type = PHY
@@ -314,9 +310,6 @@ func (neigh NeighStruct) neighborAnnotate() NeighStruct {
 				neigh.Type = OTHER
 			}
 		}
-	}
-	if neigh.Neigh0.IP.String() == "172.16.0.7" {
-		log.Printf("In neighAnno1 neigh is %v\n", neigh)
 	}
 	return neigh
 }
