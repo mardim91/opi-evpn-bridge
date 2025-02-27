@@ -105,12 +105,12 @@ var EcmpIndex = struct {
 }
 
 // ptrPool initialized variable
-var ptrPool = utils.IDPoolInit("mod_ptr", ModPointer.ptrMinRange, ModPointer.ptrMaxRange)
+var ptrPool,_ = utils.IDPoolInit("mod_ptr", ModPointer.ptrMinRange, ModPointer.ptrMaxRange)
 
 // trieIndexPool initialized variable
-var trieIndexPool = utils.IDPoolInit("trie_index", TrieIndex.triIdxMinRange, TrieIndex.triIdxMaxRange)
+var trieIndexPool,_ = utils.IDPoolInit("trie_index", TrieIndex.triIdxMinRange, TrieIndex.triIdxMaxRange)
 
-var ecmpIndexPool = utils.IDPoolInit("ecmp", EcmpIndex.ecmpIdxMinRange, EcmpIndex.ecmpIdxMaxRange)
+var ecmpIndexPool,_ = utils.IDPoolInit("ecmp", EcmpIndex.ecmpIdxMinRange, EcmpIndex.ecmpIdxMaxRange)
 
 // Table of type string
 type Table string
@@ -638,7 +638,7 @@ func _addTcamEntry(vrfID uint32, direction int, prefix interface{}) (p4client.Ta
 	if err != nil {
 		panic(err)
 	}
-	tidx, refCount := trieIndexPool.GetID(tcam, prefix)
+	tidx, refCount := trieIndexPool.GetIDWithRef(tcam, prefix)
 	if refCount == 1 {
 		tblentry = p4client.TableEntry{
 			Tablename: tcamEntries,
@@ -672,7 +672,7 @@ func _deleteTcamEntry(vrfID uint32, direction int, prefix interface{}) (p4client
 	if err != nil {
 		panic(err)
 	}
-	tidx, refCount := trieIndexPool.ReleaseID(tcam, prefix)
+	tidx, refCount := trieIndexPool.ReleaseIDWithRef(tcam, prefix)
 	if refCount == 0 {
 		tblentry = p4client.TableEntry{
 			Tablename: tcamEntries,
@@ -711,7 +711,8 @@ func (p PhyPort) PhyPortInit(id int, vsi string, mac string) PhyPort {
 func _p4NexthopID(nh netlink_polling.NexthopStruct, direction int) int {
 	nhID := nh.ID << 1
 
-	if direction == Direction.Rx && (nh.Metadata["direction"].(int) == netlink_polling.TX) {
+	if direction == Direction.Rx && (nh.Metadata["direction"].(int) == netlink_polling.TX) { //|| (direction == Direction.Rx && (nh.Metadata["direction"].(int) == netlink_polling.RXTX)) {
+		//if direction == Direction.Rx && (nh.Metadata["direction"].(int) == netlink_polling.TX) {
 		nhID++
 	}
 
@@ -837,8 +838,7 @@ func (e *EcmpDispatcher) checkdir() bool {
 // EcmpDispatcherInit function initializes the ecmp objects
 func (e *EcmpDispatcher) EcmpDispatcherInit(nexthop []*netlink_polling.NexthopStruct, vrf *infradb.Vrf) bool {
 	e.Nexthop = make([]*netlink_polling.NexthopStruct, len(nexthop))
-	for i, nh := range nexthop {
-		log.Printf("In ECMPINIT: nexthop is %+v\n", nh)
+	for i, _ := range nexthop {
 		e.Nexthop[i] = &netlink_polling.NexthopStruct{}
 		e.Nexthop[i].ParseNexthop(vrf, netlink_polling.RouteCmdInfo{})
 		e.Nexthop[i].NhType = netlink_polling.ECMP
@@ -1119,7 +1119,7 @@ func (l L3Decoder) _l3Route(route netlink_polling.RouteStruct, delete string, ec
 	//AP:IPSEC
 	if path.Base(route.Vrf.Name) == grdStr && (route.Nexthops[0].NhType == netlink_polling.PHY || route.Nexthops[0].NhType == netlink_polling.TUN) {
 		//end AP:IPSEC
-		tidx, _ := trieIndexPool.GetID(TcamPrefix.P2P, 0)
+		tidx := trieIndexPool.GetID(TcamPrefix.P2P)
 		if delete == trueStr {
 			entries = append(entries, p4client.TableEntry{
 				Tablename: l3P2PRt,
@@ -1169,6 +1169,7 @@ func (e EcmpDispatcher) addEcmpDispatcher(entries []interface{}) []interface{} {
 
 	for i, nh := range e.hashmap {
 		for dir := range directions {
+			log.Printf("hash : %v && e._p4NexthopID(%v):%v &&   _p4NexthopID(nh, %v): ", i, dir, e._p4NexthopID(dir), _p4NexthopID(nh, dir))
 			entries = append(entries, p4client.TableEntry{
 				Tablename: l3EcmpSel,
 				TableField: p4client.TableField{
@@ -1228,7 +1229,8 @@ func (l L3Decoder) translateAddedRoute(route netlink_polling.RouteStruct) []inte
 		if !ecmp.EcmpDispatcherInit(route.Nexthops, route.Vrf) {
 			return entries
 		}
-		ecmp.id, refCount = ecmpIndexPool.GetID(ecmp.key, route.Key)
+		ecmp.id, refCount = ecmpIndexPool.GetIDWithRef(ecmp.key, route.Key)
+		//log.Printf("ecmp.id:%v, refCount:%v ", ecmp.id, refCount)
 		if refCount == 1 {
 			ecmp.runWebsterAlg()
 			entries = ecmp.addEcmpDispatcher(entries)
@@ -1256,10 +1258,13 @@ func (l L3Decoder) translateDeletedRoute(route netlink_polling.RouteStruct) []in
 		if !ecmp.EcmpDispatcherInit(route.Nexthops, route.Vrf) {
 			return entries
 		}
-		ecmp.id, refCount = ecmpIndexPool.GetID(ecmp.key, route.Key)
-		if refCount == 1 {
+		//ecmp.id, refCount = ecmpIndexPool.GetID(ecmp.key, route.Key)
+		ecmp.id, refCount = ecmpIndexPool.ReleaseIDWithRef(ecmp.key, route.Key)
+		//log.Printf("ecmp.id:%v, refCount:%v ", ecmp.id, refCount)
+		if refCount == 0 {
 			ecmp.runWebsterAlg()
 			entries = ecmp.delEcmpDispatcher(entries)
+
 		}
 		route.Nexthops = []*netlink_polling.NexthopStruct{}
 		route.Nexthops = ecmp.Nexthop
@@ -1280,8 +1285,8 @@ func (l L3Decoder) translateAddedNexthop(nexthop netlink_polling.NexthopStruct) 
 		var entries []interface{}
 		return entries
 	}
-	key := fmt.Sprintf("%d-%s-%s-%d-%v", EntryType.l3NH, nexthop.Key.VrfName, nexthop.Key.Dst, nexthop.Key.Dev, nexthop.Key.Local)
-	var modPtr, _ = ptrPool.GetID(key, 0)
+	key := fmt.Sprintf("%d-%s-%s-%d-%s-%t-%d-%d", EntryType.l3NH, nexthop.Key.VrfName, nexthop.Key.Dst, nexthop.Key.Dev, nexthop.Key.Prefsrc, nexthop.Key.Local, nexthop.Key.Weight, nexthop.Key.NhType)
+	var modPtr = ptrPool.GetID(key)
 	nhID := _p4NexthopID(nexthop, Direction.Tx)
 
 	var entries = make([]interface{}, 0)
@@ -1504,8 +1509,9 @@ func (l L3Decoder) translateDeletedNexthop(nexthop netlink_polling.NexthopStruct
 		var entries []interface{}
 		return entries
 	}
-	key := fmt.Sprintf("%d-%s-%s-%d-%v", EntryType.l3NH, nexthop.Key.VrfName, nexthop.Key.Dst, nexthop.Key.Dev, nexthop.Key.Local)
-	var modPtr, _ = ptrPool.GetID(key, 0)
+	key := fmt.Sprintf("%d-%s-%s-%d-%s-%t-%d-%d", EntryType.l3NH, nexthop.Key.VrfName, nexthop.Key.Dst, nexthop.Key.Dev, nexthop.Key.Prefsrc, nexthop.Key.Local, nexthop.Key.Weight, nexthop.Key.NhType)
+	//var modPtr = ptrPool.GetID(key)
+	var modPtr = ptrPool.ReleaseID(key) // AP:fix1802
 	nhID := _p4NexthopID(nexthop, Direction.Tx)
 	var entries = make([]interface{}, 0)
 	switch nexthop.NhType {
@@ -1768,7 +1774,7 @@ func (l L3Decoder) StaticAdditions() []interface{} {
 				},
 			})
 	}
-	tidx, _ := trieIndexPool.GetID(TcamPrefix.P2P, 0)
+	tidx := trieIndexPool.GetID(TcamPrefix.P2P)
 	entries = append(entries, p4client.TableEntry{
 		Tablename: tcamEntries2,
 		TableField: p4client.TableField{
@@ -1864,7 +1870,7 @@ func (l L3Decoder) StaticDeletions() []interface{} {
 			Priority: int32(0),
 		},
 	})
-	tidx, _ := trieIndexPool.ReleaseID(TcamPrefix.P2P, 0)
+	tidx := trieIndexPool.ReleaseID(TcamPrefix.P2P)
 	entries = append(entries, p4client.TableEntry{
 		Tablename: tcamEntries2,
 		TableField: p4client.TableField{
@@ -1919,9 +1925,9 @@ func (IPSec IPSecDecoder) translateAddedTun(tun *infradb.TunRep) []interface{} {
 		return entries
 	}
 
-	key := fmt.Sprintf("%d", tun.Spec.IfID)
-	var mod_ptr, _ = ptrPool.GetID(key, 0) //TODO tun.ke
-	log.Printf("key:%v , mod_ptr :%v  tun.Spec.SaIdx: %v , tun: %v  ", key, mod_ptr, tun.Spec.SaIdx, tun)
+	key := fmt.Sprintf("%d-%d",EntryType.TUN, tun.Spec.IfID)
+	var mod_ptr = ptrPool.GetID(key) //TODO tun.ke
+	//log.Printf("key:%v , mod_ptr :%v  tun.Spec.SaIdx: %v , tun: %v  ", key, mod_ptr, tun.Spec.SaIdx, tun)
 	var smac, _ = net.ParseMAC(tun.Spec.SrcMac)
 	var dmac, _ = net.ParseMAC(tun.Spec.DestMac)
 	var sIP, dIP net.IP
@@ -1949,7 +1955,7 @@ func (IPSec IPSecDecoder) translateAddedTun(tun *infradb.TunRep) []interface{} {
 	} else {
 		port_id = 0
 	}
-	log.Printf("IPSec._tun_mux_vsi: %v, tun.Spec.IfID: %v", IPSec._tun_mux_vsi, tun.Spec.IfID)
+	//log.Printf("IPSec._tun_mux_vsi: %v, tun.Spec.IfID: %v", IPSec._tun_mux_vsi, tun.Spec.IfID)
 	entries = append(entries, p4client.TableEntry{
 		Tablename: popVlanPushIPSec,
 		TableField: p4client.TableField{
@@ -1985,8 +1991,9 @@ func (IPSec IPSecDecoder) translateDeletedTun(tun *infradb.TunRep) []interface{}
 	if tun.Spec.DestMac == "" || tun.Spec.SaIdx == nil {
 		return entries
 	}
-	key := fmt.Sprintf("%d", tun.Spec.IfID)
-	var mod_ptr, _ = ptrPool.GetID(key, 0) //TODO tun.key
+	key := fmt.Sprintf("%d-%d", EntryType.TUN,tun.Spec.IfID)
+	//var mod_ptr = ptrPool.GetID(key) //TODO tun.key
+	var mod_ptr = ptrPool.ReleaseID(key) //TODO tun.key
 	entries = append(entries, p4client.TableEntry{
 		Tablename: popVlanPushIPSec,
 		TableField: p4client.TableField{
@@ -2271,26 +2278,24 @@ func (IPSec IPSecDecoder) translateAddedNexthop(nexthop netlink_polling.NexthopS
 		return entries
 	}
 
-	var mod_ptr, _ = ptrPool.GetID(EntryType.l3NH, nexthop.Key)
-	var vport = nexthop.Metadata["egress_port"].(int)
+	key := fmt.Sprintf("%d-%s-%s-%d-%s-%t-%d-%d", EntryType.l3NH, nexthop.Key.VrfName, nexthop.Key.Dst, nexthop.Key.Dev, nexthop.Key.Prefsrc, nexthop.Key.Local, nexthop.Key.Weight, nexthop.Key.NhType)
+	// log.Println("Nexthop: %v, nexthop key %v", nexthop, key)
+
+	var mod_ptr = ptrPool.GetID(key)
+	// AP: IPSEC fix
+	// var mod_ptr= ptrPool.GetID(EntryType.l3NH, nexthop.Key)
+	var vport = nexthop.Metadata["egress_vport"].(int)
 	var phySmac, _ = net.ParseMAC(nexthop.Metadata["phy_smac"].(string))
 	var phyDmac, _ = net.ParseMAC(nexthop.Metadata["phy_dmac"].(string))
 
-	var innserSmac, _ = net.ParseMAC(nexthop.Metadata["inner_smac"].(string))
-	var innserDmac, _ = net.ParseMAC(nexthop.Metadata["inner_dmac"].(string))
-
 	var localTepIP = net.ParseIP(nexthop.Metadata["local_tep_ip"].(string))
 	var remoteTepIP = net.ParseIP(nexthop.Metadata["remote_tep_ip"].(string))
-
-	var localVTepIP = net.ParseIP(nexthop.Metadata["local_vtep_ip"].(string))
-	var remoteVTepIP = net.ParseIP(nexthop.Metadata["remote_vtep_ip"].(string))
-
 	if nexthop.NhType == netlink_polling.TUN {
 		entries = append(entries, p4client.TableEntry{
 			Tablename: pushIPSec,
 			TableField: p4client.TableField{
 				FieldValue: map[string][2]interface{}{
-					"mod_ptr": {mod_ptr, "exact"},
+					"meta.common.mod_blob_ptr": {mod_ptr, "exact"},
 				},
 				Priority: int32(0),
 			},
@@ -2303,21 +2308,21 @@ func (IPSec IPSecDecoder) translateAddedNexthop(nexthop netlink_polling.NexthopS
 				Tablename: l3NhTx,
 				TableField: p4client.TableField{
 					FieldValue: map[string][2]interface{}{
-						"neighbor":    {_p4NexthopID(nexthop, Direction.Tx), "exact"},
+						"neighbor":    {uint16(_p4NexthopID(nexthop, Direction.Tx)), "exact"},
 						"bit32_zeros": {uint32(0), "exact"},
 					},
 					Priority: int32(0),
 				},
 				Action: p4client.Action{
 					ActionName: "evpn_gw_control.set_crypto_ip",
-					Params:     []interface{}{mod_ptr, uint32(vport), uint32(nexthop.Metadata["sa_idx"].(int))}, //TODO
+					Params:     []interface{}{mod_ptr, uint32(nexthop.Metadata["sa_idx"].(uint32)), uint32(vport)}, //TODO
 				},
 			},
 			p4client.TableEntry{
 				Tablename: l3NhRx,
 				TableField: p4client.TableField{
 					FieldValue: map[string][2]interface{}{
-						"neighbor":    {_p4NexthopID(nexthop, Direction.Rx), "exact"},
+						"neighbor":    {uint16(_p4NexthopID(nexthop, Direction.Rx)), "exact"},
 						"bit32_zeros": {uint32(0), "exact"},
 					},
 					Priority: int32(0),
@@ -2331,50 +2336,56 @@ func (IPSec IPSecDecoder) translateAddedNexthop(nexthop netlink_polling.NexthopS
 				Tablename: p2pIn,
 				TableField: p4client.TableField{
 					FieldValue: map[string][2]interface{}{
-						"neighbor":    {_p4NexthopID(nexthop, Direction.Rx), "exact"},
+						"neighbor":    {uint16(_p4NexthopID(nexthop, Direction.Rx)), "exact"},
 						"bit32_zeros": {uint32(0), "exact"},
 					},
 					Priority: int32(0),
 				},
 				Action: p4client.Action{
 					ActionName: "evpn_gw_control.set_crypto_ip",
-					Params:     []interface{}{mod_ptr, uint32(vport), uint32(nexthop.Metadata["sa_idx"].(int))},
+					Params:     []interface{}{mod_ptr, uint32(nexthop.Metadata["sa_idx"].(uint32)), uint32(vport)},
 				},
 			})
 	} else if nexthop.NhType == netlink_polling.VXLAN_TUN {
 		//
+
+		var innserSmac, _ = net.ParseMAC(nexthop.Metadata["inner_smac"].(string))
+		var innserDmac, _ = net.ParseMAC(nexthop.Metadata["inner_dmac"].(string))
+		var localVTepIP = net.ParseIP(nexthop.Metadata["local_vtep_ip"].(string))
+		var remoteVTepIP = net.ParseIP(nexthop.Metadata["remote_vtep_ip"].(string))
+
 		entries = append(entries, p4client.TableEntry{
 			Tablename: pushVxlanIPSec,
 			TableField: p4client.TableField{
 				FieldValue: map[string][2]interface{}{
-					"mod_ptr": {mod_ptr, "exact"},
+					"meta.common.mod_blob_ptr": {mod_ptr, "exact"},
 				},
 				Priority: int32(0),
 			},
 			Action: p4client.Action{
 				ActionName: "evpn_gw_control.omac_crypto_vxlan_imac_push",
-				Params:     []interface{}{phySmac, phyDmac, localTepIP, remoteTepIP, localVTepIP, remoteVTepIP, Vxlan.vxlanUDPPort, uint32(nexthop.Metadata["vni"].(int)), innserSmac, innserDmac}, //TODO,
+				Params:     []interface{}{phySmac, phyDmac, localTepIP, remoteTepIP, localVTepIP, remoteVTepIP, Vxlan.vxlanUDPPort, uint32(nexthop.Metadata["vni"].(uint32)), innserSmac, innserDmac}, //TODO,
 			},
 		},
 			p4client.TableEntry{
 				Tablename: l3NhTx,
 				TableField: p4client.TableField{
 					FieldValue: map[string][2]interface{}{
-						"neighbor":    {_p4NexthopID(nexthop, Direction.Tx), "exact"},
+						"neighbor":    {uint16(_p4NexthopID(nexthop, Direction.Tx)), "exact"},
 						"bit32_zeros": {uint32(0), "exact"},
 					},
 					Priority: int32(0),
 				},
 				Action: p4client.Action{
 					ActionName: "evpn_gw_control.push_crypto_outermac_vxlan_innermac",
-					Params:     []interface{}{mod_ptr, uint32(vport), nexthop.Metadata["sa_idx"]}, //TODO,
+					Params:     []interface{}{mod_ptr, uint32(vport), uint32(nexthop.Metadata["sa_idx"].(uint32))}, //TODO,
 				},
 			},
 			p4client.TableEntry{
 				Tablename: l3NhRx,
 				TableField: p4client.TableField{
 					FieldValue: map[string][2]interface{}{
-						"neighbor":    {_p4NexthopID(nexthop, Direction.Rx), "exact"},
+						"neighbor":    {uint16(_p4NexthopID(nexthop, Direction.Rx)), "exact"},
 						"bit32_zeros": {uint32(0), "exact"},
 					},
 					Priority: int32(0),
@@ -2388,14 +2399,14 @@ func (IPSec IPSecDecoder) translateAddedNexthop(nexthop netlink_polling.NexthopS
 				Tablename: p2pIn,
 				TableField: p4client.TableField{
 					FieldValue: map[string][2]interface{}{
-						"neighbor":    {_p4NexthopID(nexthop, Direction.Rx), "exact"},
+						"neighbor":    {uint16(_p4NexthopID(nexthop, Direction.Rx)), "exact"},
 						"bit32_zeros": {uint32(0), "exact"},
 					},
 					Priority: int32(0),
 				},
 				Action: p4client.Action{
 					ActionName: "evpn_gw_control.push_crypto_outermac_vxlan_innermac",
-					Params:     []interface{}{mod_ptr, uint32(vport), nexthop.Metadata["sa_idx"]},
+					Params:     []interface{}{mod_ptr, uint32(vport), uint32(nexthop.Metadata["sa_idx"].(uint32))},
 				},
 			})
 	}
@@ -2407,8 +2418,10 @@ func (IPSec IPSecDecoder) translateDeletedNexthop(nexthop netlink_polling.Nextho
 	if nexthop.NhType != netlink_polling.TUN && nexthop.NhType != netlink_polling.VXLAN_TUN {
 		return entries
 	}
-
-	var mod_ptr, _ = ptrPool.ReleaseID(EntryType.l3NH, nexthop.Key)
+	key := fmt.Sprintf("%d-%s-%s-%d-%s-%t-%d-%d", EntryType.l3NH, nexthop.Key.VrfName, nexthop.Key.Dst, nexthop.Key.Dev, nexthop.Key.Prefsrc, nexthop.Key.Local, nexthop.Key.Weight, nexthop.Key.NhType)
+	var mod_ptr= ptrPool.ReleaseID(key)
+	// AP: IPSEC fix
+	//var mod_ptr = ptrPool.ReleaseID(EntryType.l3NH, nexthop.Key)
 
 	if nexthop.NhType == netlink_polling.TUN {
 		//
@@ -2416,7 +2429,7 @@ func (IPSec IPSecDecoder) translateDeletedNexthop(nexthop netlink_polling.Nextho
 			Tablename: pushIPSec,
 			TableField: p4client.TableField{
 				FieldValue: map[string][2]interface{}{
-					"mod_ptr": {mod_ptr, "exact"},
+					"meta.common.mod_blob_ptr": {mod_ptr, "exact"},
 				},
 				Priority: int32(0),
 			},
@@ -2425,7 +2438,7 @@ func (IPSec IPSecDecoder) translateDeletedNexthop(nexthop netlink_polling.Nextho
 				Tablename: l3NhTx,
 				TableField: p4client.TableField{
 					FieldValue: map[string][2]interface{}{
-						"neighbor":    {_p4NexthopID(nexthop, Direction.Tx), "exact"},
+						"neighbor":    {uint16(_p4NexthopID(nexthop, Direction.Tx)), "exact"},
 						"bit32_zeros": {uint32(0), "exact"},
 					},
 					Priority: int32(0),
@@ -2435,7 +2448,7 @@ func (IPSec IPSecDecoder) translateDeletedNexthop(nexthop netlink_polling.Nextho
 				Tablename: l3NhRx,
 				TableField: p4client.TableField{
 					FieldValue: map[string][2]interface{}{
-						"neighbor":    {_p4NexthopID(nexthop, Direction.Rx), "exact"},
+						"neighbor":    {uint16(_p4NexthopID(nexthop, Direction.Rx)), "exact"},
 						"bit32_zeros": {uint32(0), "exact"},
 					},
 					Priority: int32(0),
@@ -2445,7 +2458,7 @@ func (IPSec IPSecDecoder) translateDeletedNexthop(nexthop netlink_polling.Nextho
 				Tablename: p2pIn,
 				TableField: p4client.TableField{
 					FieldValue: map[string][2]interface{}{
-						"neighbor":    {_p4NexthopID(nexthop, Direction.Rx), "exact"},
+						"neighbor":    {uint16(_p4NexthopID(nexthop, Direction.Rx)), "exact"},
 						"bit32_zeros": {uint32(0), "exact"},
 					},
 					Priority: int32(0),
@@ -2458,7 +2471,7 @@ func (IPSec IPSecDecoder) translateDeletedNexthop(nexthop netlink_polling.Nextho
 			Tablename: pushVxlanIPSec,
 			TableField: p4client.TableField{
 				FieldValue: map[string][2]interface{}{
-					"mod_ptr": {mod_ptr, "exact"},
+					"meta.common.mod_blob_ptr": {mod_ptr, "exact"},
 				},
 				Priority: int32(0),
 			},
@@ -2467,7 +2480,7 @@ func (IPSec IPSecDecoder) translateDeletedNexthop(nexthop netlink_polling.Nextho
 				Tablename: l3NhTx,
 				TableField: p4client.TableField{
 					FieldValue: map[string][2]interface{}{
-						"neighbor":    {_p4NexthopID(nexthop, Direction.Tx), "exact"},
+						"neighbor":    {uint16(_p4NexthopID(nexthop, Direction.Tx)), "exact"},
 						"bit32_zeros": {uint32(0), "exact"},
 					},
 					Priority: int32(0),
@@ -2477,7 +2490,7 @@ func (IPSec IPSecDecoder) translateDeletedNexthop(nexthop netlink_polling.Nextho
 				Tablename: l3NhRx,
 				TableField: p4client.TableField{
 					FieldValue: map[string][2]interface{}{
-						"neighbor":    {_p4NexthopID(nexthop, Direction.Rx), "exact"},
+						"neighbor":    {uint16(_p4NexthopID(nexthop, Direction.Rx)), "exact"},
 						"bit32_zeros": {uint32(0), "exact"},
 					},
 					Priority: int32(0),
@@ -2487,7 +2500,7 @@ func (IPSec IPSecDecoder) translateDeletedNexthop(nexthop netlink_polling.Nextho
 				Tablename: p2pIn,
 				TableField: p4client.TableField{
 					FieldValue: map[string][2]interface{}{
-						"neighbor":    {_p4NexthopID(nexthop, Direction.Rx), "exact"},
+						"neighbor":    {uint16(_p4NexthopID(nexthop, Direction.Rx)), "exact"},
 						"bit32_zeros": {uint32(0), "exact"},
 					},
 					Priority: int32(0),
@@ -2680,8 +2693,8 @@ func (v VxlanDecoder) translateAddedNexthop(nexthop netlink_polling.NexthopStruc
 	if nexthop.NhType != netlink_polling.VXLAN {
 		return entries
 	}
-	key := fmt.Sprintf("%d-%s-%s-%d-%v", EntryType.l3NH, nexthop.Key.VrfName, nexthop.Key.Dst, nexthop.Key.Dev, nexthop.Key.Local)
-	var modPtr, _ = ptrPool.GetID(key, 0)
+	key := fmt.Sprintf("%d-%s-%s-%d-%s-%t-%d-%d", EntryType.l3NH, nexthop.Key.VrfName, nexthop.Key.Dst, nexthop.Key.Dev, nexthop.Key.Prefsrc, nexthop.Key.Local, nexthop.Key.Weight, nexthop.Key.NhType)
+	var modPtr = ptrPool.GetID(key)
 	var vport = nexthop.Metadata["egress_vport"].(int)
 	var smac, _ = net.ParseMAC(nexthop.Metadata["phy_smac"].(string))
 	var dmac, _ = net.ParseMAC(nexthop.Metadata["phy_dmac"].(string))
@@ -2756,8 +2769,9 @@ func (v VxlanDecoder) translateDeletedNexthop(nexthop netlink_polling.NexthopStr
 		return entries
 	}
 	// var key []interface{}
-	key := fmt.Sprintf("%d-%s-%s-%d-%v", EntryType.l2Nh, nexthop.Key.VrfName, nexthop.Key.Dst, nexthop.Key.Dev, nexthop.Key.Local)
-	var modPtr, _ = ptrPool.ReleaseID(key, 0)
+	// AP: FIX
+	key := fmt.Sprintf("%d-%s-%s-%d-%s-%t-%d-%d", EntryType.l3NH, nexthop.Key.VrfName, nexthop.Key.Dst, nexthop.Key.Dev, nexthop.Key.Prefsrc, nexthop.Key.Local, nexthop.Key.Weight, nexthop.Key.NhType)
+	var modPtr = ptrPool.ReleaseID(key)
 	entries = append(entries, p4client.TableEntry{
 		Tablename: pushVxlanHdr,
 		TableField: p4client.TableField{
@@ -2808,7 +2822,7 @@ func (v VxlanDecoder) translateAddedL2Nexthop(nexthop netlink_polling.L2NexthopS
 		return entries
 	}
 	key := fmt.Sprintf("%d-%s-%d-%s", EntryType.l2Nh, nexthop.Key.Dev, nexthop.Key.VlanID, nexthop.Key.Dst)
-	var modPtr, _ = ptrPool.GetID(key, 0)
+	var modPtr = ptrPool.GetID(key)
 	var vport = nexthop.Metadata["egress_vport"].(int)
 	var srcMac, _ = net.ParseMAC(nexthop.Metadata["phy_smac"].(string))
 	var dstMac, _ = net.ParseMAC(nexthop.Metadata["phy_dmac"].(string))
@@ -2855,7 +2869,7 @@ func (v VxlanDecoder) translateDeletedL2Nexthop(nexthop netlink_polling.L2Nextho
 		return entries
 	}
 	key := fmt.Sprintf("%d-%s-%d-%s", EntryType.l2Nh, nexthop.Key.Dev, nexthop.Key.VlanID, nexthop.Key.Dst)
-	var modPtr, _ = ptrPool.ReleaseID(key, 0)
+	var modPtr = ptrPool.ReleaseID(key)
 	var neighbor = nexthop.ID
 	entries = append(entries, p4client.TableEntry{
 		Tablename: pushVxlanOutHdr,
@@ -2987,14 +3001,14 @@ func (p PodDecoder) translateAddedBp(bp *infradb.BridgePort) ([]interface{}, err
 	key1 := fmt.Sprintf("%d-%v", EntryType.BP, *bp.Spec.MacAddress)
 	var vsi = port
 	var vsiOut = _toEgressVsi(int(vsi))
-	var modPtr, _ = ptrPool.GetID(key, 0)
+	var modPtr = ptrPool.GetID(key)
 	var ignorePtr = ModPointer.ignorePtr
 	var mac = *bp.Spec.MacAddress
 	if p._portMuxVsi < 0 || p._portMuxVsi > math.MaxUint16 {
 		return nil, errors.New("_portMuxVsi is not in range of uint16")
 	}
 	if bp.Spec.Ptype == infradb.Trunk {
-		var modPtrD, _ = ptrPool.GetID(key1, 0)
+		var modPtrD = ptrPool.GetID(key1)
 		entries = append(entries, p4client.TableEntry{
 			// From MUX
 			Tablename: portMuxIn,
@@ -3141,7 +3155,7 @@ func (p PodDecoder) translateAddedBp(bp *infradb.BridgePort) ([]interface{}, err
 			return entries, errors.New("VlanID value passed in Logical Bridge create is greater than 16 bit value")
 		}
 		var vid = uint16(BrObj.Spec.VlanID)
-		var modPtrD, _ = ptrPool.GetID(key1, 0)
+		var modPtrD = ptrPool.GetID(key1)
 		var dstMacAddr = *bp.Spec.MacAddress
 		entries = append(entries, p4client.TableEntry{
 			// From MUX
@@ -3278,9 +3292,9 @@ func (p PodDecoder) translateDeletedBp(bp *infradb.BridgePort) ([]interface{}, e
 	key := fmt.Sprintf("%d-%d", EntryType.BP, port)
 	key1 := fmt.Sprintf("%d-%v", EntryType.BP, *bp.Spec.MacAddress)
 	var vsi = port
-	var modPtr, _ = ptrPool.ReleaseID(key, 0)
+	var modPtr = ptrPool.ReleaseID(key)
 	var mac = *bp.Spec.MacAddress
-	var modPtrD, _ = ptrPool.ReleaseID(key1, 0)
+	var modPtrD = ptrPool.ReleaseID(key1)
 	if p._portMuxVsi < 0 || p._portMuxVsi > math.MaxUint16 {
 		return nil, errors.New("_portMuxVsi is not in range of uint16")
 	}
@@ -3690,7 +3704,7 @@ func (p PodDecoder) translateAddedL2Nexthop(nexthop netlink_polling.L2NexthopStr
 			})
 	} else if portType == infradb.Trunk {
 		key := fmt.Sprintf("%d-%s-%d-%s", EntryType.l2Nh, nexthop.Key.Dev, nexthop.Key.VlanID, nexthop.Key.Dst)
-		var modPtr, _ = ptrPool.GetID(key, 0)
+		var modPtr= ptrPool.GetID(key)
 		entries = append(entries, p4client.TableEntry{
 			Tablename: pushVlan,
 			TableField: p4client.TableField{
@@ -3770,7 +3784,7 @@ func (p PodDecoder) translateDeletedL2Nexthop(nexthop netlink_polling.L2NexthopS
 			})
 	} else if portType == infradb.Trunk {
 		key := fmt.Sprintf("%d-%s-%d-%s", EntryType.l2Nh, nexthop.Key.Dev, nexthop.Key.VlanID, nexthop.Key.Dst)
-		modPtr, _ = ptrPool.ReleaseID(key, 0)
+		modPtr = ptrPool.ReleaseID(key)
 		entries = append(entries, p4client.TableEntry{
 			Tablename: pushVlan,
 			TableField: p4client.TableField{

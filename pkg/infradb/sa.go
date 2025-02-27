@@ -23,7 +23,7 @@ var saIdxPoolRange = struct {
 	saIdxPoolMax: 4000,
 }
 
-var saIdxPool utils.IDPool = utils.IDPoolInit("SaIdxPool", saIdxPoolRange.saIdxPoolMin, saIdxPoolRange.saIdxPoolMax)
+var saIdxPool,_ = utils.IDPoolInit("SaIdxPool", saIdxPoolRange.saIdxPoolMin, saIdxPoolRange.saIdxPoolMax)
 
 // SaOperStatus operational Status for Sas
 type SaOperStatus int32
@@ -334,8 +334,8 @@ type Sa struct {
 // NewSa creates new SA object from protobuf message
 func NewSa(name string, sa *pb.AddSAReq) (*Sa, error) {
 	components := make([]common.Component, 0)
-
-	saIndex, _ := saIdxPool.GetID(name, 0)
+	
+        saIndex := saIdxPool.GetID(name)
 	if saIndex == 0 {
 		return nil, errors.New("NewSa(): Failed to get id from the pool for SA")
 	}
@@ -500,5 +500,5 @@ func (in *Sa) prepareObjectsForReplay(componentName string, saSubs []*eventbus.S
 }
 
 func (in *Sa) releaseSaPoolIndex() {
-	saIdxPool.ReleaseID(in.Name, 0)
+	saIdxPool.ReleaseID(in.Name)
 }

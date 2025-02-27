@@ -166,7 +166,9 @@ func DelEntry(entry TableEntry) error {
 	}
 	mfs, isTernary, err := Buildmfs(entry.TableField)
 	if err != nil {
-		log.Fatalf("intel-e2000: Error in Building mfs: %v", err)
+		//log.Fatalf("intel-e2000: Error in Building mfs: %v", err)
+		log.Fatalf("intel-e2000: Error in Building mfs: %v for Table name: %v Action Name: %v", err, entry.Tablename, entry.Action.ActionName)
+
 		return err
 	}
 	if isTernary {
@@ -194,7 +196,7 @@ func AddEntry(entry TableEntry) error {
 	}
 	mfs, isTernary, err := Buildmfs(entry.TableField)
 	if err != nil {
-		log.Fatalf("intel-e2000: Error in Building mfs: %v", err)
+		log.Fatalf("intel-e2000: Error in Building mfs: %v for Table name: %v Action Name: %v", err, entry.Tablename, entry.Action.ActionName)
 		return err
 	}
 	params := make([][]byte, len(entry.Action.Params))

@@ -173,7 +173,7 @@ func handleRouteAdded(route interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.AddEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Printf("intel-e2000: Entry is not of type p4client.TableEntry:- %v\n", e)
@@ -185,25 +185,25 @@ func handleRouteAdded(route interface{}) {
 // handleRouteUpdated  handles the updated route
 func handleRouteUpdated(route interface{}) {
 	var entries []interface{}
-	routeData, _ := route.(*nm.RouteStruct)
+	routeData, _ := route.([]*nm.RouteStruct)
 	if routeData != nil {
-		entries = L3.translateDeletedRoute(*routeData)
+		entries = L3.translateDeletedRoute(*routeData[0])
 		for _, entry := range entries {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				err := p4client.DelEntry(e)
 				if err != nil {
-					log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, err)
+					log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, err)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
 			}
 		}
-		entries = L3.translateAddedRoute(*routeData)
+		entries = L3.translateAddedRoute(*routeData[1])
 		for _, entry := range entries {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.AddEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -222,7 +222,7 @@ func handleRouteDeleted(route interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.DelEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error deleting entry for %v error %v\n", entry,e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -241,7 +241,7 @@ func handleNexthopAdded(nexthop interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.AddEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error adding entry %+v for %v error %v\n",entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -252,7 +252,7 @@ func handleNexthopAdded(nexthop interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.AddEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -263,7 +263,7 @@ func handleNexthopAdded(nexthop interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.AddEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -284,7 +284,7 @@ func handleNexthopUpdated(nexthop interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.DelEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -295,7 +295,7 @@ func handleNexthopUpdated(nexthop interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.DelEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -306,7 +306,7 @@ func handleNexthopUpdated(nexthop interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.DelEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -317,7 +317,7 @@ func handleNexthopUpdated(nexthop interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.AddEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -328,7 +328,7 @@ func handleNexthopUpdated(nexthop interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.AddEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -339,7 +339,7 @@ func handleNexthopUpdated(nexthop interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.AddEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -358,7 +358,7 @@ func handleNexthopDeleted(nexthop interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.DelEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -369,7 +369,7 @@ func handleNexthopDeleted(nexthop interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.DelEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -380,7 +380,7 @@ func handleNexthopDeleted(nexthop interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.DelEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -399,7 +399,7 @@ func handleFbdEntryAdded(fbdEntry interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.AddEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -410,7 +410,7 @@ func handleFbdEntryAdded(fbdEntry interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.AddEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -431,7 +431,7 @@ func handleFbdEntryUpdated(fdbEntry interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.DelEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -442,7 +442,7 @@ func handleFbdEntryUpdated(fdbEntry interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.DelEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -454,7 +454,7 @@ func handleFbdEntryUpdated(fdbEntry interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.AddEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -465,7 +465,7 @@ func handleFbdEntryUpdated(fdbEntry interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.AddEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -484,7 +484,7 @@ func handleFbdEntryDeleted(fdbEntry interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.DelEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -495,7 +495,7 @@ func handleFbdEntryDeleted(fdbEntry interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.DelEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -514,7 +514,7 @@ func handleL2NexthopAdded(l2NextHop interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.AddEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -525,7 +525,7 @@ func handleL2NexthopAdded(l2NextHop interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.AddEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -546,7 +546,7 @@ func handleL2NexthopUpdated(l2NextHop interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.DelEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -557,7 +557,7 @@ func handleL2NexthopUpdated(l2NextHop interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.DelEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -568,7 +568,7 @@ func handleL2NexthopUpdated(l2NextHop interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.AddEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -579,7 +579,7 @@ func handleL2NexthopUpdated(l2NextHop interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.AddEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("iintel-e2000: Entry is not of type p4client.TableEntry")
@@ -598,7 +598,7 @@ func handleL2NexthopDeleted(l2NextHop interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				err := p4client.DelEntry(e)
 				if err != nil {
-					log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, err)
+					log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, err)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -609,7 +609,7 @@ func handleL2NexthopDeleted(l2NextHop interface{}) {
 			if e, ok := entry.(p4client.TableEntry); ok {
 				er := p4client.DelEntry(e)
 				if er != nil {
-					log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+					log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, er)
 				}
 			} else {
 				log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -1150,16 +1150,24 @@ func handlesvi(objectData *eventbus.ObjectData) {
 
 func offloadSA(sa *infradb.Sa) bool {
 	entries, fixedentries := IPSec.translateAddedSA(sa)
-	res, er := gnmidriver.Set(context.Background(), "/ipsec-offload/sad/sad-entry[name=1]/config", fixedentries)
+	offloadID := int(*sa.Index)
+	var dir bool
+	if sa.Spec.Inbound {
+		dir = true
+	} else {
+		dir = false
+	}
+
+	res, er := gnmidriver.Set(context.Background(), offloadID, dir, fixedentries)
 	if er != nil {
 		log.Printf("intel-e2000: error adding entry for /ipsec-offload/sad/sad-entry[name=1]/config error %v\n", er)
 	}
-	log.Printf("gnmi rule response \n: %v\n", res)
+	log.Printf("offloadSA gnmi rule response \n: %v\n", res)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.AddEntry(e)
 			if er != nil {
-				log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+				log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 			}
 		} else {
 			log.Println("ntel-e2000: Entry is not of type p4client.TableEntry:-", e)
@@ -1188,7 +1196,7 @@ func offloadTun(tun *infradb.TunRep) bool {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.AddEntry(e)
 			if er != nil {
-				log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+				log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 			}
 		} else {
 			log.Println("ntel-e2000: Entry is not of type p4client.TableEntry:-", e)
@@ -1209,7 +1217,7 @@ func offloadVrf(vrf *infradb.Vrf) bool {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.AddEntry(e)
 			if er != nil {
-				log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+				log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 			}
 		} else {
 			log.Println("intel-e2000: Entry is not of type p4client.TableEntry:-", e)
@@ -1222,7 +1230,7 @@ func offloadVrf(vrf *infradb.Vrf) bool {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.AddEntry(e)
 			if er != nil {
-				log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+				log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 			}
 		} else {
 			log.Println("intel-e2000: Entry is not of type p4client.TableEntry:-", e)
@@ -1239,7 +1247,7 @@ func setUpLb(lb *infradb.LogicalBridge) bool {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.AddEntry(e)
 			if er != nil {
-				log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+				log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 			}
 		} else {
 			log.Println("intel-e2000: Entry is not of type p4client.TableEntry:-", e)
@@ -1260,7 +1268,7 @@ func setUpBp(bp *infradb.BridgePort) bool {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.AddEntry(e)
 			if er != nil {
-				log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+				log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 			}
 		} else {
 			log.Println("intel-e2000: Entry is not of type p4client.TableEntry:-", e)
@@ -1281,7 +1289,7 @@ func setUpSvi(svi *infradb.Svi) bool {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.AddEntry(e)
 			if er != nil {
-				log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+				log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 			}
 		} else {
 			log.Println("intel-e2000: Entry is not of type p4client.TableEntry:-", e)
@@ -1293,11 +1301,24 @@ func setUpSvi(svi *infradb.Svi) bool {
 
 func tearDownSA(sa *infradb.Sa) bool {
 	entries := IPSec.translateDeletedSA(sa)
+	offloadID := int(*sa.Index)
+	var dir bool
+	if sa.Spec.Inbound {
+		dir = true
+	} else {
+		dir = false
+	}
+
+	res, er := gnmidriver.Del(context.Background(), offloadID, dir)
+	if er != nil {
+		log.Printf("intel-e2000: error adding entry for /ipsec-offload/sad/sad-entry[name=1]/config error %v\n", er)
+	}
+	log.Printf("tearDownSA gnmi rule response \n: %v\n", res)
 	for _, entry := range entries {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.DelEntry(e)
 			if er != nil {
-				log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+				log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, er)
 			}
 		} else {
 			log.Println("ntel-e2000: Entry is not of type p4client.TableEntry:-", e)
@@ -1313,7 +1334,7 @@ func tearDownTun(tun *infradb.TunRep) bool {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.DelEntry(e)
 			if er != nil {
-				log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+				log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, er)
 			}
 		} else {
 			log.Println("ntel-e2000: Entry is not of type p4client.TableEntry:-", e)
@@ -1334,7 +1355,7 @@ func tearDownVrf(vrf *infradb.Vrf) bool {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.DelEntry(e)
 			if er != nil {
-				log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+				log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, er)
 			}
 		} else {
 			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -1347,7 +1368,7 @@ func tearDownVrf(vrf *infradb.Vrf) bool {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.DelEntry(e)
 			if er != nil {
-				log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+				log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, er)
 			}
 		} else {
 			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -1366,7 +1387,7 @@ func tearDownLb(lb *infradb.LogicalBridge) bool {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.DelEntry(e)
 			if er != nil {
-				log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+				log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, er)
 			}
 		} else {
 			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -1387,7 +1408,7 @@ func tearDownBp(bp *infradb.BridgePort) bool {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.DelEntry(e)
 			if er != nil {
-				log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+				log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, er)
 			}
 		} else {
 			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -1408,7 +1429,7 @@ func tearDownSvi(svi *infradb.Svi) bool {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.DelEntry(e)
 			if er != nil {
-				log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+				log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, er)
 			}
 		} else {
 			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -1458,7 +1479,7 @@ func Initialize() {
 	if err1 != nil {
 		log.Printf("intel-e2000: Failed to create P4Runtime client: %v\n", err1)
 	}
-	time.Sleep(time.Second * 60)
+	time.Sleep(time.Second * 15)
 
 	err2 := gnmidriver.NewgNMIClient(ctx)
 	if err2 != nil {
@@ -1533,7 +1554,7 @@ func Initialize() {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.AddEntry(e)
 			if er != nil {
-				log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+				log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 			}
 		} else {
 			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -1544,7 +1565,7 @@ func Initialize() {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.AddEntry(e)
 			if er != nil {
-				log.Printf("intel-e2000: error adding entry for %v error %v\n", e.Tablename, er)
+				log.Printf("intel-e2000: error adding entry %+v for %v error %v\n", entry, e.Tablename, er)
 			}
 		} else {
 			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -1559,7 +1580,7 @@ func DeInitialize() {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.DelEntry(e)
 			if er != nil {
-				log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+				log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, er)
 			}
 		} else {
 			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")
@@ -1570,7 +1591,7 @@ func DeInitialize() {
 		if e, ok := entry.(p4client.TableEntry); ok {
 			er := p4client.DelEntry(e)
 			if er != nil {
-				log.Printf("intel-e2000: error deleting entry for %v error %v\n", e.Tablename, er)
+				log.Printf("intel-e2000: error deleting entry %+v for %v error %v\n", entry, e.Tablename, er)
 			}
 		} else {
 			log.Println("intel-e2000: Entry is not of type p4client.TableEntry")

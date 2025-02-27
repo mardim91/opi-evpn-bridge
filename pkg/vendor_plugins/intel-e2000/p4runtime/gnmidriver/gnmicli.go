@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"log"
+	"strconv"
 	"sync"
 
 	"github.com/openconfig/gnmi/client"
@@ -57,16 +58,36 @@ func NewgNMIClient(ctx context.Context) error {
 	return nil
 }
 
-func Set(ctx context.Context, path string, value *gnmi.TypedValue) (*gnmi.SetResponse, error) {
-	//client := GetClient()
+func Set(ctx context.Context, offloadID int, direction bool, value *gnmi.TypedValue) (*gnmi.SetResponse, error) {
 	clientImpl, _ := gnmiClient.(*cli.Client)
+	offloadIDStr := strconv.Itoa(offloadID)
+	directionStr := strconv.FormatBool(direction)
 	request := &gnmi.SetRequest{
 		Update: []*gnmi.Update{
 			{
 				Path: &gnmi.Path{
-					Elem: []*gnmi.PathElem{{Name: "ipsec-offload"}, {Name: "sad"}, {Name: "sad-entry", Key: map[string]string{"name": "1"}}, {Name: "config"}},
+					Elem: []*gnmi.PathElem{{Name: "ipsec-offload"}, {Name: "sad"}, {Name: "sad-entry", Key: map[string]string{"offload-id": offloadIDStr, "direction": directionStr}}, {Name: "config"}},
 				},
 				Val: value,
+			},
+		},
+	}
+	response, err := clientImpl.Set(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
+func Del(ctx context.Context, offloadID int, direction bool) (*gnmi.SetResponse, error) {
+	clientImpl, _ := gnmiClient.(*cli.Client)
+	offloadIDStr := strconv.Itoa(offloadID)
+	directionStr := strconv.FormatBool(direction)
+	request := &gnmi.SetRequest{
+		Delete: []*gnmi.Path{
+			{
+				Elem: []*gnmi.PathElem{{Name: "ipsec-offload"}, {Name: "sad"}, {Name: "sad-entry", Key: map[string]string{"offload-id": offloadIDStr, "direction": directionStr}}, {Name: "config"}},
 			},
 		},
 	}

@@ -260,9 +260,6 @@ func getNeighborRoutes() []RouteCmdInfo {
 	// on physical and SVI interfaces.
 	var neighborRoutes []RouteCmdInfo
 	for _, n := range latestNeighbors {
-		if n.Neigh0.IP.String() == "172.16.0.7" {
-			log.Printf("In getNeigh neigh is %v\n", n)
-		}
 		if n.Type == PHY || n.Type == SVI || n.Type == VXLAN {
 			vrf, _ := infradb.GetVrf(n.VrfName)
 			table := int(*vrf.Metadata.RoutingTable[0])
@@ -287,9 +284,6 @@ func ipv4MaskToInt(mask net.IPMask) uint32 {
 func ParseRoute(v *infradb.Vrf, rc []RouteCmdInfo, t int) RouteList {
 	var route RouteList
 	for _, r0 := range rc {
-		if r0.Dst == "172.16.0.7" {
-			log.Printf("In ParseR route is %v\n", r0)
-		}
 		if r0.Type == "" && (r0.Dev != "" || r0.Gateway != "") {
 			r0.Type = routeTypeLocal
 		}
@@ -301,6 +295,7 @@ func ParseRoute(v *infradb.Vrf, rc []RouteCmdInfo, t int) RouteList {
 				r0.Gateway = n.Gateway
 				r0.Dev = n.Dev
 				r0.Weight = n.Weight
+				r0.Flags = n.Flags // AP: drop 1.2
 				nh.ParseNexthop(v, r0)
 				rs.Nexthops = append(rs.Nexthops, &nh)
 			}
@@ -393,10 +388,6 @@ func ParseRoute(v *infradb.Vrf, rc []RouteCmdInfo, t int) RouteList {
 			rs.Key = RouteKey{Table: rs.Route0.Table, Dst: rs.Route0.Dst.String()}
 		} else {
 			rs.Key = RouteKey{Table: rs.Route0.Table, Dst: rs.Route0.Dst.IP.String()}
-		}
-		if r0.Dst == "172.16.0.7" {
-			log.Printf("In ParseR1 route is %v and rskey is %v and rs.preFilterRoute() is %v and rs.checkRoute() %v\n one %v:\n", rs, rs.Key, rs.preFilterRoute(), rs.checkRoute(), one)
-			log.Printf(" In ParseR1 rs.Route0.Dst.String():%v \t rs.Route0.Dst.IP.String() :%v \n ", rs.Route0.Dst.String(), rs.Route0.Dst.IP.String())
 		}
 		if rs.preFilterRoute() {
 			route.RS = append(route.RS, &rs)
