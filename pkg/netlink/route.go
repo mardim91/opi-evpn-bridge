@@ -487,8 +487,8 @@ func (route *RouteStruct) annotate() {
 		nexthop := route.Nexthops[0]
 		if route.Vrf.Spec.Vni == nil { // GRD
 			switch nexthop.NhType {
-			case PHY:
-			case TUN:
+
+			case PHY, TUN:
 				route.Metadata["direction"] = RXTX
 			case ACC:
 				route.Metadata["direction"] = RX
@@ -497,9 +497,8 @@ func (route *RouteStruct) annotate() {
 			}
 		} else {
 			switch nexthop.NhType {
-			case VXLAN:
-			case TUN:
-			case VXLAN_TUN:
+
+			case VXLAN, TUN, VXLAN_TUN:
 				route.Metadata["direction"] = RXTX
 			case SVI, ACC:
 				route.Metadata["direction"] = RXTX
