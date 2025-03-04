@@ -1418,7 +1418,7 @@ func (l L3Decoder) translateAddedNexthop(nexthop netlink_polling.NexthopStruct) 
 				},
 				Action: p4client.Action{
 					ActionName: "evpn_gw_control.update_smac_dmac_vlan",
-					Params:     []interface{}{smac, dmac, 0, 1, uint16(vlanID)},
+					Params:     []interface{}{smac, dmac,uint16(0), uint16(1), uint16(vlanID)},
 				},
 			},
 				p4client.TableEntry{
