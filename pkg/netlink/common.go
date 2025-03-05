@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"os"
 	"reflect"
 	"sync/atomic"
 
@@ -67,6 +66,12 @@ var oldgenmap = make(map[interface{}]interface{})
 
 // latestgenmap latest map
 var latestgenmap = make(map[interface{}]interface{})
+
+// netlinkComp string constant
+const netlinkComp string = "netlink"
+
+// ModuleNetlinkHandler empty structure
+type ModuleNetlinkHandler struct{}
 
 const (
 	strNone  = "NONE"
@@ -162,36 +167,25 @@ func netMaskToInt(mask int) (netmaskint [4]uint8) {
 }
 
 // dumpDBs dumps the databse
-func dumpDBs() {
-	file, err := os.OpenFile("netlink_dump", os.O_WRONLY|os.O_CREATE, 0600)
-	if err != nil {
-		panic(err)
-	}
-	if err := os.Truncate("netlink_dump", 0); err != nil {
-		log.Printf("netlink: Failed to truncate: %v", err)
-	}
+func dumpDBs() (string, error) {
 	str := dumpRouteDB()
-	log.Printf("\n")
+
 	str += dumpNexthDB()
-	log.Printf("\n")
+
 	str += dumpNeighDB()
-	log.Printf("\n")
+
 	str += dumpFDB()
-	log.Printf("\n")
+
 	str += dumpL2NexthDB()
-	_, err = file.WriteString(str)
-	if err != nil {
-		log.Printf("netlink: %v", err)
+	if str == "" {
+		return str, fmt.Errorf("no entries in database")
 	}
-	err = file.Close()
-	if err != nil {
-		log.Printf("netlink: error closing file: %v", err)
-	}
+	return str, nil
 }
 
 // checkProto checks the proto type
 func checkProto(proto int) bool {
-	var protos = map[int]struct{}{unix.RTPROT_BOOT: {}, unix.RTPROT_STATIC: {}, 196: {}}
+	var protos = map[int]struct{}{unix.RTPROT_BOOT: {}, unix.RTPROT_STATIC: {}, 196: {}, int('I'): {}}
 	if _, ok := protos[proto]; ok {
 		return true
 	}
@@ -243,8 +237,7 @@ func notify_changes(new_db map[interface{}]interface{}, old_db map[interface{}]i
 				}
 			}
 			if event.EventType == ROUTE {
-				notifyAddDel(v2, event.Operation.Delete)
-				notifyAddDel(v1, event.Operation.Add)
+				notifyAddDel([]*RouteStruct{v2.(*RouteStruct),v1.(*RouteStruct)}, event.Operation.Update)
 			} else {
 				notifyAddDel(v1, event.Operation.Update)
 			}
@@ -283,3 +276,84 @@ func notifyAddDel(r interface{}, event string) {
 	log.Printf("netlink: Notify event: %s\n", event)
 	EventBus.Publish(event, r)
 }
+
+type IPSecSA struct {
+	// Placeholder for the IPSecSA struct
+}
+
+/*type TunnelRep struct {
+	Name     string
+	IfID     int
+	Key      int
+	IP       *net.IPNet
+	RemoteIP net.IP
+	SA       *IPSecSA
+	SPI      interface{}
+	Dst      interface{}
+	Src      interface{}
+	SMAC     interface{}
+	DMAC     interface{}
+	SAIdx    interface{}
+}
+type TunnelRepKey struct {
+	Name string
+}
+
+func NewTunnelRep(tunCfg map[string]interface{}) (*TunnelRep, error) {
+	tunnel := &TunnelRep{}
+
+	// Name
+	if name, ok := tunCfg["name"].(string); ok {
+		tunnel.Name = name
+	} else {
+		return nil, fmt.Errorf("missing or invalid 'name' in configuration")
+	}
+
+	// IfID
+	if ifID, ok := tunCfg["if_id"].(int); ok {
+		tunnel.IfID = ifID
+		tunnel.Key = ifID
+	} else if ifIDStr, ok := tunCfg["if_id"].(string); ok {
+		ifID, err := strconv.Atoi(ifIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid 'if_id' in configuration: %v", err)
+		}
+		tunnel.IfID = ifID
+		tunnel.Key = ifID
+	} else {
+		return nil, fmt.Errorf("missing or invalid 'if_id' in configuration")
+	}
+
+	// IP
+	if ipStr, ok := tunCfg["ip"].(string); ok {
+		_, ipNet, err := net.ParseCIDR(ipStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid IP address: %v", err)
+		}
+		tunnel.IP = ipNet
+	} else {
+		return nil, fmt.Errorf("missing or invalid 'ip' in configuration")
+	}
+
+	// RemoteIP
+	if remoteIPStr, ok := tunCfg["remote_ip"].(string); ok {
+		remoteIP := net.ParseIP(remoteIPStr)
+		if remoteIP == nil {
+			return nil, fmt.Errorf("invalid remote IP address: %v", remoteIPStr)
+		}
+		tunnel.RemoteIP = remoteIP
+	}
+
+	// Initialize other fields
+	tunnel.SA = nil
+	tunnel.SPI = nil
+	tunnel.Dst = nil
+	tunnel.Src = nil
+	tunnel.SMAC = nil
+	tunnel.DMAC = nil
+	tunnel.SAIdx = nil
+
+	return tunnel, nil
+}*/
+
+var tun_reps = make(map[string]string)

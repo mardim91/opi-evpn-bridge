@@ -181,6 +181,17 @@ func (route *RouteStruct) checkRoute() bool {
 	return false
 }
 
+// checkRoute checks the route
+func (route *RouteStruct) checkExistingRoute() bool {
+	rk := route.Key
+	for k := range routes {
+		if k == rk {
+			return true
+		}
+	}
+	return false
+}
+
 // nolint
 func (route *RouteStruct) setRouteType(v *infradb.Vrf) string {
 	if route.Route0.Type == unix.RTN_UNICAST && route.Route0.Protocol == unix.RTPROT_KERNEL && route.Route0.Scope == unix.RT_SCOPE_LINK && len(route.Nexthops) == 1 {
@@ -199,7 +210,7 @@ func (route *RouteStruct) setRouteType(v *infradb.Vrf) string {
 			}
 			return routeTypeBgp
 		}
-	} else if route.Route0.Type == unix.RTN_UNICAST && checkProto(int(route.Route0.Protocol)) && route.Route0.Scope == unix.RT_SCOPE_UNIVERSE {
+	} else if route.Route0.Type == unix.RTN_UNICAST && checkProto(int(route.Route0.Protocol)) { // drop1.2 && route.Route0.Scope == unix.RT_SCOPE_UNIVERSE {
 		return routeTypeStatic
 	} else if route.Route0.Type == unix.RTN_LOCAL {
 		return routeTypeLocal
@@ -214,12 +225,17 @@ func (route *RouteStruct) setRouteType(v *infradb.Vrf) string {
 func (route *RouteStruct) addRoute() {
 	ch := route.checkRoute()
 	if ch {
+		for _, nexthop := range route.Nexthops {
+			if nexthop.NhType == TUN {
+				log.Printf("In addRoute: nexthop res : %v\n", nexthop.Resolved)
+			}
+		}
 		r0 := latestRoutes[route.Key]
 		if route.Route0.Priority >= r0.Route0.Priority {
 			// Route with lower metric exists and takes precedence
-			log.Printf("netlink: Ignoring %+v  with higher metric than %+v\n", route, r0)
+			// log.Printf("netlink: Ignoring %+v  with higher metric than %+v\n", route, r0)
 		} else {
-			log.Printf("netlink: conflicts %+v with higher metric %+v. Will ignore it", route, r0)
+			// log.Printf("netlink: conflicts %+v with higher metric %+v. Will ignore it", route, r0)
 		}
 	} else {
 		nexthops := route.Nexthops
@@ -228,7 +244,12 @@ func (route *RouteStruct) addRoute() {
 			nexthop.Metadata = make(map[interface{}]interface{})
 			route = nexthop.addNexthop(route)
 		}
-		latestRoutes[route.Key] = route
+		if len(route.Nexthops) > 0 {
+			log.Printf("Adding Route %v\n", route)
+			latestRoutes[route.Key] = route
+		} else {
+			log.Printf("Ignorning Route %v without unresolved nexthops\n", route)
+		}
 	}
 }
 
@@ -251,6 +272,12 @@ func getNeighborRoutes() []RouteCmdInfo {
 	}
 	return neighborRoutes
 }
+func ipv4MaskToInt(mask net.IPMask) uint32 {
+	if len(mask) != 4 {
+		return 0 // Invalid mask length for IPv4
+	}
+	return uint32(mask[0])<<24 | uint32(mask[1])<<16 | uint32(mask[2])<<8 | uint32(mask[3])
+}
 
 // ParseRoute parse the routes
 // nolint
@@ -268,6 +295,7 @@ func ParseRoute(v *infradb.Vrf, rc []RouteCmdInfo, t int) RouteList {
 				r0.Gateway = n.Gateway
 				r0.Dev = n.Dev
 				r0.Weight = n.Weight
+				r0.Flags = n.Flags // AP: drop 1.2
 				nh.ParseNexthop(v, r0)
 				rs.Nexthops = append(rs.Nexthops, &nh)
 			}
@@ -354,7 +382,13 @@ func ParseRoute(v *infradb.Vrf, rc []RouteCmdInfo, t int) RouteList {
 			rs.Route0.Table = r0.Table
 		}
 		rs.NlType = rs.setRouteType(v)
-		rs.Key = RouteKey{Table: rs.Route0.Table, Dst: rs.Route0.Dst.String()}
+		//if ipv4MaskToInt(rs.Route0.Dst.Mask) != uint32(32) {
+		one, _ := rs.Route0.Dst.Mask.Size()
+		if one != int(32) {
+			rs.Key = RouteKey{Table: rs.Route0.Table, Dst: rs.Route0.Dst.String()}
+		} else {
+			rs.Key = RouteKey{Table: rs.Route0.Table, Dst: rs.Route0.Dst.IP.String()}
+		}
 		if rs.preFilterRoute() {
 			route.RS = append(route.RS, &rs)
 		} else if rs.checkRoute() {
@@ -453,7 +487,8 @@ func (route *RouteStruct) annotate() {
 		nexthop := route.Nexthops[0]
 		if route.Vrf.Spec.Vni == nil { // GRD
 			switch nexthop.NhType {
-			case PHY:
+
+			case PHY, TUN:
 				route.Metadata["direction"] = RXTX
 			case ACC:
 				route.Metadata["direction"] = RX
@@ -462,7 +497,8 @@ func (route *RouteStruct) annotate() {
 			}
 		} else {
 			switch nexthop.NhType {
-			case VXLAN:
+
+			case VXLAN, TUN, VXLAN_TUN:
 				route.Metadata["direction"] = RXTX
 			case SVI, ACC:
 				route.Metadata["direction"] = RXTX
@@ -476,20 +512,31 @@ func (route *RouteStruct) annotate() {
 }
 
 // lookupRoute check the routes
-func lookupRoute(dst net.IP, v *infradb.Vrf) (*RouteStruct, bool) {
+func lookupRoute(dst net.IP, v *infradb.Vrf, nighbors bool) (*RouteStruct, bool) {
 	// FIXME: If the semantic is to return the current entry of the NetlinkDB
 	//  routing table, a direct lookup in Linux should only be done as fallback
 	//  if there is no match in the DB.
 	var cp string
 	var err error
 	var routeData []RouteCmdInfo
+	var rs RouteStruct
+	if nighbors {
+		rs.Key = RouteKey{Table: int(*v.Metadata.RoutingTable[0]), Dst: dst.String()}
+		log.Printf("dst is %v and rskey is %+v and rs.checkRoute() is %v and Routes is %+v\n", dst, rs.Key, rs.checkExistingRoute(), routes)
+		if rs.checkExistingRoute() {
+			route, ok := routes[rs.Key]
+			if ok {
+				return route, true
+			}
+		}
+	}
 	if v.Spec.Vni != nil {
 		cp, err = nlink.RouteLookup(ctx, dst.String(), path.Base(v.Name))
 	} else {
 		cp, err = nlink.RouteLookup(ctx, dst.String(), "")
 	}
 	if err != nil || len(cp) <= 3 {
-		log.Printf("netlink : Command error %v\n", err)
+		log.Printf("netlink : Command error %v for dstIP: %v\n", err, dst.String())
 		return &RouteStruct{}, false
 	}
 	var rawMessages []json.RawMessage
@@ -588,9 +635,9 @@ func (route *RouteStruct) GetVrfOperStatus() infradb.VrfOperStatus {
 // dumpRouteDB dump the route database
 func dumpRouteDB() string {
 	var s string
-	log.Printf("netlink: Dump Route table:\n")
+
 	s = "Route table:\n"
-	for _, n := range latestRoutes {
+	for _, n := range routes {
 		var via string
 		if n.Route0.Gw == nil {
 			via = strNone
@@ -598,11 +645,9 @@ func dumpRouteDB() string {
 			via = n.Route0.Gw.String()
 		}
 		str := fmt.Sprintf("Route(vrf=%s dst=%s type=%s proto=%s metric=%d  via=%s dev=%s nhid= %+v Table= %d)", n.Vrf.Name, n.Route0.Dst.String(), n.NlType, n.getProto(), n.Route0.Priority, via, nameIndex[n.Route0.LinkIndex], n.Nexthops, n.Route0.Table)
-		log.Println(str)
 		s += str
 		s += "\n"
 	}
-	log.Printf("\n\n\n")
 	s += "\n\n"
 	return s
 }

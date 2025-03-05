@@ -15,8 +15,12 @@ import (
 
 	"github.com/opiproject/opi-evpn-bridge/pkg/config"
 	"github.com/opiproject/opi-evpn-bridge/pkg/infradb"
+	"github.com/opiproject/opi-evpn-bridge/pkg/infradb/subscriberframework/eventbus"
 	"github.com/opiproject/opi-evpn-bridge/pkg/utils"
 )
+
+// Define a global mutex
+//var mu sync.Mutex
 
 // deleteLatestDB deletes the latest db snap
 func deleteLatestDB() {
@@ -98,6 +102,26 @@ func annotateDBEntries() {
 	annotateMap(latestL2Nexthop)
 }
 
+// subscribeInfradb function handles the infradb subscriptions
+func subscribeInfradb(config *config.Config) {
+	eb := eventbus.EBus
+	for _, subscriberConfig := range config.Subscribers {
+		if subscriberConfig.Name == netlinkComp {
+			for _, eventType := range subscriberConfig.Events {
+				eb.StartSubscriber(subscriberConfig.Name, eventType, subscriberConfig.Priority, &ModuleNetlinkHandler{})
+			}
+		}
+	}
+}
+
+// DumpDatabases reads the latest netlink state
+func DumpDatabases() (string, error) {
+	/*mu.Lock()
+	defer mu.Unlock() // Ensure the mutex is unlocked when the function exits*/
+	dump, err := dumpDBs()
+	return dump, err
+}
+
 // readLatestNetlinkState reads the latest netlink state
 func readLatestNetlinkState() {
 	grdVrf, err := infradb.GetVrf("//network.opiproject.org/vrfs/GRD")
@@ -116,23 +140,37 @@ func readLatestNetlinkState() {
 			m[i].addFdbEntry()
 		}
 	}
-	dumpDBs()
+	// dumpDBs()
 }
 
 // resyncWithKernel fun resyncs with kernal db
 func resyncWithKernel() {
+	/*mu.Lock()
+	defer mu.Unlock() // Ensure the mutex is unlocked when the function exits*/
+
 	// Build a new DB snapshot from netlink and other sources
 	readLatestNetlinkState()
+	//dump, _ := dumpDBs()
+	//log.Printf("dumpDBs() after readLatestNetlinkState", dump)
 	// Annotate the latest DB entries
 	annotateDBEntries()
+
+	//dump, _ = dumpDBs()
+	//log.Printf("dumpDBs() after annotateDBEntries", dump)
+
 	// Filter the latest DB to retain only entries to be installed
 	applyInstallFilters()
 	// Compute changes between current and latest DB versions and inform subscribers about the changes
+
+	//dump, _ = dumpDBs()
+	//log.Printf("dumpDBs() after applyInstallFilters", dump)
+
 	notifyDBChanges()
 	routes = latestRoutes
 	nexthops = latestNexthop
 	fDB = latestFDB
 	l2Nexthops = latestL2Nexthop
+
 	deleteLatestDB()
 }
 
@@ -188,6 +226,8 @@ func getlink() {
 	}
 }
 
+const grpcPort uint16 = 50152
+
 // Initialize function intializes config
 func Initialize() {
 	pollInterval = config.GlobalConfig.Netlink.PollInterval
@@ -196,11 +236,13 @@ func Initialize() {
 
 	grdDefaultRoute = config.GlobalConfig.Netlink.GrdDefaultRoute
 	enableEcmp = config.GlobalConfig.Netlink.EnableEcmp
-
+	subscribeInfradb(&config.GlobalConfig)
 	if !nlEnabled {
 		log.Printf("netlink: netlink_monitor disabled")
 		return
 	}
+
+	go RunMgmtGrpcServer(grpcPort)
 	for i := 0; i < len(config.GlobalConfig.Interfaces.PhyPorts); i++ {
 		phyPorts[config.GlobalConfig.Interfaces.PhyPorts[i].Rep] = config.GlobalConfig.Interfaces.PhyPorts[i].Vsi
 	}

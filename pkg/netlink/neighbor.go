@@ -50,6 +50,7 @@ type NeighStruct struct {
 	Dev      string
 	Err      error
 	Key      NeighKey
+	Src      net.IP
 	Metadata map[interface{}]interface{}
 }
 
@@ -213,6 +214,7 @@ func (neigh NeighStruct) neighborAnnotate() NeighStruct {
 			phyFlag = true
 		}
 	}
+
 	if strings.HasPrefix(nameIndex[neigh.Neigh0.LinkIndex], path.Base(neigh.VrfName)) && neigh.Protocol != zebraStr {
 		pattern := fmt.Sprintf(`%s-\d+$`, path.Base(neigh.VrfName))
 		mustcompile := regexp.MustCompile(pattern)
@@ -245,6 +247,8 @@ func (neigh NeighStruct) neighborAnnotate() NeighStruct {
 		} else {
 			neigh.Type = IGNORE
 		}
+	} else if strings.HasPrefix(nameIndex[neigh.Neigh0.LinkIndex], fmt.Sprintf("br-%s", path.Base(neigh.VrfName))) && neigh.Protocol == zebraStr {
+		neigh.Type = VXLAN_VTEP
 	} else if strings.HasPrefix(nameIndex[neigh.Neigh0.LinkIndex], path.Base(neigh.VrfName)) && neigh.Protocol == zebraStr {
 		pattern := fmt.Sprintf(`%s-\d+$`, path.Base(neigh.VrfName))
 		mustcompile := regexp.MustCompile(pattern)
@@ -273,17 +277,45 @@ func (neigh NeighStruct) neighborAnnotate() NeighStruct {
 		}
 	} else if path.Base(neigh.VrfName) == "GRD" && phyFlag && neigh.Protocol != zebraStr {
 		vrf, _ := infradb.GetVrf("//network.opiproject.org/vrfs/GRD")
-		r, ok := lookupRoute(neigh.Neigh0.IP, vrf)
+		r, ok := lookupRoute(neigh.Neigh0.IP, vrf, false)
+		if neigh.Neigh0.IP.String() == "172.16.0.7" {
+		}
 		if ok {
 			if r.Nexthops[0].nexthop.LinkIndex == neigh.Neigh0.LinkIndex {
 				neigh.Type = PHY
 				neigh.Metadata["vport_id"] = phyPorts[nameIndex[neigh.Neigh0.LinkIndex]]
+				//neigh.Neigh0.IP = r.Nexthops[0].Prefsrc // verify once left val
+				neigh.Src = r.Nexthops[0].Prefsrc // verify once left val
 			} else {
 				neigh.Type = IGNORE
 			}
 		} else {
 			neigh.Type = OTHER
 		}
+	} else if path.Base(neigh.VrfName) == "GRD" {
+		if tunRep, found := tun_reps[nameIndex[neigh.Neigh0.LinkIndex]]; found {
+			vrf, _ := infradb.GetVrf("//network.opiproject.org/vrfs/GRD")
+			tr, err := infradb.GetTunRep(tunRep)
+			if err != nil {
+				log.Println("neighborAnnotate: error-", err)
+			}
+			r, ok := lookupRoute(neigh.Neigh0.IP, vrf, false)
+			if ok {
+				if r.Nexthops[0].nexthop.LinkIndex == neigh.Neigh0.LinkIndex {
+					neigh.Type = TUN
+					neigh.Metadata["if_id"] = tr.Spec.IfID
+					//neigh.Neigh0.IP = r.Nexthops[0].Prefsrc // verify once left val
+					neigh.Src = r.Nexthops[0].Prefsrc // verify once left val
+				} else {
+					neigh.Type = IGNORE
+				}
+			} else {
+				neigh.Type = OTHER
+			}
+		}
+	}
+	if neigh.Neigh0.IP.String() == "172.16.0.7" {
+		log.Printf("In neighAnno1 neigh is %v\n", neigh)
 	}
 	return neigh
 }
@@ -291,7 +323,6 @@ func (neigh NeighStruct) neighborAnnotate() NeighStruct {
 // dumpNeighDB dump the neighbor entries
 func dumpNeighDB() string {
 	var s string
-	log.Printf("netlink: Dump Neighbor table:\n")
 	s = "Neighbor table:\n"
 	for _, n := range latestNeighbors {
 		var Proto string
@@ -301,7 +332,6 @@ func dumpNeighDB() string {
 			Proto = n.Protocol
 		}
 		str := fmt.Sprintf("Neighbor(vrf=%s dst=%s lladdr=%s dev=%s proto=%s state=%s Type : %d) ", n.VrfName, n.Neigh0.IP.String(), n.Neigh0.HardwareAddr.String(), nameIndex[n.Neigh0.LinkIndex], Proto, getStateStr(n.Neigh0.State), n.Type)
-		log.Println(str)
 		s += str
 		s += "\n"
 	}
